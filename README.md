@@ -12,13 +12,13 @@ This proposal outlines the design of the **Cross-Origin File System (COFS)** API
 
 ## Introduction
 
-The **Cross-Origin File System (COFS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models and shared WebAssembly (Wasm) modules, across domains securely and with user consent. Files are identified by their SHA-256 hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API follows the **File System Living Standard** with a focus on cross-origin usage.
+The **Cross-Origin File System (COFS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, shared WebAssembly (Wasm) modules, and SQLite databases or offline storage archives across domains securely and with user consent. Files are identified by their SHA-256 hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API follows the **File System Living Standard** with a focus on cross-origin usage.
 
 ## Goals
 
 COFS aims to:
 
-- Provide a cross-origin file system for web applications to store and retrieve large files like AI models and Wasm modules.
+- Provide a cross-origin file system for web applications to store and retrieve large files like AI models, Wasm modules, SQLite databases, and offline storage archives.
 - Ensure security and user control with explicit consent before accessing or storing files.
 - Use SHA-256 (or similar, see [Appendix A](#appendix-a-blob-hash-with-the-web-crypto-api)) hashes for file identification, guaranteeing data integrity and consistency.
 - Allow developers to assign human-readable names to files for easier management.
@@ -37,15 +37,19 @@ Feedback from developers working with large AI models, datasets, and WebAssembly
 
 ## Use cases
 
-### Use case 1: Large AI Models
+### Use case 1: Large AI models
 
 Developers working with large AI models can store these models once and access them across multiple web applications. By using the COFS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity.
 
-### Use case 2: Big Shared Wasm Modules
+### Use case 2: Big shared Wasm modules
 
 Web applications that utilize large WebAssembly modules can store these modules using COFS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance.
 
-## Potential Solution
+### Use case 3: Large database files or offline storage archive files
+
+Web applications may depend on large SQLite databases (for example, with geodata as provided by GeocodeEarth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/)) or large archive files (for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html)). Storing such files once in the COFS has the advantage that multiple web apps can share the same resources.
+
+## Potential solution
 
 ### File Storage Process
 
@@ -115,6 +119,18 @@ if (fileExists) {
 
 The permission prompt must clearly display the file’s name, size, and hash to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity. 
 
+## Open questions
+
+### Minimum resource size
+
+### Eviction
+
+Browser should likely treat resources in the COFS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
+
+### Out-of-bounds access
+
+If a user already has manually downloaded a resource like a large AI model, should the browser offer a way to let the user put the resource in the COFS? Most likely this doesn't even need specifying, but could just be an affordance provided by the user-agent.
+
 ## Considered alternatives
 
 ### Alternative: Storing Files Without Hashing
@@ -123,12 +139,13 @@ Storing files by their names rather than using hashes would risk collisions and 
 
 ## Stakeholder Feedback / Opposition
 
-- **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads, particularly in the context of huge AI models and large Wasm modules.
+- **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads, particularly in the context of huge AI models, large Wasm modules, SQLite databases or offline storage archive files.
 
 ## References
 
 - [File System Living Standard](https://fs.spec.whatwg.org/)
 - [Web Cryptography API](https://w3c.github.io/webcrypto/)
+- [Storage Living Standard ](https://storage.spec.whatwg.org/)
 
 ## Acknowledgements
 
