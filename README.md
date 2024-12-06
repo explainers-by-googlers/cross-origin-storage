@@ -1,6 +1,6 @@
 # Explainer for the Cross-Origin File System (COFS) API
 
-This proposal outlines the design of the **Cross-Origin File System (COFS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Modeled after the **File System Living Standard** defined by the WHATWG, the COFS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models and shared WebAssembly (Wasm) modules. The API uses file hashes for integrity, while human-readable names allow for easier management.
+This proposal outlines the design of the **Cross-Origin File System (COFS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Modeled after the **File System Living Standard** defined by the WHATWG, the COFS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, shared WebAssembly (Wasm) modules, SQLite databases, and offline storage archive files. The API uses file hashes for integrity, while human-readable names allow for easier management.
 
 ## Authors
 
