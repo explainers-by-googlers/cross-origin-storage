@@ -42,7 +42,7 @@ Feedback from developers working with large AI models, datasets, and WebAssembly
 
 ### Use case 1: Large AI models
 
-Developers working with large AI models can store these models once and access them across multiple web applications. By using the COFS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity.
+Developers working with large AI models can store these models once and access them across multiple web applications. By using the COFS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin'` (1.35 GB)](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin').
 
 ### Use case 2: Big shared Wasm modules
 
@@ -68,7 +68,7 @@ The **COFS** API will be available through `navigator.crossOriginStorage`. Files
 
 ```js
 // Example usage to store a file
-const hash = 'abc123def456'; // Assume file is already identified with a hash
+const hash = 'abc123def456'; // Assume the file is already identified with a hash
 const humanReadableName = 'Large AI model';
 
 // If the file already exists, nothing to be done
