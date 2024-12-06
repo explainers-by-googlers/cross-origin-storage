@@ -46,11 +46,11 @@ Developers working with large AI models can store these models once and access t
 
 ### Use case 2: Big shared Wasm modules
 
-Web applications that utilize large WebAssembly modules can store these modules using COFS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance.
+Web applications that utilize large WebAssembly modules can store these modules using COFS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Examples are Kotlin Multiplatform's bindings to Skia [`skiko.wasm` (3.2 MB)](https://github.com/JetBrains/skiko) or Flutter's [`skwasm.wasm` (1.1 MB)](https://docs.flutter.dev/platform-integration/web/renderers#skwasm).
 
 ### Use case 3: Large database files or offline storage archive files
 
-Web applications may depend on large SQLite databases (for example, with geodata as provided by GeocodeEarth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/)) or large archive files (for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html)). Storing such files once in the COFS has the advantage that multiple web apps can share the same resources.
+Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/). Another use case is large archive files, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once in the COFS has the advantage that multiple web apps can share the same resources.
 
 ## Potential solution
 
