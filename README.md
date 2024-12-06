@@ -30,6 +30,7 @@ COFS does not aim to:
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **localStorage**.
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
+- Just _put jQuery in the browser_. The assumption is that the required prompting will discourage websites from using the COFS unless it really makes sense to have resources available cross-origin, such as when they can benefit from using a possibly cached version instead of downloading a new one.
 
 ## User research
 
@@ -123,6 +124,8 @@ The permission prompt must clearly display the file’s name, size, and hash to 
 
 ### Minimum resource size
 
+Should there be a required minimum resource size for a resource to be eligible for the COFS? Maybe 100 MB? The assumption is that that the required prompting would be scary enough for websites to only use the COFS for resources where it really makes sense to have them available cross-origin, that is, where they could profit themselves from using a potentially already cached version rather than downloading their own version from the network.
+
 ### Eviction
 
 Browser should likely treat resources in the COFS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
@@ -153,6 +156,7 @@ Many thanks for valuable feedback, inspiration, or ideas from:
 
 - Kenji Baheux
 - Kevin Moore
+- Christian Liebel
 
 ## Appendices
 
