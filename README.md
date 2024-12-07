@@ -116,6 +116,51 @@ if (fileExists) {
 }
 ```
 
+#### Storing and retrieving a file across unrelated pages
+
+To illustrate the capabilities of the COFS, consider the following example where two unrelated pages want to interact with the same large language model. The first page stores the model in the COFS, while the second page retrieves it, each using different human-readable names in English and Spanish.
+
+##### Page 1: Storing a large language model with an English Name
+
+On the first page, a web application stores a large language model in the COFS with a human-readable English name, "Large AI Model."
+
+```js
+// The known hash of the file
+const hash = 'abc123def456';
+
+// Check if the file already exists
+const fileExists = await navigator.crossOriginStorage.getHandle(hash);
+
+if (fileExists) {
+  // Use the file and return
+  // …
+  return;
+}
+
+// The file doesn't exist, so fetch it from the network
+const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(response => response.blob());
+const controlHash = await getBlobHash(fileBlob); // Compute the control hash using the method in Appendix A
+
+// Check if control hash and known hash are the same
+if (controlHash !== hash) {
+  // Downloaded file and wanted file are different
+  // …
+  return;
+}
+
+const humanReadableName = 'Large AI Model';
+const handle = await navigator.crossOriginStorage.getHandle(hash, humanReadableName, { create: true });
+  
+// Request user permission and store the file
+const writableStream = await handle.createWritable();
+await writableStream.write(fileBlob);
+await writableStream.close();
+  
+console.log(`File stored with name: ${humanReadableName}`);
+```
+
+
+
 ## Detailed design discussion
 
 ### User Consent
