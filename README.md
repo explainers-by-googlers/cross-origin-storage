@@ -159,13 +159,46 @@ await writableStream.close();
 console.log(`File stored with name: ${humanReadableName}`);
 ```
 
+##### Page 2: Retrieving the same model with a Spanish name
 
+On the second, entirely unrelated page, a different web application retrieves the same model from the COFS but refers to it with a human-readable Spanish name, "Modelo de IA Grande."
+
+```js
+// The known hash of the file
+const humanReadableName = 'Modelo de IA Grande';
+
+// Check if the file exists in the COFS
+const fileExists = await navigator.crossOriginStorage.getHandle(hash);
+
+if (fileExists) {
+  const { handle } = await navigator.crossOriginStorage.getHandle(hash, humanReadableName);
+  
+  // Request user permission and retrieve the file
+  const fileBlob = await handle.getFile();
+  // This now logs the Spanish name, even if the file was stored with an English name by page 1
+  console.log(`File retrieved with name: ${humanReadableName}`);
+  
+  // Use the fileBlob as needed
+} else {
+  console.error('File not found in COFS.');
+}
+```
+
+##### Key points
+
+- **Unrelated pages:** The two pages belong to different origins and do not share any context, ensuring the example demonstrates cross-origin capabilities.
+- **Human-readable names:** Each page assigns its own human-readable name, localized to the user's context. The COFS associates these names with the file's hash, not with the file contents.
+- **Cross-origin sharing:** Despite the different names and origins, the file is securely shared via its hash, demonstrating the APl's ability to facilitate cross-origin file storage and retrieval.
 
 ## Detailed design discussion
 
 ### User Consent
 
 The permission prompt must clearly display the file’s name, size, and hash to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity. 
+
+### Privacy
+
+Since the file is stored and retrieved upon explicit user permission, there's no way for files stored in the COFS to become supercookies without raising the user's suspicion. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon. Storing a file in the COFS always requires the user's permission.
 
 ## Open questions
 
@@ -175,7 +208,9 @@ Should there be a required minimum resource size for a resource to be eligible f
 
 ### Eviction
 
-Browser should likely treat resources in the COFS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
+Browsers should likely treat resources in the COFS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
+
+User agents are envisioned to offer a manual UI for the user to see and modify what resources are stored in the COFS and, based on stored information about the origins having used a resource, decide to delete a resource from the COFS.
 
 ### Out-of-bounds access
 
