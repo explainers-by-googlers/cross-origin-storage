@@ -17,13 +17,13 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and shared WebAssembly (Wasm) modules across domains securely and with user consent. Files are identified by their hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
 ```js
-const hash = 'SHA-256: abc123def456';
+const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 const humanReadableName = 'Large AI Model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-const handle = await navigator.crossOriginStorage.getHandle(hash, humanReadableName);
+const handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName);
 
 if (handle) {
   // The file exists in Cross-Origin Storage
@@ -47,9 +47,9 @@ COS aims to:
 COS does not aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **localStorage**.
+- Replace content delivery networks (CDNs). The assumption is that the required prompting will discourage websites from using the COS API unless it really makes sense to have resources available cross-origin, such as when they can benefit from using a possibly cached version instead of downloading a new one.
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
-- Just _put jQuery in the browser_. The assumption is that the required prompting will discourage websites from using the COS unless it really makes sense to have resources available cross-origin, such as when they can benefit from using a possibly cached version instead of downloading a new one.
 
 ## User research
 
@@ -63,7 +63,7 @@ Developers working with large AI models can store these models once and access t
 
 ### Use case 2: Large database files and offline storage archive files
 
-Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/). Another use case is large archive files, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once in the COS has the advantage that multiple web apps can share the same resources.
+Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/). Another use case is large archive files, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once in the COS API has the advantage that multiple web apps can share the same resources.
 
 ### Use case 3: Big shared Wasm modules
 
@@ -85,14 +85,14 @@ The **COS** API will be available through `navigator.crossOriginStorage`. Files 
 
 ```js
 // Example usage to store a file
-const hash = 'SHA-256: abc123def456'; // Assume the file is already identified with a hash
+const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4'; // Assume the file is already identified with a hash
 const humanReadableName = 'Large AI model';
 
 // If the file already exists, nothing to be done
-const fileExists = await navigator.crossOriginStorage.getHandle(hash);
+const fileExists = await navigator.crossOriginStorage.getFileHandle(hash);
 
 if (!fileExists) {
-  const handle = await navigator.crossOriginStorage.getHandle(hash, humanReadableName, { create: true });
+  const handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true });
 
   // Request user permission and store the file
   const writableStream = await handle.createWritable();
@@ -111,13 +111,13 @@ This will prompt the user to confirm the storage, displaying the human-readable 
 
 ```js
 // Retrieve the file handle and human-readable name
-const hash = 'SHA-256: abc123def456';
+const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 
-// If the file already exists, get it from the COS
-const fileExists = await navigator.crossOriginStorage.getHandle(hash);
+// If the file already exists, get it from COS
+const fileExists = await navigator.crossOriginStorage.getFileHandle(hash);
 
 if (fileExists) {
-  const { handle, humanReadableName } = await navigator.crossOriginStorage.getHandle(hash);
+  const { handle, humanReadableName } = await navigator.crossOriginStorage.getFileHandle(hash);
 
   // Request user permission and retrieve the file
   const fileBlob = await handle.getFile();
@@ -135,18 +135,18 @@ if (fileExists) {
 
 #### Storing and retrieving a file across unrelated pages
 
-To illustrate the capabilities of the COS, consider the following example where two unrelated pages want to interact with the same large language model. The first page stores the model in the COS, while the second page retrieves it, each using different human-readable names in English and Spanish.
+To illustrate the capabilities of the COS API, consider the following example where two unrelated pages want to interact with the same large language model. The first page stores the model in COS, while the second page retrieves it, each using different human-readable names in English and Spanish.
 
 ##### Page 1: Storing a large language model with an English Name
 
-On the first page, a web application stores a large language model in the COS with a human-readable English name, "Large AI Model."
+On the first page, a web application stores a large language model in COS with a human-readable English name, "Large AI Model."
 
 ```js
 // The known hash of the file
-const hash = 'SHA-256: abc123def456';
+const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 
 // Check if the file already exists
-const fileExists = await navigator.crossOriginStorage.getHandle(hash);
+const fileExists = await navigator.crossOriginStorage.getFileHandle(hash);
 
 if (fileExists) {
   // Use the file and return
@@ -166,7 +166,7 @@ if (controlHash !== hash) {
 }
 
 const humanReadableName = 'Large AI Model';
-const handle = await navigator.crossOriginStorage.getHandle(hash, humanReadableName, { create: true });
+const handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true });
 
 // Request user permission and store the file
 const writableStream = await handle.createWritable();
@@ -178,17 +178,17 @@ console.log(`File stored with name: ${humanReadableName}`);
 
 ##### Page 2: Retrieving the same model with a Spanish name
 
-On the second, entirely unrelated page, a different web application retrieves the same model from the COS but refers to it with a human-readable Spanish name, "Modelo de IA Grande."
+On the second, entirely unrelated page, a different web application retrieves the same model from COS but refers to it with a human-readable Spanish name, "Modelo de IA Grande."
 
 ```js
 // The known hash of the file
 const humanReadableName = 'Modelo de IA Grande';
 
-// Check if the file exists in the COS
-const fileExists = await navigator.crossOriginStorage.getHandle(hash);
+// Check if the file exists in COS
+const fileExists = await navigator.crossOriginStorage.getFileHandle(hash);
 
 if (fileExists) {
-  const { handle } = await navigator.crossOriginStorage.getHandle(hash, humanReadableName);
+  const { handle } = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName);
 
   // Request user permission and retrieve the file
   const fileBlob = await handle.getFile();
@@ -204,7 +204,7 @@ if (fileExists) {
 ##### Key points
 
 - **Unrelated pages:** The two pages belong to different origins and do not share any context, ensuring the example demonstrates cross-origin capabilities.
-- **Human-readable names:** Each page assigns its own human-readable name, localized to the user's context. The COS associates these names with the file's hash, not with the file contents.
+- **Human-readable names:** Each page assigns its own human-readable name, localized to the user's context. The COS API associates these names with the file's hash, not with the file contents.
 - **Cross-origin sharing:** Despite the different names and origins, the file is securely shared via its hash, demonstrating the APl's ability to facilitate cross-origin file storage and retrieval.
 
 ## Detailed design discussion
@@ -215,23 +215,23 @@ The permission prompt must clearly display the file's name, size, and hash to en
 
 ### Privacy
 
-Since the file is stored and retrieved upon explicit user permission, there's no way for files stored in the COS to become supercookies without raising the user's suspicion. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon. Storing a file in the COS always requires the user's permission.
+Since the file is stored and retrieved upon explicit user permission, there's no way for files stored in COS to become supercookies without raising the user's suspicion. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon. Storing a file in COS always requires the user's permission.
 
 ## Open questions
 
 ### Minimum resource size
 
-Should there be a required minimum resource size for a resource to be eligible for the COS? Maybe 100 MB? The assumption is that that the required prompting would be scary enough for websites to only use the COS for resources where it really makes sense to have them available cross-origin, that is, where they could profit themselves from using a potentially already cached version rather than downloading their own version from the network.
+Should there be a required minimum resource size for a resource to be eligible for COS? Maybe 100 MB? The assumption is that that the required prompting would be scary enough for websites to only use COS for resources where it really makes sense to have them available cross-origin, that is, where they could profit themselves from using a potentially already cached version rather than downloading their own version from the network.
 
 ### Eviction
 
-Browsers should likely treat resources in the COS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
+Browsers should likely treat resources in COS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
 
-User agents are envisioned to offer a manual UI for the user to see and modify what resources are stored in the COS and, based on stored information about the origins having used a resource, decide to delete a resource from the COS.
+User agents are envisioned to offer a manual UI for the user to see and modify what resources are stored in COS and, based on stored information about the origins having used a resource, decide to delete a resource from COS.
 
 ### Out-of-bounds access
 
-If a user already has manually downloaded a resource like a large AI model, should the browser offer a way to let the user put the resource in the COS? Most likely this doesn't even need specifying, but could just be an affordance provided by the user-agent.
+If a user already has manually downloaded a resource like a large AI model, should the browser offer a way to let the user put the resource in COS? Most likely this doesn't even need specifying, but could just be an affordance provided by the user-agent.
 
 ## Considered alternatives
 
