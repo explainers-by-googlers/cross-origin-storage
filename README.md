@@ -16,6 +16,23 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, shared WebAssembly (Wasm) modules, and SQLite databases or offline storage archives across domains securely and with user consent. Files are identified by their hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
+```js
+const hash = 'SHA-256: abc123def456';
+const humanReadableName = 'Large AI Model';
+
+// This triggers a permission prompt:
+// example.com wants to access the file "Large AI Model" stored by your browser.
+// [Allow this time] [Allow on every visit] [Don't allow]
+const handle = await navigator.crossOriginStorage.getHandle(hash, humanReadableName);
+
+if (handle) {
+  // The file exists in Cross-Origin Storage
+  const fileBlob = await handle.getFile();
+  // Do something with the blob
+  console.log('Retrieved', humanReadableName, fileBlob);
+}
+```
+
 ## Goals
 
 COS aims to:
