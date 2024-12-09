@@ -240,14 +240,14 @@ The permission prompt must clearly display the file's name to ensure users under
 
 An **access permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, humanReadableName)` method is called with two arguments, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `humanReadableName` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
 
-```bash
+```
 example.com wants to access the file "Large AI Model" stored in your browser.
 [Allow this time] [Allow on every visit] [Don't allow]
 ```
 
 A **storage permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `humanReadableName` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
 
-```bash
+```
 example.com wants to store the file "Large AI Model" in your browser.
 [Allow] [Don't allow]
 ```
@@ -260,7 +260,7 @@ Since the file is stored and retrieved upon explicit user permission, there's no
 
 COS relies on the same hashing algorithm to be used for all resources. It's not possible to mix hashing algorithms, since, without access to the original file, there's no way to verify if a hash generated with hashing algorithm A corresponds to a hash generated with hashing algorithm B. The used hashing algorithm is encoded in the hash as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
 
-```bash
+```
 SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4
 ```
 
