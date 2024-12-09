@@ -33,6 +33,11 @@ if (handle) {
 }
 ```
 
+## Risk awareness
+
+> [!CAUTION]
+> The authors recognize that cross-origin storage is a highly sensitive topic, but given the desirable use cases a problem worth tackling.
+
 ## Goals
 
 COS aims to:
