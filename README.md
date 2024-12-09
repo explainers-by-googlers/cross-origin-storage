@@ -14,7 +14,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 ## Introduction
 
-The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, shared WebAssembly (Wasm) modules, and SQLite databases or offline storage archives across domains securely and with user consent. Files are identified by their SHA-256 hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
+The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, shared WebAssembly (Wasm) modules, and SQLite databases or offline storage archives across domains securely and with user consent. Files are identified by their hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
 ## Goals
 
@@ -60,15 +60,15 @@ The **COS** API will be available through `navigator.crossOriginStorage`. Files 
 
 #### Storing a file
 
-1. The contents of the file will be hashed using SHA-256 (or an equivalent secure algorithm, see [Appendix A](#appendix-a-blob-hash-with-the-web-crypto-api)).
-2. A handle for the file will be requested, specifying the file’s hash and a human-readable name.
-3. A permission prompt will be displayed to the user, asking if it’s okay to store the file with the provided name, hash, and size.
+1. The contents of the file will be hashed using SHA-256 (or an equivalent secure algorithm, see [Appendix A](#appendix-a-blob-hash-with-the-web-crypto-api)). The used algorithm will be communicated in the hash as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
+2. A handle for the file will be requested, specifying the file's hash and a human-readable name.
+3. A permission prompt will be displayed to the user, asking if it's okay to store the file with the provided name, hash, and size.
 4. If a file with the hash already exists, only the human-readable name will be stored by the browser and associated with the current origin.
 5. Else, upon user consent, the file and the human-readable name will be stored by the browser and the human-readable name be associated with the current origin.
 
 ```js
 // Example usage to store a file
-const hash = 'abc123def456'; // Assume the file is already identified with a hash
+const hash = 'SHA-256: abc123def456'; // Assume the file is already identified with a hash
 const humanReadableName = 'Large AI model';
 
 // If the file already exists, nothing to be done
@@ -88,13 +88,13 @@ This will prompt the user to confirm the storage, displaying the human-readable 
 
 #### Retrieving a file
 
-1. The application will request a file handle using the file’s hash.
-2. A permission prompt will appear, showing the file’s human-readable name and hash.
+1. The application will request a file handle using the file's hash.
+2. A permission prompt will appear, showing the file's human-readable name and hash.
 3. After user consent, the file will be retrieved.
 
 ```js
 // Retrieve the file handle and human-readable name
-const hash = 'abc123def456';
+const hash = 'SHA-256: abc123def456';
 
 // If the file already exists, get it from the COS
 const fileExists = await navigator.crossOriginStorage.getHandle(hash);
@@ -126,7 +126,7 @@ On the first page, a web application stores a large language model in the COS wi
 
 ```js
 // The known hash of the file
-const hash = 'abc123def456';
+const hash = 'SHA-256: abc123def456';
 
 // Check if the file already exists
 const fileExists = await navigator.crossOriginStorage.getHandle(hash);
@@ -194,7 +194,7 @@ if (fileExists) {
 
 ### User Consent
 
-The permission prompt must clearly display the file’s name, size, and hash to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
+The permission prompt must clearly display the file's name, size, and hash to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
 ### Privacy
 
@@ -246,17 +246,19 @@ Many thanks for valuable feedback, inspiration, or ideas from:
 
 ```js
 async function getBlobHash(blob) {
+  const hashAlgorithmIdentifier = 'SHA-256';
+
   // Get the contents of the blob as binary data contained in an ArrayBuffer
   const arrayBuffer = await blob.arrayBuffer();
 
   // Hash the arrayBuffer using SHA-256
-  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashBuffer = await crypto.subtle.digest(hashAlgorithmIdentifier, arrayBuffer);
 
   // Convert the ArrayBuffer to a hex string
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
 
-  return hashHex;
+  return `${hashAlgorithmIdentifier}: ${hashHex}`;
 }
 
 // Example usage
