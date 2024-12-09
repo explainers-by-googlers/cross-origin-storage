@@ -241,14 +241,14 @@ The permission prompt must clearly display the file's name to ensure users under
 An **access permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, humanReadableName)` method is called with two arguments, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `humanReadableName` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
 
 ```
-example.com wants to access the file "Large AI Model" stored in your browser.
+example.com wants to access the file "large file" stored in your browser.
 [Allow this time] [Allow on every visit] [Don't allow]
 ```
 
 A **storage permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `humanReadableName` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
 
 ```
-example.com wants to store the file "Large AI Model" in your browser.
+example.com wants to store the file "large file" in your browser.
 [Allow] [Don't allow]
 ```
 
