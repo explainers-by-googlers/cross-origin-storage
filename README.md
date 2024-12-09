@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/tomayac/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo" width="100">
 
-This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Modeled after the **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, shared WebAssembly (Wasm) modules, SQLite databases, and offline storage archive files. The API uses file hashes for integrity, while human-readable names allow for easier management.
+This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, shared WebAssembly (Wasm) modules, SQLite databases, and offline storage archive files. The API uses file hashes for integrity, while human-readable names allow for easier management.
 
 ## Authors
 
@@ -14,7 +14,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 ## Introduction
 
-The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, shared WebAssembly (Wasm) modules, and SQLite databases or offline storage archives across domains securely and with user consent. Files are identified by their SHA-256 hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API follows the **File System Living Standard** with a focus on cross-origin usage.
+The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, shared WebAssembly (Wasm) modules, and SQLite databases or offline storage archives across domains securely and with user consent. Files are identified by their SHA-256 hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
 ## Goals
 
