@@ -243,9 +243,13 @@ If a user already has manually downloaded a resource like a large AI model, shou
 
 Storing files by their names rather than using hashes would risk collisions and lead to inconsistent access, especially in a cross-origin environment. The use of hashes guarantees unique identification of each file, ensuring that the contents are consistently recognized and retrieved.
 
-### Integrate COS in `fetch()`
+### Integrate cross-origin stoage in `fetch()`
 
 On the server, cross-origin isolation isn't really a problem. At the same time, server runtimes like Node.js, Bun, or Deno implement `fetch()` as well. To avoid fragmentation and to keep the present `fetch()` API simple, it probably doesn't make sense to add COS to it.
+
+### Integrate cross-origin storage in the Cache API
+
+The Cache API is fundamentally modeled around the concepts of `Request` or URL strings, and `Response`, for example, `Cache.match()` or `Cache.put()`. In contrast, what makes COS unique is that it uses file hashes as the keys to files to avoid duplicates.
 
 ## Stakeholder Feedback / Opposition
 
