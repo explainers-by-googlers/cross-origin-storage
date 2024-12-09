@@ -274,7 +274,7 @@ Many thanks for valuable feedback, inspiration, or ideas from:
 
 ### Appendix A: Full IDL
 
-```idl
+```webidl
 [SecureContext]
 interface mixin NavigatorCrossOriginStorage {
   [SameObject] readonly attribute CrossOriginStorageManager crossOriginStorage;
