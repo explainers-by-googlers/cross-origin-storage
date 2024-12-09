@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/tomayac/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo" width="100">
 
-This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, shared WebAssembly (Wasm) modules, SQLite databases, and offline storage archive files. The API uses file hashes for integrity, while human-readable names allow for easier management.
+This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archive files, and shared WebAssembly (Wasm) modules. The API uses file hashes for integrity, while human-readable names allow for easier management.
 
 ## Authors
 
@@ -14,7 +14,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 ## Introduction
 
-The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, shared WebAssembly (Wasm) modules, and SQLite databases or offline storage archives across domains securely and with user consent. Files are identified by their hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
+The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and shared WebAssembly (Wasm) modules across domains securely and with user consent. Files are identified by their hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
 ```js
 const hash = 'SHA-256: abc123def456';
@@ -37,7 +37,7 @@ if (handle) {
 
 COS aims to:
 
-- Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, Wasm modules, SQLite databases, and offline storage archives.
+- Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives, and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
 - Use SHA-256 (or similar, see [Appendix A](#appendix-a-blob-hash-with-the-web-crypto-api)) hashes for file identification, guaranteeing data integrity and consistency.
 - Allow developers to assign human-readable names to files for easier management.
@@ -61,13 +61,13 @@ Feedback from developers working with large AI models, datasets, and WebAssembly
 
 Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin'` (1.35 GB)](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin'). Another example is the [`Llama-3-70B-Instruct-q3f16_1-MLC` (33 GB)](https://huggingface.co/mlc-ai/Llama-3-70B-Instruct-q3f16_1-MLC/tree/main) model.
 
-### Use case 2: Big shared Wasm modules
-
-Web applications that utilize large WebAssembly modules can store these modules using COS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Examples are Kotlin Multiplatform's bindings to Skia [`skiko.wasm` (3.2 MB)](https://github.com/JetBrains/skiko) or Flutter's [`skwasm.wasm` (1.1 MB)](https://docs.flutter.dev/platform-integration/web/renderers#skwasm).
-
-### Use case 3: Large database files or offline storage archive files
+### Use case 2: Large database files and offline storage archive files
 
 Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/). Another use case is large archive files, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once in the COS has the advantage that multiple web apps can share the same resources.
+
+### Use case 3: Big shared Wasm modules
+
+Web applications that utilize large WebAssembly modules can store these modules using COS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Examples are Kotlin Multiplatform's bindings to Skia [`skiko.wasm` (3.2 MB)](https://github.com/JetBrains/skiko) or Flutter's [`skwasm.wasm` (1.1 MB)](https://docs.flutter.dev/platform-integration/web/renderers#skwasm).
 
 ## Potential solution
 
@@ -241,7 +241,7 @@ Storing files by their names rather than using hashes would risk collisions and 
 
 ## Stakeholder Feedback / Opposition
 
-- **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads, particularly in the context of huge AI models, large Wasm modules, SQLite databases or offline storage archive files.
+- **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads, particularly in the context of huge AI models, SQLite databases, offline storage archive files, and large Wasm modules.
 
 ## References
 
