@@ -39,7 +39,7 @@ COS aims to:
 
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives, and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
-- Use SHA-256 (or similar, see [Appendix A](#appendix-a-blob-hash-with-the-web-crypto-api)) hashes for file identification, guaranteeing data integrity and consistency.
+- Use SHA-256 (or similar, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)) hashes for file identification, guaranteeing data integrity and consistency.
 - Allow developers to assign human-readable names to files for easier management.
 
 ## Non-goals
@@ -77,7 +77,7 @@ The **COS** API will be available through `navigator.crossOriginStorage`. Files 
 
 #### Storing a file
 
-1. The contents of the file will be hashed using SHA-256 (or an equivalent secure algorithm, see [Appendix A](#appendix-a-blob-hash-with-the-web-crypto-api)). The used algorithm will be communicated in the hash as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
+1. The contents of the file will be hashed using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used algorithm will be communicated in the hash as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
 2. A handle for the file will be requested, specifying the file's hash and a human-readable name.
 3. A permission prompt will be displayed to the user, asking if it's okay to store the file with the provided name, hash, and size.
 4. If a file with the hash already exists, only the human-readable name will be stored by the browser and associated with the current origin.
@@ -156,7 +156,7 @@ if (fileExists) {
 
 // The file doesn't exist, so fetch it from the network
 const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(response => response.blob());
-const controlHash = await getBlobHash(fileBlob); // Compute the control hash using the method in Appendix A
+const controlHash = await getBlobHash(fileBlob); // Compute the control hash using the method in Appendix B
 
 // Check if control hash and known hash are the same
 if (controlHash !== hash) {
@@ -259,7 +259,28 @@ Many thanks for valuable feedback, inspiration, or ideas from:
 
 ## Appendices
 
-### Appendix A: Blob hash with the Web Crypto API
+### Appendix A: Full IDL
+
+```idl
+[SecureContext]
+interface mixin NavigatorCrossOriginStorage {
+  [SameObject] readonly attribute CrossOriginStorageManager crossOriginStorage;
+};
+Navigator includes NavigatorCrossOriginStorage;
+WorkerNavigator includes NavigatorCrossOriginStorage;
+
+[SecureContext]
+interface CrossOriginStorageManager {
+  Promise<FileSystemFileHandle> getFileHandle(DOMString hash, optional FileSystemGetFileOptions options = {});
+};
+
+// From https://fs.spec.whatwg.org/#dictdef-filesystemgetfileoptions
+dictionary FileSystemGetFileOptions {
+  boolean create = false;
+};
+```
+
+### Appendix B: Blob hash with the Web Crypto API
 
 ```js
 async function getBlobHash(blob) {
