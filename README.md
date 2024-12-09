@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/tomayac/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo" width="100">
 
-This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archive files, and shared WebAssembly (Wasm) modules. The API uses file hashes for integrity, while human-readable names allow for easier management.
+This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archive files, and shared WebAssembly (Wasm) modules. Taking inpiration from **Cache Digests for HTTP/2**, the API uses file hashes for integrity, while human-readable names allow for easier management.
 
 ## Authors
 
@@ -14,7 +14,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 ## Introduction
 
-The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and shared WebAssembly (Wasm) modules across domains securely and with user consent. Files are identified by their hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
+The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and shared WebAssembly (Wasm) modules across domains securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes, ensuring consistency, and a human-readable name can be assigned to files for easier management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
 ```js
 const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
@@ -260,6 +260,7 @@ The Cache API is fundamentally modeled around the concepts of `Request` or URL s
 - [File System Living Standard](https://fs.spec.whatwg.org/)
 - [Web Cryptography API](https://w3c.github.io/webcrypto/)
 - [Storage Living Standard ](https://storage.spec.whatwg.org/)
+- [Cache Digests for HTTP/2](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cache-digest)
 
 ## Acknowledgements
 
