@@ -59,7 +59,7 @@ Feedback from developers working with large AI models, datasets, and WebAssembly
 
 ### Use case 1: Large AI models
 
-Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin'` (1.35 GB)](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin').
+Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin'` (1.35 GB)](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin'). Another example is the [`Llama-3-70B-Instruct-q3f16_1-MLC` (33 GB)](https://huggingface.co/mlc-ai/Llama-3-70B-Instruct-q3f16_1-MLC/tree/main) model.
 
 ### Use case 2: Big shared Wasm modules
 
