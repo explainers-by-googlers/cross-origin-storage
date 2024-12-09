@@ -36,7 +36,7 @@ if (handle) {
 ## Risk awareness
 
 > [!CAUTION]
-> The authors recognize that cross-origin storage is a highly sensitive topic, but given the desirable use cases a problem worth tackling.
+> The authors recognize that cross-origin storage is a highly sensitive topic, but given the desirable [use cases](#use-cases) a problem worth tackling.
 
 ## Goals
 
@@ -55,6 +55,9 @@ COS does not aim to:
 - Replace content delivery networks (CDNs). The assumption is that the required prompting will discourage websites from using the COS API unless it really makes sense to have resources available cross-origin, such as when they can benefit from using a possibly cached version instead of downloading a new one.
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
+
+> [!IMPORTANT]
+> COS has distinct objectives from the [Shared Storage API](https://github.com/WICG/shared-storage) proposal, which serves as common infrastructure for privacy preserving cross-site use cases.
 
 ## User research
 
