@@ -219,11 +219,15 @@ Since the file is stored and retrieved upon explicit user permission, there's no
 
 ## Open questions
 
+### Concurrency
+
+What should happen if two tabs depend on the same resource, check COS, see it's not there, and start downloading? Should this be handled smartly? How often does this happen in practice? In the worst case, the file gets downloaded twice, but would then still only be stored once.
+
 ### Minimum resource size
 
 Should there be a required minimum resource size for a resource to be eligible for COS? Most likely not, since it would be trivial to inflate the file size of non-qualifying resources by adding space characters or comments. The assumption is that the required prompting would be scary enough for websites to only use COS for resources where it really makes sense to have them available cross-origin, that is, where they could profit themselves from using a potentially already cached version rather than downloading their own version from the network.
 
-### Eviction
+### Handling of eviction
 
 Browsers should likely treat resources in COS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
 
