@@ -380,3 +380,14 @@ getBlobHash(fileBlob).then(hash => {
   console.log('Hash:', hash);
 });
 ```
+
+### Appendix C: FAQ
+
+<details>
+  <summary>
+    <strong>Q:</strong> Does this API help with resuming downloads? What if downloading a big resource fails before the file ends up in COS?
+  </summary>
+  <p>
+    <strong>A:</strong> Managing downloads is out of scope for this proposal. COS can work with complete or with sharded files that the developer stores in COS as separate blobs and then assembles them after retrieval from COS. This way, downloads can be handled completely out-of-bounds, and developers can, for example, leverage the [Background Fetch API](https://wicg.github.io/background-fetch/) or regular `fetch()` requests with `Range` headers to download large resources.
+  </p>
+</details>
