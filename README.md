@@ -278,7 +278,7 @@ Should there be a required minimum resource size for a resource to be eligible f
 
 ### Handling of eviction
 
-Browsers should likely treat resources in COS under the same conditions as if they were [`persist()`]([https://storage.spec.whatwg.org/#dom-storagemanager-persisted](https://storage.spec.whatwg.org/#dom-storagemanager-persist))ed as per the Storage Living Standard.
+Browsers should likely treat resources in COS under the same conditions as if they were [`persist()`](https://storage.spec.whatwg.org/#dom-storagemanager-persist)ed as per the Storage Living Standard.
 
 User agents are envisioned to offer a manual UI for the user to see and modify what resources are stored in COS and, based on stored information about the origins having used a resource, decide to delete a resource from COS.
 
