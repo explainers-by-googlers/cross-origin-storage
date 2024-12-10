@@ -37,7 +37,7 @@ if (handle) {
 ## Risk awareness
 
 > [!CAUTION]
-> The authors recognize that cross-origin storage is a highly sensitive topic, but given the desirable [use cases](#use-cases) a problem worth tackling.
+> The authors acknowledge that storage is usually segregated by origin to safeguard user security and privacy. Storing large files like AI models or SQL databases separately for each origin, as demanded by new [use cases](#use-cases), poses a different problem: For instance, if both `example.com` and `example.org` each require the same 8 GB AI model, this would result in a total allocation of 16 GB on the user's device. This proposal centers on effective mechanisms that uphold protection standards while addressing the inefficiencies of duplicated storage.
 
 ## Goals
 
@@ -68,7 +68,7 @@ Feedback from developers working with large AI models, datasets, and WebAssembly
 
 ### Use case 1: Large AI models
 
-Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin'` (1.35 GB)](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin'). Another example is the [`Llama-3-70B-Instruct-q3f16_1-MLC` (33 GB)](https://huggingface.co/mlc-ai/Llama-3-70B-Instruct-q3f16_1-MLC/tree/main) model.
+Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, the model can be stored under its hash and retrieved with user consent, minimizing repeated uploads and ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin'` (1.35 GB)](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin'). Another example is the [`Llama-3-70B-Instruct-q3f16_1-MLC` (33.00 GB)](https://huggingface.co/mlc-ai/Llama-3-70B-Instruct-q3f16_1-MLC/tree/main) model.
 
 ### Use case 2: Large database files and offline storage archive files
 
