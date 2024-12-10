@@ -245,6 +245,9 @@ example.com wants to access the file "large file" stored in your browser.
 [Allow this time] [Allow on every visit] [Don't allow]
 ```
 
+> [!IMPORTANT]
+> The permission could mention other recent origins that have accessed the same resource, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
+
 A **storage permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `humanReadableName` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
 
 ```
