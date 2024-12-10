@@ -280,7 +280,7 @@ Should there be a required minimum resource size for a resource to be eligible f
 
 Browsers should likely treat resources in COS under the same conditions as if they were [`persist()`](https://storage.spec.whatwg.org/#dom-storagemanager-persist)ed as per the Storage Living Standard.
 
-User agents are envisioned to offer a manual UI for the user to see and modify what resources are stored in COS and, based on stored information about the origins having last used a resource, let them decide to delete a resource from COS.
+User agents are envisioned to offer browser settings UI for the user to see what resources are stored in COS and what origins recently have used each resource. Based on this stored information about the origins having last used a resource, the UI would let the user decide to delete a resource from COS.
 
 Under critical storage pressure, user agents could offer a manual dialog that invites the user to manually free up storage.
 
