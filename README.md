@@ -337,21 +337,19 @@ Many thanks for valuable feedback, inspiration, or ideas from:
 ### Appendix A: Full IDL
 
 ```webidl
-[SecureContext]
 interface mixin NavigatorCrossOriginStorage {
-  [SameObject] readonly attribute CrossOriginStorageManager crossOriginStorage;
+  [SameObject, SecureContext] readonly attribute CrossOriginStorageManager crossOriginStorage;
 };
 Navigator includes NavigatorCrossOriginStorage;
 WorkerNavigator includes NavigatorCrossOriginStorage;
 
-[SecureContext]
+[Exposed=(Window, Worker), SecureContext]
 interface CrossOriginStorageManager {
-  Promise<FileSystemFileHandle> getFileHandle(DOMString hash, DOMString humanReadableName, optional FileSystemGetFileOptions options = {});
-};
-
-// From https://fs.spec.whatwg.org/#dictdef-filesystemgetfileoptions
-dictionary FileSystemGetFileOptions {
-  boolean create = false;
+  Promise<FileSystemFileHandle> getFileHandle(
+      DOMString hash,
+      DOMString humanReadableName,
+      // https://fs.spec.whatwg.org/#dictdef-filesystemgetfileoptions
+      optional FileSystemGetFileOptions options = {});
 };
 ```
 
