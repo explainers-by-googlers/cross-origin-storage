@@ -292,6 +292,8 @@ User agents are envisioned to offer browser settings UI for the user to see what
 
 Under critical storage pressure, user agents could offer a manual dialog that invites the user to manually free up storage.
 
+When the user clears site data, all usage tracking associated with the origin is removed from resources in COS. If a resource in COS, after the removal of usage data, is deemed unused, the user agent may delete it from COS.
+
 ### Out-of-bounds access
 
 If a user already has manually downloaded a resource like a large AI model, should the browser offer a way to let the user put the resource in COS? Most likely this doesn't even need specifying, but could just be an affordance provided by the user-agent.
