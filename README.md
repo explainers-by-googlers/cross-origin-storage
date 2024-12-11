@@ -54,7 +54,7 @@ COS does not aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **localStorage**.
 - Replace content delivery networks (CDNs). The assumption is that the required prompting will discourage websites from using the COS API unless it really makes sense to have resources available cross-origin, such as when they can benefit from using a possibly cached version instead of downloading a new one.
-- Store popular JavaScript libraries like jQuery. (See the FAQ.)
+- Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendix-c-faq).)
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
 
