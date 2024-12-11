@@ -19,18 +19,18 @@ The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and 
 
 ```js
 const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const humanReadableName = 'Large AI Model';
+const name = 'Large AI Model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-const handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName);
+const handle = await navigator.crossOriginStorage.getFileHandle(hash, name);
 
 if (handle) {
   // The file exists in Cross-Origin Storage
   const fileBlob = await handle.getFile();
   // Do something with the blob
-  console.log('Retrieved', humanReadableName, fileBlob);
+  console.log('Retrieved', name, fileBlob);
 }
 ```
 
@@ -95,18 +95,18 @@ The **COS** API will be available through `navigator.crossOriginStorage`. Files 
 ```js
 // Example usage to store a file
 const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4'; // Assume the file is already identified with a hash
-const humanReadableName = 'Large AI model';
+const name = 'Large AI model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName);
+let handle = await navigator.crossOriginStorage.getFileHandle(hash, name);
 
 if (!handle) {
   // This triggers a permission prompt:
   // example.com wants to store the file "Large AI Model" in your browser.
   // [Allow] [Don't allow]
-  handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true });
+  handle = await navigator.crossOriginStorage.getFileHandle(hash, name, { create: true });
 
   // Granted the user's permission, store the file
   const writableStream = await handle.createWritable();
@@ -126,18 +126,18 @@ This will prompt the user to confirm the storage, displaying the human-readable 
 ```js
 // The known hash of the file and the human-readable name
 const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const humanReadableName = 'Large AI model';
+const name = 'Large AI model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName);
+let handle = await navigator.crossOriginStorage.getFileHandle(hash, name);
 
 // If the file already exists, get it from COS
 if (handle) {
   // Request user permission and retrieve the file
   const fileBlob = await handle.getFile();
-  console.log(`Retrieved file: ${humanReadableName}`);
+  console.log(`Retrieved file: ${name}`);
 
   // Return the file as a Blob
   console.log(fileBlob);  // This will return the Blob object
@@ -160,13 +160,13 @@ On the first page, a web application stores a large language model in COS with a
 ```js
 // The known hash of the file and the human-readable name
 const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const humanReadableName = 'Large AI model';
+const name = 'Large AI model';
 
 // Check if the file already exists
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName);
+let handle = await navigator.crossOriginStorage.getFileHandle(hash, name);
 
 if (handle) {
   // Use the file and return
@@ -188,15 +188,15 @@ if (controlHash !== hash) {
 // This triggers a permission prompt:
 // example.com wants to store the file "Large AI Model" in your browser.
 // [Allow] [Don't allow]
-const humanReadableName = 'Large AI Model';
-handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true });
+const name = 'Large AI Model';
+handle = await navigator.crossOriginStorage.getFileHandle(hash, name, { create: true });
 
 // Granted the user's permission, store the file
 const writableStream = await handle.createWritable();
 await writableStream.write(fileBlob);
 await writableStream.close();
 
-console.log(`File stored with name: ${humanReadableName}`);
+console.log(`File stored with name: ${name}`);
 ```
 
 ##### Page 2: Retrieving the same model with a Spanish name
@@ -206,19 +206,19 @@ On the second, entirely unrelated page, a different web application retrieves th
 ```js
 // The known hash of the file and the human-readable name
 const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const humanReadableName = 'Modelo de IA Grande';
+const name = 'Modelo de IA Grande';
 
 // Check if the file already exists
 // This triggers a permission prompt:
 // example.com wants to access the file "Modelo de IA Grande" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.getFileHandle(hash, humanReadableName);
+let handle = await navigator.crossOriginStorage.getFileHandle(hash, name);
 
 if (handle) {
   // Request user permission and retrieve the file
   const fileBlob = await handle.getFile();
   // This now logs the Spanish name, even if the file was stored with an English name by page 1
-  console.log(`File retrieved with name: ${humanReadableName}`);
+  console.log(`File retrieved with name: ${name}`);
 
   // Use the fileBlob as needed
 } else {
@@ -238,7 +238,7 @@ if (handle) {
 
 The permission prompt must clearly display the file's name to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
-An **access permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, humanReadableName)` method is called with two arguments, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `humanReadableName` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
+An **access permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, name)` method is called with two arguments, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `name` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
 
 ```
 example.com wants to access the file "large file" stored in your browser.
@@ -248,7 +248,7 @@ example.com wants to access the file "large file" stored in your browser.
 > [!IMPORTANT]
 > The permission could mention other recent origins that have accessed the same resource, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
 
-A **storage permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, humanReadableName, { create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `humanReadableName` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
+A **storage permission** will be shown every time the `navigator.crossOriginStorage.getFileHandle(hash, name, { create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `name` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
 
 ```
 example.com wants to store the file "large file" in your browser.
@@ -268,6 +268,10 @@ SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4
 ```
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**.
+
+### Human-readable names
+
+Human-readable names must consist of valid Unicode characters, avoid restricted characters like `/:*?"<>|`, and should be no longer than 255 characters.
 
 ## Open questions
 
