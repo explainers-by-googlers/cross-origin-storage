@@ -330,11 +330,15 @@ AI models are admittedly the biggest motivation for working on COS, so one alter
 
 ## Acknowledgements
 
-Many thanks for valuable feedback, inspiration, or ideas from:
+Many thanks for valuable feedback from:
+
+- Christian Liebel
+- François Beaufort
+
+Many thanks for valuable inspiration or ideas from:
 
 - Kenji Baheux
 - Kevin Moore
-- Christian Liebel
 
 ## Appendices
 
