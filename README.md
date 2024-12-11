@@ -79,8 +79,8 @@ Web applications may depend on large SQLite databases, for example, for geodata 
 
 Web applications that utilize large WebAssembly modules can store these modules using COS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four resources that are used by more than 1,000 hosts each day and more than 2M requests in total.
 
-| Request (`https://gstatic.com/flutter-canvaskit/`)                                                                                          | Size | Hosts | Requests |
-|---------------------------------------------------------------------------------------------------|-------|----------|
+| Request (`https://gstatic.com/flutter-canvaskit/`)                                                                                          | Size   | Hosts | Requests |
+|---------------------------------------------------------------------------------------------------|--------|-------|----------|
 | [`36335019a8eab588c3c2ea783c618d90505be233/chromium/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/36335019a8eab588c3c2ea783c618d90505be233/chromium/canvaskit.wasm) | 5.1 MB | 1938  | 596900   |
 | [`a18df97ca57a249df5d8d68cd0820600223ce262/chromium/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/a18df97ca57a249df5d8d68cd0820600223ce262/chromium/canvaskit.wasm) | 5.1 MB | 1586  | 579380   |
 | [`36335019a8eab588c3c2ea783c618d90505be233/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/36335019a8eab588c3c2ea783c618d90505be233/canvaskit.wasm)        | 6.4 MB | 1142  | 597240   |
