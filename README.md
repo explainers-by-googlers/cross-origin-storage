@@ -77,7 +77,7 @@ Web applications may depend on large SQLite databases, for example, for geodata 
 
 ### Use case 3: Big shared Wasm modules
 
-Web applications that utilize large WebAssembly modules can store these modules using COS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four resources that are used by more than 1,000 hosts each day and more than 2M requests in total.
+Web applications that utilize large WebAssembly modules can store these modules using COS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four resources that are used by more than 1,000 hosts each day making more than 2M requests in total.
 
 | Request (`https://gstatic.com/flutter-canvaskit/`)                                                                                          | Size   | Hosts | Requests |
 |---------------------------------------------------------------------------------------------------|--------|-------|----------|
