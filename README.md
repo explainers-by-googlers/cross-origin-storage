@@ -356,10 +356,10 @@ WorkerNavigator includes NavigatorCrossOriginStorage;
 interface CrossOriginStorageManager {
   Promise<FileSystemFileHandle> requestFileHandle(
       DOMString hash,
-      CrossOriginStorageGetFileOptions options = {});
+      CrossOriginStorageRequestFileHandleOptions options = {});
 };
 
-dictionary CrossOriginStorageGetFileOptions {
+dictionary CrossOriginStorageRequestFileHandleOptions {
   DOMString name;
   optional boolean create = false;
 }
