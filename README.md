@@ -24,7 +24,7 @@ const name = 'Large AI Model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-const handle = await navigator.crossOriginStorage.requestFileHandle(hash, name);
+const handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
 
 if (handle) {
   // The file exists in Cross-Origin Storage
@@ -100,13 +100,13 @@ const name = 'Large AI model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, name);
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
 
 if (!handle) {
   // This triggers a permission prompt:
   // example.com wants to store the file "Large AI Model" in your browser.
   // [Allow] [Don't allow]
-  handle = await navigator.crossOriginStorage.requestFileHandle(hash, name, { create: true });
+  handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name, create: true });
 
   // Granted the user's permission, store the file
   const writableStream = await handle.createWritable();
@@ -131,7 +131,7 @@ const name = 'Large AI model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, name);
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
 
 // If the file already exists, get it from COS
 if (handle) {
@@ -166,7 +166,7 @@ const name = 'Large AI model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, name);
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
 
 if (handle) {
   // Use the file and return
@@ -189,7 +189,7 @@ if (controlHash !== hash) {
 // example.com wants to store the file "Large AI Model" in your browser.
 // [Allow] [Don't allow]
 const name = 'Large AI Model';
-handle = await navigator.crossOriginStorage.requestFileHandle(hash, name, { create: true });
+handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name, create: true });
 
 // Granted the user's permission, store the file
 const writableStream = await handle.createWritable();
@@ -212,7 +212,7 @@ const name = 'Modelo de IA Grande';
 // This triggers a permission prompt:
 // example.com wants to access the file "Modelo de IA Grande" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, name);
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
 
 if (handle) {
   // Request user permission and retrieve the file
@@ -238,7 +238,7 @@ if (handle) {
 
 The permission prompt must clearly display the file's name to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
-An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, name)` method is called with two arguments, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `name` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
+An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { name })` method is called with two arguments, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `name` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
 
 ```
 example.com wants to access the file "large file" stored in your browser.
@@ -248,7 +248,7 @@ example.com wants to access the file "large file" stored in your browser.
 > [!IMPORTANT]
 > The permission could mention other recent origins that have accessed the same resource, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
 
-A **storage permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, name, { create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `name` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
+A **storage permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { name, create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `name` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
 
 ```
 example.com wants to store the file "large file" in your browser.
@@ -351,10 +351,13 @@ WorkerNavigator includes NavigatorCrossOriginStorage;
 interface CrossOriginStorageManager {
   Promise<FileSystemFileHandle> requestFileHandle(
       DOMString hash,
-      DOMString humanReadableName,
-      // https://fs.spec.whatwg.org/#dictdef-filesystemgetfileoptions
-      optional FileSystemGetFileOptions options = {});
+      CrossOriginStorageGetFileOptions options = {});
 };
+
+dictionary CrossOriginStorageGetFileOptions {
+  DOMString name;
+  optional boolean create = false;
+}
 ```
 
 ### Appendix B: Blob hash with the Web Crypto API
