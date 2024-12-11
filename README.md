@@ -54,6 +54,7 @@ COS does not aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **localStorage**.
 - Replace content delivery networks (CDNs). The assumption is that the required prompting will discourage websites from using the COS API unless it really makes sense to have resources available cross-origin, such as when they can benefit from using a possibly cached version instead of downloading a new one.
+- Store popular JavaScript libraries like jQuery. (See the FAQ.)
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
 
@@ -238,7 +239,7 @@ if (handle) {
 
 The permission prompt must clearly display the file's name to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
-An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { name })` method is called with two arguments, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `name` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
+An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { name })` method is called without the `create` option set to `true`, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `name` will be part of the permission text. User-agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
 
 ```
 example.com wants to access the file "large file" stored in your browser.
@@ -248,7 +249,7 @@ example.com wants to access the file "large file" stored in your browser.
 > [!IMPORTANT]
 > The permission could mention other recent origins that have accessed the same resource, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
 
-A **storage permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { name, create: true })` method is called with three arguments and the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `name` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
+A **storage permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { name, create: true })` method is called with the `create` option set to `true`, which is required to store a file by first obtaining the handle to then write to it. The `name` will be part of the permission text. User-agents need to explicitly ask upon each storage attempt.
 
 ```
 example.com wants to store the file "large file" in your browser.
@@ -394,9 +395,18 @@ getBlobHash(fileBlob).then(hash => {
 
 <details>
   <summary>
-    <strong>Q:</strong> Does this API help with resuming downloads? What if downloading a big resource fails before the file ends up in COS?
+    <strong>Question:</strong> Does this API help with resuming downloads? What if downloading a big resource fails before the file ends up in COS?
   </summary>
   <p>
-    <strong>A:</strong> Managing downloads is out of scope for this proposal. COS can work with complete or with sharded files that the developer stores in COS as separate blobs and then assembles them after retrieval from COS. This way, downloads can be handled completely out-of-bounds, and developers can, for example, leverage the <a href="https://wicg.github.io/background-fetch/">Background Fetch API</a> or regular <code>fetch()</code> requests with <code>Range</code> headers to download large resources.
+    <strong>Answer:</strong> Managing downloads is out of scope for this proposal. COS can work with complete or with sharded files that the developer stores in COS as separate blobs and then assembles them after retrieval from COS. This way, downloads can be handled completely out-of-bounds, and developers can, for example, leverage the <a href="https://wicg.github.io/background-fetch/">Background Fetch API</a> or regular <code>fetch()</code> requests with <code>Range</code> headers to download large resources.
+  </p>
+</details>
+
+<details>
+  <summary>
+    <strong>Question:</strong> Why does this API not target popular JavaScript libraries like jQuery?
+  </summary>
+  <p>
+    <strong>Answer:</strong> The short answer is version fragmentation. JavaScript libraries are way more fragmented than AI models, SQLite databases, offline storage archive files, and shared WebAssembly (Wasm) modules. The longer answer is that when the Chrome team did [research](https://github.com/shivanigithub/http-cache-partitioning?tab=readme-ov-file#impact-on-metrics) in the context of [partitioning the HTTP cache](https://github.com/shivanigithub/http-cache-partitioning), they found that after partitioning the HTTP cache _"the overall cache miss rate increases by about 2 percentage points but changes to first contentful paint aren't statistically significant and the overall fraction of bytes loaded from the network only increase by around 1.5 percentage points"_. Furthermore, since the COS API [requires permission](#user-consent-and-permissions) before accessing a file, it would for the majority of web apps not be practical to interrupt the user with a permission prompt for a few kilobytes of savings.
   </p>
 </details>
