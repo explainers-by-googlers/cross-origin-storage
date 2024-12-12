@@ -18,13 +18,16 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and shared WebAssembly (Wasm) modules across domains securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes, ensuring consistency, and a human-readable name needs to be assigned to files for permission management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
 ```js
-const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+const hash =
+  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 const name = 'Large AI Model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-const handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
+const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+  name,
+});
 
 if (handle) {
   // The file exists in Cross-Origin Storage
@@ -79,12 +82,12 @@ Web applications may depend on large SQLite databases, for example, for geodata 
 
 Web applications that utilize large WebAssembly modules can store these modules using COS and share them across applications. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four resources that are used by more than 1,000 hosts each day making more than 2M requests in total.
 
-| Request (`https://gstatic.com/flutter-canvaskit/`)                                                                                          | Size   | Hosts | Requests |
-|---------------------------------------------------------------------------------------------------|--------|-------|----------|
-| [`36335019a8eab588c3c2ea783c618d90505be233/chromium/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/36335019a8eab588c3c2ea783c618d90505be233/chromium/canvaskit.wasm) | 5.1 MB | 1,938  | 596,900   |
-| [`a18df97ca57a249df5d8d68cd0820600223ce262/chromium/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/a18df97ca57a249df5d8d68cd0820600223ce262/chromium/canvaskit.wasm) | 5.1 MB | 1,586  | 579,380   |
-| [`36335019a8eab588c3c2ea783c618d90505be233/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/36335019a8eab588c3c2ea783c618d90505be233/canvaskit.wasm)        | 6.4 MB | 1,142  | 597,240   |
-| [`a18df97ca57a249df5d8d68cd0820600223ce262/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/a18df97ca57a249df5d8d68cd0820600223ce262/canvaskit.wasm)        | 6.4 MB | 1,014  | 288,800   |
+| Request (`https://gstatic.com/flutter-canvaskit/`)                                                                                                                           | Size   | Hosts | Requests |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- | -------- |
+| [`36335019a8eab588c3c2ea783c618d90505be233/chromium/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/36335019a8eab588c3c2ea783c618d90505be233/chromium/canvaskit.wasm) | 5.1 MB | 1,938 | 596,900  |
+| [`a18df97ca57a249df5d8d68cd0820600223ce262/chromium/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/a18df97ca57a249df5d8d68cd0820600223ce262/chromium/canvaskit.wasm) | 5.1 MB | 1,586 | 579,380  |
+| [`36335019a8eab588c3c2ea783c618d90505be233/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/36335019a8eab588c3c2ea783c618d90505be233/canvaskit.wasm)                   | 6.4 MB | 1,142 | 597,240  |
+| [`a18df97ca57a249df5d8d68cd0820600223ce262/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/a18df97ca57a249df5d8d68cd0820600223ce262/canvaskit.wasm)                   | 6.4 MB | 1,014 | 288,800  |
 
 ## Potential solution
 
@@ -102,24 +105,30 @@ The **COS** API will be available through `navigator.crossOriginStorage`. Files 
 
 ```js
 // Example usage to store a file
-const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4'; // Assume the file is already identified with a hash
+const hash =
+  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4'; // Assume the file is already identified with a hash
 const name = 'Large AI model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+  name,
+});
 
 if (!handle) {
   // This triggers a permission prompt:
   // example.com wants to store the file "Large AI Model" in your browser.
   // [Allow] [Don't allow]
-  handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name, create: true });
+  handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+    name,
+    create: true,
+  });
 
   // Granted the user's permission, store the file
   const writableStream = await handle.createWritable();
-  await writableStream.write(fileBlob);  // Assuming the blob is available
-  await writableStream.close();  // Close the writable stream properly after writing
+  await writableStream.write(fileBlob); // Assuming the blob is available
+  await writableStream.close(); // Close the writable stream properly after writing
 }
 ```
 
@@ -133,13 +142,16 @@ This will prompt the user to confirm the storage, displaying the human-readable 
 
 ```js
 // The known hash of the file and the human-readable name
-const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+const hash =
+  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 const name = 'Large AI model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+  name,
+});
 
 // If the file already exists, get it from COS
 if (handle) {
@@ -148,12 +160,14 @@ if (handle) {
   console.log(`Retrieved file: ${name}`);
 
   // Return the file as a Blob
-  console.log(fileBlob);  // This will return the Blob object
+  console.log(fileBlob); // This will return the Blob object
 } else {
   // Obtain the the file from the network
-  const fileBlob = await fetch('https://example.com/ai-model.bin').then(response => response.blob());
+  const fileBlob = await fetch('https://example.com/ai-model.bin').then(
+    (response) => response.blob(),
+  );
   // Return the file as a Blob
-  console.log(fileBlob);  // This will return the Blob object
+  console.log(fileBlob); // This will return the Blob object
 }
 ```
 
@@ -167,14 +181,17 @@ On the first page, a web application stores a large language model in COS with a
 
 ```js
 // The known hash of the file and the human-readable name
-const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+const hash =
+  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 const name = 'Large AI model';
 
 // Check if the file already exists
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+  name,
+});
 
 if (handle) {
   // Use the file and return
@@ -183,7 +200,9 @@ if (handle) {
 }
 
 // The file doesn't exist, so fetch it from the network
-const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(response => response.blob());
+const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(
+  (response) => response.blob(),
+);
 const controlHash = await getBlobHash(fileBlob); // Compute the control hash using the method in Appendix B
 
 // Check if control hash and known hash are the same
@@ -197,7 +216,10 @@ if (controlHash !== hash) {
 // example.com wants to store the file "Large AI Model" in your browser.
 // [Allow] [Don't allow]
 const name = 'Large AI Model';
-handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name, create: true });
+handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+  name,
+  create: true,
+});
 
 // Granted the user's permission, store the file
 const writableStream = await handle.createWritable();
@@ -213,14 +235,17 @@ On the second, entirely unrelated page, a different web application retrieves th
 
 ```js
 // The known hash of the file and the human-readable name
-const hash = 'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+const hash =
+  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 const name = 'Modelo de IA Grande';
 
 // Check if the file already exists
 // This triggers a permission prompt:
 // example.com wants to access the file "Modelo de IA Grande" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, { name });
+let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+  name,
+});
 
 if (handle) {
   // Request user permission and retrieve the file
@@ -384,18 +409,25 @@ async function getBlobHash(blob) {
   const arrayBuffer = await blob.arrayBuffer();
 
   // Hash the arrayBuffer using SHA-256
-  const hashBuffer = await crypto.subtle.digest(hashAlgorithmIdentifier, arrayBuffer);
+  const hashBuffer = await crypto.subtle.digest(
+    hashAlgorithmIdentifier,
+    arrayBuffer,
+  );
 
   // Convert the ArrayBuffer to a hex string
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+  const hashHex = hashArray
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 
   return `${hashAlgorithmIdentifier}: ${hashHex}`;
 }
 
 // Example usage
-const fileBlob = await fetch('https://example.com/ai-model.bin').then(response => response.blob());
-getBlobHash(fileBlob).then(hash => {
+const fileBlob = await fetch('https://example.com/ai-model.bin').then(
+  (response) => response.blob(),
+);
+getBlobHash(fileBlob).then((hash) => {
   console.log('Hash:', hash);
 });
 ```
