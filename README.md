@@ -37,13 +37,13 @@ if (handle) {
 ## Risk awareness
 
 > [!CAUTION]
-> The authors acknowledge that storage is usually segregated by origin to safeguard user security and privacy. Storing large files like AI models or SQL databases separately for each origin, as demanded by new [use cases](#use-cases), poses a different problem: For instance, if both `example.com` and `example.org` each require the same 8 GB AI model, this would result in a total allocation of 16 GB on the user's device. This proposal centers on effective mechanisms that uphold protection standards while addressing the inefficiencies of duplicated storage.
+> The authors acknowledge that storage is usually segregated by origin to safeguard user security and privacy. Storing large files like AI models or SQL databases separately for each origin, as required by new [use cases](#use-cases), presents a different challenge: For instance, if both `example.com` and `example.org` each require the same 8 GB AI model, this would result in a total allocation of 16 GB on the user's device. This proposal centers on effective mechanisms that uphold protection standards while addressing the inefficiencies of duplicated storage.
 
 ## Goals
 
 COS aims to:
 
-- Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives, and Wasm modules.
+- Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
 - Use SHA-256 (see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)) hashes for file identification, guaranteeing data integrity and consistency.
 - Require developers to assign human-readable names to files for permission management.
@@ -53,7 +53,7 @@ COS aims to:
 COS does not aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **localStorage**.
-- Replace content delivery networks (CDNs). The assumption is that the required prompting will discourage websites from using the COS API unless it really makes sense to have resources available cross-origin, such as when they can benefit from using a possibly cached version instead of downloading a new one.
+- Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin resource access, such as utilizing a cached version.
 - Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendix-c-faq).)
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
@@ -73,7 +73,7 @@ Developers working with large AI models can store these models once and access t
 
 ### Use case 2: Large database files and offline storage archive files
 
-Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/). Another use case is large archive files, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once in the COS API has the advantage that multiple web apps can share the same resources.
+Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2` (8.00 GB)](https://geocode.earth/data/whosonfirst/combined/). Another use case involves large archive files, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim` (109.89 GB)](https://library.kiwix.org/#lang=eng&category=wikipedia) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once in the COS API has the advantage that multiple web apps can share the same resources.
 
 ### Use case 3: Big shared Wasm modules
 
@@ -237,7 +237,7 @@ if (handle) {
 ##### Key points
 
 - **Unrelated pages:** The two pages belong to different origins and do not share any context, ensuring the example demonstrates cross-origin capabilities.
-- **Human-readable names:** Each page assigns its own human-readable name, localized to the user's context. The COS API associates these names with the file's hash, not with the file contents.
+- **Human-readable names:** Each page assigns its own human-readable name, localized to the user's context. The COS API links these names to the file's hash, not to the file contents themselves.
 - **Cross-origin sharing:** Despite the different names and origins, the file is securely shared via its hash, demonstrating the APl's ability to facilitate cross-origin file storage and retrieval.
 
 ## Detailed design discussion
