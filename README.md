@@ -25,15 +25,21 @@ const name = 'Large AI Model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-  name,
-});
-
-if (handle) {
+try {
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+    name,
+  });
   // The file exists in Cross-Origin Storage
   const fileBlob = await handle.getFile();
   // Do something with the blob
   console.log('Retrieved', name, fileBlob);
+} catch (err) {
+  if (err.name === 'NotAllowedError') {
+    console.log('The user did not grant permission to access the file.');
+    return;
+  }
+  // `NotFoundError`, the file wasn't in COS
+  console.error(err.name, err.message);
 }
 ```
 
@@ -112,23 +118,34 @@ const name = 'Large AI model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-  name,
-});
-
-if (!handle) {
-  // This triggers a permission prompt:
-  // example.com wants to store the file "Large AI Model" in your browser.
-  // [Allow] [Don't allow]
-  handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+try {
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
     name,
-    create: true,
   });
-
-  // Granted the user's permission, store the file
-  const writableStream = await handle.createWritable();
-  await writableStream.write(fileBlob); // Assuming the blob is available
-  await writableStream.close(); // Close the writable stream properly after writing
+} catch (err) {
+  if (err.name === 'NotFoundError') {
+    // This triggers a permission prompt:
+    // example.com wants to store the file "Large AI Model" in your browser.
+    // [Allow] [Don't allow]
+    try {
+      const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+        name,
+        create: true,
+      });
+      // Granted the user's permission, store the file
+      const writableStream = await handle.createWritable();
+      await writableStream.write(fileBlob); // Assuming the blob is available
+      await writableStream.close(); // Close the writable stream properly after writing
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        console.log('The user did not grant permission to access the file.');
+        return;
+      }
+    }
+    return;
+  }
+  // 'NotAllowedError', the user didn't grant access
+  console.log('The user did not grant permission to access the file.');
 }
 ```
 
@@ -149,25 +166,26 @@ const name = 'Large AI model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-  name,
-});
-
-// If the file already exists, get it from COS
-if (handle) {
-  // Request user permission and retrieve the file
+try {
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+    name,
+  });
   const fileBlob = await handle.getFile();
   console.log(`Retrieved file: ${name}`);
-
   // Return the file as a Blob
   console.log(fileBlob); // This will return the Blob object
-} else {
-  // Obtain the the file from the network
-  const fileBlob = await fetch('https://example.com/ai-model.bin').then(
-    (response) => response.blob(),
-  );
-  // Return the file as a Blob
-  console.log(fileBlob); // This will return the Blob object
+} catch (err) {
+  if (err.name === 'NotFoundError') {
+    // Obtain the file from the network
+    const fileBlob = await fetch('https://example.com/ai-model.bin').then(
+      (response) => response.blob(),
+    );
+    // Return the file as a Blob
+    console.log(fileBlob); // This will return the Blob object
+    return;
+  }
+  // `NotAllowedError`, the user didn't grant access
+  console.log('The user did not grant permission to access the file.');
 }
 ```
 
@@ -189,44 +207,52 @@ const name = 'Large AI model';
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-  name,
-});
+try {
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+    name,
+  });
 
-if (handle) {
   // Use the file and return
   // …
   return;
+} catch(err) {
+  if (err.name === 'NotFoundError') {
+    // The file doesn't exist, so fetch it from the network
+    const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(
+      (response) => response.blob(),
+    );
+     // Compute the control hash using the method in Appendix B
+    const controlHash = await getBlobHash(fileBlob);
+    // Check if control hash and known hash are the same
+    if (controlHash !== hash) {
+      // Downloaded file and wanted file are different
+      // …
+      return;
+    }
+    // This triggers a permission prompt:
+    // example.com wants to store the file "Large AI Model" in your browser.
+    // [Allow] [Don't allow]
+    try {
+      const name = 'Large AI Model';
+      handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+        name,
+        create: true,
+      });
+      // Granted the user's permission, store the file
+      const writableStream = await handle.createWritable();
+      await writableStream.write(fileBlob);
+      await writableStream.close();
+
+      console.log(`File stored with name: ${name}`);
+    } catch(err) {
+      // `NotAllowedError`, the user didn't grant access
+      console.log('The user did not grant permission to access the file.');
+    }
+    return;
+  }
+  // `NotAllowedError`, the user didn't grant access
+  console.log('The user did not grant permission to access the file.');
 }
-
-// The file doesn't exist, so fetch it from the network
-const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(
-  (response) => response.blob(),
-);
-const controlHash = await getBlobHash(fileBlob); // Compute the control hash using the method in Appendix B
-
-// Check if control hash and known hash are the same
-if (controlHash !== hash) {
-  // Downloaded file and wanted file are different
-  // …
-  return;
-}
-
-// This triggers a permission prompt:
-// example.com wants to store the file "Large AI Model" in your browser.
-// [Allow] [Don't allow]
-const name = 'Large AI Model';
-handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-  name,
-  create: true,
-});
-
-// Granted the user's permission, store the file
-const writableStream = await handle.createWritable();
-await writableStream.write(fileBlob);
-await writableStream.close();
-
-console.log(`File stored with name: ${name}`);
 ```
 
 ##### Page 2: Retrieving the same model with a Spanish name
@@ -243,19 +269,23 @@ const name = 'Modelo de IA Grande';
 // This triggers a permission prompt:
 // example.com wants to access the file "Modelo de IA Grande" stored in your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
-let handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-  name,
-});
-
-if (handle) {
+try {
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+    name,
+  });
   // Request user permission and retrieve the file
   const fileBlob = await handle.getFile();
   // This now logs the Spanish name, even if the file was stored with an English name by page 1
   console.log(`File retrieved with name: ${name}`);
-
   // Use the fileBlob as needed
-} else {
-  console.error('File not found in COS.');
+} catch(err) {
+  if (err.name === 'NotFoundError') {
+    // The file wasn't in COS
+    console.error(err.name, err.message);
+    return;
+  }
+  // `NotAllowedError`, the user didn't grant access
+  console.log('The user did not grant permission to access the file.');
 }
 ```
 
