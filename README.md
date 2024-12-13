@@ -334,7 +334,7 @@ The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-
 
 ### Human-readable names
 
-Human-readable names must consist of valid Unicode characters, avoid restricted characters like `/:*?"<>|`, and should be no longer than 255 characters.
+A valid human-readable name is a string that is not an empty string, is not equal to `.` or `..`, and does not contain `/` or any other character used as path separator on the underlying platform.
 
 ## Open questions
 
