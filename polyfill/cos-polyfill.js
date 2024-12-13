@@ -1,5 +1,5 @@
 (function () {
-  const POLYFILL_IFRAME_SRC = 'iframe.html';
+  const POLYFILL_IFRAME_SRC = new URL('iframe.html',import.meta.url);
   let iframe;
   let iframeReadyPromise;
 
