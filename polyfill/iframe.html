@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Cross-Origin Storage Polyfill</title>
+  </head>
+  <body>
+    <script type="module">
+      if ('serviceWorker' in navigator) {
+        (async () => {
+          try {
+            const registration = await navigator.serviceWorker.register(
+              'service-worker.js'
+            );
+          } catch (err) {
+            console.err('Service Worker registration failed:', err);
+          }
+        })();
+      }
+
+      const cache = await caches.open('cos-storage');
+
+      window.addEventListener('message', async (event) => {
+        const { action, data } = event.data;
+
+        switch (action) {
+          case 'requestFileHandle': {
+            const { hash, create, name } = data;
+            const success = await getFileHandle(hash, create);
+            window.parent.postMessage(
+              { action, data: { hash, name, success } },
+              event.origin
+            );
+            break;
+          }
+          case 'getFileData': {
+            const { hash } = data;
+            const arrayBuffer = await getFileData(hash);
+            window.parent.postMessage(
+              { action, data: { hash, arrayBuffer } },
+              event.origin
+            );
+            break;
+          }
+          case 'storeFileData': {
+            const { hash, arrayBuffer } = data;
+            await storeFileData(hash, arrayBuffer);
+            window.parent.postMessage(
+              { action, data: { hash, arrayBuffer } },
+              event.origin
+            );
+            break;
+          }
+          default:
+            console.warn('Unknown action:', action);
+        }
+      });
+
+      async function storeFileData(hash, arrayBuffer) {
+        const key = generateCacheKey(hash);
+        await cache.put(key, new Response(arrayBuffer));
+      }
+
+      async function getFileData(hash) {
+        const key = generateCacheKey(hash);
+        const response = await cache.match(key);
+        return response ? response.blob() : null;
+      }
+
+      async function getFileHandle(hash, create) {
+        const key = generateCacheKey(hash);
+        if (!create) {
+          return !!(await cache.match(key));
+        }
+        return true;
+      }
+
+      function generateCacheKey(hash) {
+        const [, key] = hash.split(' ');
+        return `/${key}`;
+      }
+    </script>
+  </body>
+</html>
