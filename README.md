@@ -68,7 +68,7 @@ COS does not aim to:
 - Allow cross-origin file access _without_ explicit user consent.
 
 > [!IMPORTANT]
-> COS has distinct objectives from the [Shared Storage API](https://github.com/WICG/shared-storage) proposal, which serves as common infrastructure for privacy preserving cross-site use cases.
+> COS has distinct objectives from the [Shared Storage API](https://github.com/WICG/shared-storage) proposal, which serves as common infrastructure for privacy-preserving cross-site use cases. It is also distinct from the [Related Website Partition API](https://github.com/explainers-by-googlers/related-website-partition-api) proposal, which allows third-party embeds to request access to a storage partition that is accessible across sites in a single [Related Website Set](https://wicg.github.io/first-party-sets/).
 
 ## User research
 
