@@ -6,7 +6,8 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 ## Authors
 
-- [Thomas Steiner](mailto:tomac@google.com), Chrome Developer Relations
+- [Thomas Steiner](mailto:tomac@google.com), Google Chrome
+- [Christian Liebel](mailto:christian@liebel.org), Thinktecture AG
 
 ## Participate
 
@@ -15,7 +16,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 ## Introduction
 
-The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and shared WebAssembly (Wasm) modules across domains securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes, ensuring consistency, and a human-readable name needs to be assigned to files for permission management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
+The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and shared WebAssembly (Wasm) modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity, and human-readable names need to be assigned to files for permission management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
 
 ```js
 const hash =
@@ -29,16 +30,16 @@ try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
     name,
   });
-  // The file exists in Cross-Origin Storage
+  // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
-  // Do something with the blob
+  // Do something with the blob.
   console.log('Retrieved', name, fileBlob);
 } catch (err) {
   if (err.name === 'NotAllowedError') {
     console.log('The user did not grant permission to access the file.');
     return;
   }
-  // `NotFoundError`, the file wasn't in COS
+  // `NotFoundError`, the file wasn't in COS.
   console.error(err.name, err.message);
 }
 ```
@@ -46,7 +47,7 @@ try {
 ## Risk awareness
 
 > [!CAUTION]
-> The authors acknowledge that storage is usually segregated by origin to safeguard user security and privacy. Storing large files like AI models or SQL databases separately for each origin, as required by new [use cases](#use-cases), presents a different challenge: For instance, if both `example.com` and `example.org` each require the same 8 GB AI model, this would result in a total allocation of 16 GB on the user's device. This proposal centers on effective mechanisms that uphold protection standards while addressing the inefficiencies of duplicated storage.
+> The authors acknowledge that storage is usually segregated by origin to safeguard user security and privacy. Storing large files like AI models or SQL databases separately for each origin, as required by new [use cases](#use-cases), presents a different challenge: For instance, if both `example.com` and `example.org` each require the same 8&nbsp;GB AI model, this would result in a total of 16&nbsp;GB downloaded data and a total allocation of 16&nbsp;GB on the user's device. The present proposal centers on effective mechanisms that uphold protection standards while addressing the inefficiencies of duplicated download and storage.
 
 ## Goals
 
