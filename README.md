@@ -106,16 +106,21 @@ The **COS** API will be available through `navigator.crossOriginStorage`. Files 
 
 #### Storing a file
 
-1. The contents of the file will be hashed using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used algorithm will be communicated in the hash as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
-2. A handle for the file will be requested, specifying the file's hash and a human-readable name.
-3. A permission prompt will be displayed to the user, asking if it's okay to store the file with the provided human-readable name.
-4. If a file with the hash already exists, return.
-5. Else, upon user consent, the file will be stored by the browser.
+1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
+1. Request a `FileSystemFileHandle` for the file, specifying the file's hash and a human-readable name.
+1. A permission prompt will be displayed to the user, asking if it's okay to store the file with the provided human-readable name.
+1. If a file with the hash already exists, return.
+1. Else, upon user consent, store the file in the browser.
 
 ```js
-// Example usage to store a file
+/**
+ * Example usage to store a file.
+ */
+
+// Assume the file is already identified with a hash.
 const hash =
-  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4'; // Assume the file is already identified with a hash
+  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+// The human-readable file name.
 const name = 'Large AI model';
 
 // This triggers a permission prompt:
@@ -135,7 +140,7 @@ try {
         name,
         create: true,
       });
-      // Granted the user's permission, store the file
+      // Granted the user's permission, store the file.
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob); // Assuming the blob is available
       await writableStream.close(); // Close the writable stream properly after writing
