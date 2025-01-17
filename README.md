@@ -109,7 +109,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 #### Storing a file
 
 1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
-1. Request a `FileSystemFileHandle` for the file, specifying the file's hash and a human-readable name.
+1. Request a `FileSystemFileHandle` for the file, specifying the file's hash and a human-readable name. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the browser.
 1. If a file with the hash already exists, return.
 1. Else, store the file in the browser.
 
@@ -133,8 +133,8 @@ try {
   });
 } catch (err) {
   if (err.name === 'NotFoundError') {
-    // The file wasn't found in COS, download it.
-    let fileBlob; // Assuming the blob is available.
+    // Load the file from the network.
+    const fileBlob = await loadFileFromNetwork();
     try {
       const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
         name,
@@ -156,62 +156,60 @@ try {
 
 #### Retrieving a file
 
-1. The application will request a file handle using the file's hash.
-2. A permission prompt will appear, showing the file's human-readable name.
-3. After user consent, the file will be retrieved.
+1. Request a file handle using the file's hash and a human-readable name. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the browser.
+1. Retrieve the file after the user has granted access.
 
 ```js
 /**
  * Example usage to retrieve a file.
  */
 
-// The known hash of the file and the human-readable name
+// The known hash of the file and the human-readable name.
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 const name = 'Large AI model';
 
 // This triggers a permission prompt:
-// example.com wants to access the file "Large AI Model" stored in your browser.
+// example.com wants to check if the file "Large AI Model" is stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
     name,
   });
+  // The file exists in COS.  
   const fileBlob = await handle.getFile();
   console.log(`Retrieved file: ${name}`);
   // Return the file as a Blob.
-  console.log(fileBlob); // This will return the Blob object.
+  console.log(fileBlob);
 } catch (err) {
   if (err.name === 'NotFoundError') {
-    // Obtain the file from the network.
-    const fileBlob = await fetch('https://example.com/ai-model.bin').then(
-      (response) => response.blob(),
-    );
+    // Load the file from the network.
+    const fileBlob = await loadFileFromNetwork();
     // Return the file as a Blob.
-    console.log(fileBlob); // This will return the Blob object.
+    console.log(fileBlob);
     return;
   }
-  // `NotAllowedError`, the user didn't grant access.
-  console.log('The user did not grant permission to access the file.');
+  // 'NotAllowedError', the user didn't grant access to the file.
+  console.log('The user did not grant access to the file.');
 }
 ```
 
-#### Storing and retrieving a file across unrelated pages
+#### Storing and retrieving a file across unrelated sites
 
-To illustrate the capabilities of the COS API, consider the following example where two unrelated pages want to interact with the same large language model. The first page stores the model in COS, while the second page retrieves it, each using different human-readable names, one in English and one in Spanish.
+To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same large language model. The first site stores the model in COS, while the second site retrieves it, each using different human-readable names, one in English and one in Spanish.
 
 ##### Site A: Storing a large language model with an English Name
 
 On Site A, a web application stores a large language model in COS with a human-readable English name, "Large AI Model."
 
 ```js
-// The known hash of the file and the human-readable name
+// The known hash of the file and the human-readable name.
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 const name = 'Large AI model';
 
 // This triggers a permission prompt:
-// site-a.example.com wants to access the file "Large AI Model" stored in your browser.
+// site-a.example.com wants to check if the file "Large AI Model" is stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
@@ -223,11 +221,9 @@ try {
   return;
 } catch(err) {
   if (err.name === 'NotFoundError') {
-    // The file doesn't exist, so fetch it from the network.
-    const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(
-      (response) => response.blob(),
-    );
-     // Compute the control hash using the method in Appendix B.
+    // Load the file from the network.
+    const fileBlob = await loadFileFromNetwork();
+    // Compute the control hash using the method in Appendix B.
     const controlHash = await getBlobHash(fileBlob);
     // Check if control hash and known hash are the same.
     if (controlHash !== hash) {
@@ -235,34 +231,29 @@ try {
       // …
       return;
     }
-    // This triggers a permission prompt:
-    // site-a.example.com wants to store the file "Large AI Model" in your browser.
-    // [Allow] [Don't allow]
     try {
       handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
         name,
         create: true,
-      });
-      // Granted the user's permission, store the file
+      });      
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
 
       console.log(`File stored with name: ${name}`);
     } catch(err) {
-      // `NotAllowedError`, the user didn't grant access
-      console.log('The user did not grant permission to access the file.');
+      // The `write()` failed.
     }
     return;
   }
-  // `NotAllowedError`, the user didn't grant access
-  console.log('The user did not grant permission to access the file.');
+  // 'NotAllowedError', the user didn't grant access to the file.
+  console.log('The user did not grant access to the file.');
 }
 ```
 
 ##### Site B: Retrieving the same model with a Spanish name
 
-On Site B, entirely unrelated site, a different web application happens to retrieve the same model from COS, but refers to it with a human-readable Spanish name, "Modelo de IA Grande."
+On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS, but refers to it with a human-readable Spanish name, "Modelo de IA Grande."
 
 ```js
 // The known hash of the file and the human-readable name.
@@ -271,13 +262,12 @@ const hash =
 const name = 'Modelo de IA Grande';
 
 // This triggers a permission prompt:
-// site-b.example.com wants to access the file "Modelo de IA Grande" stored in your browser.
+// site-b.example.com wants to check if the file "Modelo de IA Grande" is stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
     name,
-  });
-  // Request user permission and retrieve the file.
+  });  
   const fileBlob = await handle.getFile();
   // This now logs the Spanish name, even if the file was stored with an English name by site A.
   console.log(`File retrieved with name: ${name}`);
@@ -288,16 +278,16 @@ try {
     console.error(err.name, err.message);
     return;
   }
-  // `NotAllowedError`, the user didn't grant access.
-  console.log('The user did not grant permission to access the file.');
+  // 'NotAllowedError', the user didn't grant access to the file.
+  console.log('The user did not grant access to the file.');
 }
 ```
 
 ##### Key points
 
 - **Unrelated sites:** The two sites belong to different origins and do not share any context, ensuring the example demonstrates cross-origin capabilities.
-- **Human-readable names:** Each site assigns its own human-readable name, localized to the user's context. The COS API links these names to the file's hash, not to the file contents themselves.
-- **Cross-origin sharing:** Despite the different names and origins, the file is securely shared via its hash, demonstrating the APl's ability to facilitate cross-origin file storage and retrieval.
+- **Human-readable names:** Each site assigns its own human-readable name, localized to the user's context. The name isn't shared across origins.
+- **Cross-origin sharing:** Despite the different names and origins, the file is securely identified by its hash, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
 
 ## Detailed design discussion
 
