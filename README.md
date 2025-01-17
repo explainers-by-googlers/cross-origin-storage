@@ -345,17 +345,17 @@ Should there be a required minimum file size for a file to be eligible for COS? 
 
 ### Handling of eviction
 
-Browsers should likely treat files in COS under the same conditions as if they were [`persist()`](https://storage.spec.whatwg.org/#dom-storagemanager-persist)ed as per the Storage Living Standard.
+Browsers should likely treat files in COS under the same conditions as if they were `'persistent'` as per the [Storage Living Standard](https://storage.spec.whatwg.org/#persistence).
 
-User agents are envisioned to offer browser settings UI for the user to see what files are stored in COS and what origins recently have used each file. Based on this stored information about the origins having last used a file, the UI would let the user decide to delete a file from COS.
+User agents are envisioned to offer browser settings UI for the user to see what files are stored in COS and what origins have least recently used each file. The user can then choose to delete files from COS using the UI.
 
 Under critical storage pressure, user agents could offer a manual dialog that invites the user to manually free up storage.
 
-When the user clears site data, all usage tracking associated with the origin is removed from files in COS. If a file in COS, after the removal of usage data, is deemed unused, the user agent may delete it from COS.
+When the user clears site data, all usage information associated with the origin should be removed from files in COS. If a file in COS, after the removal of usage information, is deemed unused, the user agent may delete it from COS.
 
-### Out-of-bounds access
+### Manual COS management
 
-If a user already has manually downloaded a file like a large AI model, should the browser offer a way to let the user put the file in COS? Most likely this doesn't even need specifying, but could just be an affordance provided by the user-agent.
+If a user already has manually downloaded a file like a large AI model, should the browser offer a way to let the user put the file in COS? This could just be an affordance provided by the user agent.
 
 ## Considered alternatives
 
