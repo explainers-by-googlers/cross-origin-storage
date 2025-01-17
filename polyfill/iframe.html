@@ -24,10 +24,10 @@
 
         switch (action) {
           case 'requestFileHandle': {
-            const { hash, create, name } = data;
+            const { hash, create, description } = data;
             const success = await getFileHandle(hash, create);
             window.parent.postMessage(
-              { action, data: { hash, name, success } },
+              { action, data: { hash, description, success } },
               event.origin
             );
             break;
@@ -75,7 +75,7 @@
       }
 
       function generateCacheKey(hash) {
-        const [, key] = hash.split(' ');
+        const key = hash.value;
         return `/${key}`;
       }
     </script>

@@ -1,5 +1,6 @@
-(function () {
-  const POLYFILL_IFRAME_SRC = new URL('iframe.html',import.meta.url);
+(() => {
+  const POLYFILL_IFRAME_SRC = new URL('iframe.html', import.meta.url);
+
   let iframe;
   let iframeReadyPromise;
 
@@ -19,7 +20,9 @@
       function handleIframeMessage(event) {
         const { action: responseAction, data } = event.data;
 
-        if (responseAction !== action) return;
+        if (responseAction !== action) {
+          return;
+        }
 
         window.removeEventListener('message', handleIframeMessage);
 
@@ -43,21 +46,24 @@
   async function handleRequestFileHandleResponse(data) {
     if (!data.success) {
       throw new DOMException(
-        `File "${data.name}" not found in cross-origin storage.`,
+        `File "${data.description}" not found in cross-origin storage.`,
         'NotFoundError'
       );
     }
 
-    const { hash, name } = data;
+    const { hash, description } = data;
     return {
-      name,
+      description,
       getFile: async () => {
         return await talkToIframe('getFileData', { hash });
       },
       createWritable: async () => {
         return {
           write: async (blob) => {
-            return await talkToIframe('storeFileData', { hash, arrayBuffer: await blob.arrayBuffer() });
+            return await talkToIframe('storeFileData', {
+              hash,
+              arrayBuffer: await blob.arrayBuffer(),
+            });
           },
           close: async () => {
             // no-op
@@ -67,23 +73,21 @@
     };
   }
 
-  async function requestFileHandle(hash, name, create = false) {
+  async function requestFileHandle(hash, description, create = false) {
     await iframeReadyPromise;
 
     const hostname = location.hostname;
-    const message = create
-      ? `${hostname} wants to store the file "${name}" in your browser.`
-      : `${hostname} wants to access the file "${name}" stored in your browser.`;
+    const message = `${hostname} wants to check if the file "${description}" is stored by your browser.`;
 
     const userPermission = confirm(message);
     if (!userPermission) {
       throw new DOMException(
-        `The user did not grant permission to ${create ? 'create' : 'access'} the file "${name}".`,
+        `The user did not grant permission to access the file "${description}".`,
         'NotAllowedError'
       );
     }
 
-    return talkToIframe('requestFileHandle', { hash, name, create });
+    return talkToIframe('requestFileHandle', { hash, description, create });
   }
 
   const crossOriginStorage = {
@@ -94,14 +98,26 @@
         );
       }
 
-      const { name, create = false } = options;
-      if (!name) {
+      if (!hash.value) {
         throw new TypeError(
-          `Failed to execute 'requestFileHandle': 'options.name' is required.`
+          `Failed to execute 'requestFileHandle': missing required 'hash.value'.`
         );
       }
 
-      return await requestFileHandle(hash, name, create);
+      if (!hash.algorithm) {
+        throw new TypeError(
+          `Failed to execute 'requestFileHandle': missing required 'hash.algorithm'.`
+        );
+      }
+
+      const { description, create = false } = options;
+      if (!description) {
+        throw new TypeError(
+          `Failed to execute 'requestFileHandle': 'options.description' is required.`
+        );
+      }
+
+      return await requestFileHandle(hash, description, create);
     },
   };
 
