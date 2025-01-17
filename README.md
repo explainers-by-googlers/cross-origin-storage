@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/tomayac/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo, consisting of a folder icon with a crossing person." width="100">
 
-This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different web origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archives, and WebAssembly (Wasm) modules. Taking inspiration from **Cache Digests for HTTP/2**, the API uses file hashes for integrity, while human-readable names allow for permission management.
+This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archives, and WebAssembly (Wasm) modules. Taking inspiration from **Cache Digests for HTTP/2**, the API uses file hashes for integrity, while human-readable names allow for permission management.
 
 ## Authors
 
@@ -16,7 +16,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 ## Introduction
 
-The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as large AI models, SQLite databases, offline storage archives, and Wasm modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity, and human-readable names need to be assigned to files for permission management. The API uses concepts like `FileSystemHandle` from the **File System Living Standard** with a focus on cross-origin usage.
+The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and Wasm modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity, and human-readable names need to be assigned to files for permission management. The API uses concepts like `FileSystemFileHandle` from the **File System Living Standard** with a focus on cross-origin usage. Here is an example that shows the basic flow for retrieving a file from COS:
 
 ```js
 const hash =
@@ -39,7 +39,7 @@ try {
     console.log('The user did not grant permission to access the file.');
     return;
   }
-  // `NotFoundError`, the file wasn't in COS.
+  // `NotFoundError`, the file wasn't found in COS.
   console.error(err.name, err.message);
 }
 ```
@@ -47,7 +47,7 @@ try {
 ## Risk awareness
 
 > [!CAUTION]
-> The authors acknowledge that storage is usually segregated by origin to safeguard user security and privacy. Storing large files like AI models or SQL databases separately for each origin, as required by new [use cases](#use-cases), presents a different challenge: For instance, if both `example.com` and `example.org` each require the same 8&nbsp;GB AI model, this would result in a total of 16&nbsp;GB downloaded data and a total allocation of 16&nbsp;GB on the user's device. The present proposal centers on effective mechanisms that uphold protection standards while addressing the inefficiencies of duplicated download and storage.
+> The authors acknowledge that storage is usually isolated by origin to safeguard user security and privacy. Storing large files like AI models or SQLite databases separately for each origin, as required by new [use cases](#use-cases), presents a different challenge. For instance, if both `example.com` and `example.org` each require the same 8&nbsp;GB AI model, this would result in a total of 16&nbsp;GB downloaded data and a total allocation of 16&nbsp;GB on the user's device. The present proposal centers on effective mechanisms that uphold protection standards while addressing the inefficiencies of duplicated download and storage.
 
 ## Goals
 
@@ -55,39 +55,41 @@ COS aims to:
 
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
-- Use SHA-256 (see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)) hashes for file identification, guaranteeing data integrity and consistency.
+- Use SHA-256 hashes (see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
 - Require developers to assign human-readable names to files for permission management.
 
 ## Non-goals
 
-COS does not aim to:
+COS does _not_ aim to:
 
-- Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **localStorage**.
-- Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin resource access, such as utilizing a cached version.
+- Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **Web Storage**.
+- Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin resource access, such as potentially utilizing a cached version.
 - Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendix-c-faq).)
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
 
 > [!IMPORTANT]
-> COS has distinct objectives from the [Shared Storage API](https://github.com/WICG/shared-storage) proposal, which serves as common key/value storage infrastructure for privacy-preserving cross-site use cases. It is also distinct from the [Related Website Partition API](https://github.com/explainers-by-googlers/related-website-partition-api) proposal, which allows third-party embeds to request access to a storage partition that is accessible across sites in a single [Related Website Set](https://wicg.github.io/first-party-sets/).
+> COS has distinct objectives from the [Shared Storage API](https://github.com/WICG/shared-storage) proposal, which serves as common key/value storage infrastructure for privacy-preserving cross-site use cases.
+> 
+> It is also distinct from the [Related Website Partition API](https://github.com/explainers-by-googlers/related-website-partition-api) proposal, which allows third-party embeds to request access to a storage partition that is accessible across sites in a single [Related Website Set](https://wicg.github.io/first-party-sets/).
 
 ## User research
 
-Feedback from developers working with large AI models, SQLite databases, offline storage archives, and Wasm modules has highlighted the need for an efficient way to store and retrieve such large files across web applications. These developers are looking for a standardized solution that allows files to be stored once and accessed by multiple applications, without needing to download and store the files redundantly. COS ensures this is possible while maintaining privacy and security via user consent.
+Feedback from developers working with large AI models, SQLite databases, offline storage archives, and Wasm modules has highlighted the need for an efficient way to store and retrieve such large files across web applications on different origins. These developers are looking for a standardized solution that allows files to be stored once and accessed by multiple applications, without needing to download and store the files redundantly. COS ensures this is possible while maintaining privacy and security via user consent.
 
 ## Use cases
 
 ### Use case 1: Large AI models
 
-Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, models can be stored under their hashes and retrieved with user consent, minimizing repeated downloads and ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) (1.35&nbsp;GB) model [`g-2b-it-gpu-int4.bin'`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin'). Another example is Google's [Gemma 1.1 7B](https://huggingface.co/google/gemma-1.1-7b-it) model `gemma-1.1-7b-it` (8.60&nbsp;GB), which can be [run in the browser](https://research.google/blog/unlocking-7b-language-models-in-your-browser-a-deep-dive-with-google-ai-edges-mediapipe/).
+Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, models can be stored under their hashes and retrieved with user consent, minimizing repeated downloads and storage, ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin') (1.35&nbsp;GB). Another example is Google's [Gemma 1.1 7B](https://huggingface.co/google/gemma-1.1-7b-it) model `gemma-1.1-7b-it` (8.60&nbsp;GB), which can be [run in the browser](https://research.google/blog/unlocking-7b-language-models-in-your-browser-a-deep-dive-with-google-ai-edges-mediapipe/). Yet another example is the [`Llama-3-70B-Instruct-q3f16_1-MLC`](https://huggingface.co/mlc-ai/Llama-3-70B-Instruct-q3f16_1-MLC/tree/main) model (33&nbsp;GB), which [likewise runs in the browser](https://chat.webllm.ai/) (choose the "Llama 3.1 70B Instruct" model in the picker).
 
 ### Use case 2: Large database files and offline storage archives
 
-Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2`](https://geocode.earth/data/whosonfirst/combined/) (8.00&nbsp;GB). Another use case involves large archives, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim`](https://library.kiwix.org/#lang=eng&category=wikipedia) (109.89&nbsp;GB) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once in the COS API has the advantage that multiple web apps can share the same resources.
+Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2`](https://geocode.earth/data/whosonfirst/combined/) (8.00&nbsp;GB). Another use case involves large archives, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim`](https://library.kiwix.org/#lang=eng&category=wikipedia) (109.89&nbsp;GB) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once with the COS API has the advantage that multiple web apps can share the same resources.
 
 ### Use case 3: Large Wasm modules
 
-Web applications that utilize large Wasm modules can store these modules using COS and access them across different origins. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four resources that are used by more than 1,000 hosts each day making more than 2M daily requests in total.
+Web applications that utilize large Wasm modules can store these modules using COS and access them across different origins. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four resources that are used by more than 1,000 hosts each day making more than two million daily requests in total.
 
 | Request (`https://gstatic.com/flutter-canvaskit/`)                                                                                                                           | Size   | Hosts | Requests |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- | -------- |
@@ -102,30 +104,28 @@ Web applications that utilize large Wasm modules can store these modules using C
 
 ### File Storage Process
 
-The **COS** API will be available through `navigator.crossOriginStorage`. Files will be stored and retrieved using their hashes, ensuring that each file is uniquely identified. A human-readable name needs to be provided for permission management of files.
+The **COS** API will be available through the `navigator.crossOriginStorage` interface. Files will be stored and retrieved using their hashes, ensuring that each file is uniquely identified. A human-readable name needs to be provided for permission management of files.
 
 #### Storing a file
 
 1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
 1. Request a `FileSystemFileHandle` for the file, specifying the file's hash and a human-readable name.
-1. A permission prompt will be displayed to the user, asking if it's okay to store the file with the provided human-readable name.
 1. If a file with the hash already exists, return.
-1. Else, upon user consent, store the file in the browser.
+1. Else, store the file in the browser.
 
 ```js
 /**
  * Example usage to store a file.
  */
 
-let fileBlob; // Assuming the blob is available.
-// Assuming the file stored in `fileBlob` is already identified with a hash.
+// The hash of the file we want to access.
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 // The human-readable file name.
 const name = 'Large AI model';
 
 // This triggers a permission prompt:
-// example.com wants to access the file "Large AI Model" stored by your browser.
+// example.com wants to check if the file "Large AI Model" is stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
@@ -133,32 +133,26 @@ try {
   });
 } catch (err) {
   if (err.name === 'NotFoundError') {
-    // This triggers a permission prompt:
-    // example.com wants to store the file "Large AI Model" in your browser.
-    // [Allow] [Don't allow]
+    // The file wasn't found in COS, download it.
+    let fileBlob; // Assuming the blob is available.
     try {
       const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
         name,
+        // Set to `true` to create the file.
         create: true,
-      });
-      // Granted the user's permission, store the file.
+      });      
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
     } catch (err) {
-      if (err.name === 'NotAllowedError') {
-        console.log('The user did not grant permission to access the file.');
-        return;
-      }
+      // The `write()` failed.
     }
-    return;
+    return;  
   }
-  // 'NotAllowedError', the user didn't grant access
-  console.log('The user did not grant permission to access the file.');
+  // 'NotAllowedError', the user didn't grant access to the file.
+  console.log('The user did not grant access to the file.');
 }
 ```
-
-This will prompt the user to confirm the storage, displaying the human-readable name.
 
 #### Retrieving a file
 
