@@ -19,8 +19,12 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and Wasm modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity, and human-readable descriptions need to be assigned to files for permission management. The API uses concepts like `FileSystemFileHandle` from the **File System Living Standard** with a focus on cross-origin usage. Here is an example that shows the basic flow for retrieving a file from COS:
 
 ```js
-const hash =
-  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+// The hash of the file we want to access.
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+// The human-readable file description.
 const description = 'Large AI Model';
 
 // This triggers a permission prompt:
@@ -108,7 +112,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 
 #### Storing a file
 
-1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
+1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used hash algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 1. Request a `FileSystemFileHandle` for the file, specifying the file's hash and a human-readable description. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the browser.
 1. If a file with the hash already exists, return.
 1. Else, store the file in the browser.
@@ -119,8 +123,10 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
  */
 
 // The hash of the file we want to access.
-const hash =
-  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
 // The human-readable file description.
 const description = 'Large AI model';
 
@@ -164,9 +170,12 @@ try {
  * Example usage to retrieve a file.
  */
 
-// The known hash of the file and the human-readable description.
-const hash =
-  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+// The hash of the file we want to access.
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+// The human-readable file description.
 const description = 'Large AI model';
 
 // This triggers a permission prompt:
@@ -203,9 +212,12 @@ To illustrate the capabilities of the COS API, consider the following example wh
 On Site A, a web application stores a large language model in COS with a human-readable English description, "Large AI Model."
 
 ```js
-// The known hash of the file and the human-readable description.
-const hash =
-  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+// The hash of the file we want to access.
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+// The human-readable file description.
 const description = 'Large AI model';
 
 // This triggers a permission prompt:
@@ -226,7 +238,7 @@ try {
     // Compute the control hash using the method in Appendix B.
     const controlHash = await getBlobHash(fileBlob);
     // Check if control hash and known hash are the same.
-    if (controlHash !== hash) {
+    if (controlHash !== hash.value) {
       // Downloaded file and wanted file are different.
       // …
       return;
@@ -256,9 +268,12 @@ try {
 On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS, but refers to it with a human-readable Spanish description, "Modelo de IA Grande."
 
 ```js
-// The known hash of the file and the human-readable description.
-const hash =
-  'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
+// The hash of the file we want to access.
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+// The human-readable file description.
 const description = 'Modelo de IA Grande';
 
 // This triggers a permission prompt:
@@ -321,10 +336,13 @@ Since the file retrieved upon explicit user permission, there's no way for files
 
 ### Hashing
 
-COS relies on the same hashing algorithm to be used for all files. It's not possible to mix hashing algorithms, since, without access to the original file, there's no way to verify if a hash generated with hashing _algorithm&nbsp;A_ corresponds to a hash generated with hashing _algorithm&nbsp;B_. The used hashing algorithm is encoded in the hash as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
+COS relies on the same hashing algorithm to be used for all files. It's not possible to mix hashing algorithms, since, without access to the original file, there's no way to verify if a hash generated with hashing _algorithm&nbsp;A_ corresponds to a hash generated with hashing _algorithm&nbsp;B_. The used hashing algorithm is encoded in the hash as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 
-```
-SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4
+```js
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
 ```
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
@@ -361,15 +379,15 @@ If a user already has manually downloaded a file like a large AI model, should t
 
 ### Storing files without hashing
 
-Storing files by their names rather than using hashes would risk collisions and lead to inconsistent access, especially in a cross-origin environment. The use of hashes guarantees unique identification of each file, ensuring that the contents are consistently recognized and retrieved.
+Storing files by names rather than using hashes would risk name collisions, especially in a cross-origin environment. The use of hashes guarantees unique identification of each file, ensuring that the contents are consistently recognized and retrieved.
 
-### Manually opening files from harddisk
+### Manually accessing files from harddisk
 
-Different origins can manually open the same file on disk, either using the File System Access API's `showOpenFilePicker()` method or using the classic `<input type="file">` approach. This requires the file to be stored once, but access to the file can then be shared as explained in [Cache AI models in the browser](https://developer.chrome.com/docs/ai/cache-models#special_case_use_a_model_on_a_hard_disk). While this works, it's manual and error-prone, as it requires the user to know what file to choose from their harddisk in the picker.
+Different origins can manually open the same file on disk, either using the File System Access API's `showOpenFilePicker()` method or using the classic `<input type="file">` approach. This requires the file to be stored once, and access to the file can then be shared as explained in [Cache AI models in the browser](https://developer.chrome.com/docs/ai/cache-models#special_case_use_a_model_on_a_hard_disk). While this works, it's manual and error-prone, as it requires the user to know what file to choose from their harddisk in the file picker.
 
 ### Integrating cross-origin storage in the `fetch()` API
 
-On the server, cross-origin isolation isn't really a problem. At the same time, server runtimes like Node.js, Bun, or Deno implement `fetch()` as well. To avoid fragmentation and to keep the present `fetch()` API simple, it probably doesn't make sense to add COS to it.
+On the server, cross-origin isolation isn't really a problem. At the same time, server runtimes like Node.js, Bun, or Deno implement `fetch()` as well. To avoid fragmentation and to keep the present `fetch()` API simple, it probably doesn't make sense to add COS to `fetch()`. Since `fetch()` is URL-based, this would also not solve the case where the same file is stored at different locations.
 
 ### Integrating cross-origin storage in the Cache API
 
@@ -377,11 +395,11 @@ The Cache API is fundamentally modeled around the concepts of `Request` or URL s
 
 ### Solving the problem only for AI models
 
-AI models are admittedly the biggest motivation for working on COS, so one alternative would be to solve the problem exclusively for AI models, for example, by offering a storage mechanism on the `self.ai.*` namespace that Chrome is experimenting with in the context of built-in AI APIs like the [Prompt API](https://github.com/webmachinelearning/prompt-api) proposal. Two questions arise in the context: First, how would it be enforced that files are really AI models? Second, `self.ai.*` is explicitly focused on built-in AI APIs where the model is provided by the browser and not by the developer. Given this background, this approach doesn't seem like a great fit, and, maybe more importantly, the other use cases are well worth solving, too.
+AI models are admittedly the biggest motivation for working on COS, so one alternative would be to solve the problem exclusively for AI models, for example, by offering a storage mechanism on the `self.ai.*` namespace that Chrome is experimenting with in the context of built-in AI APIs like the [Prompt API](https://github.com/webmachinelearning/prompt-api) proposal. Two questions arise in the context: First, how would it be enforced that files are really AI models? Second, `self.ai.*` is explicitly focused on built-in AI APIs where the model is provided by the browser and not by the developer. Given this background, this approach doesn't seem like a great fit, and, maybe more importantly, the non-AI [use cases](#use-cases) are well worth solving, too.
 
 ## Stakeholder feedback / opposition
 
-- **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads, particularly in the context of huge AI models, SQLite databases, offline storage archives, and large Wasm modules.
+- **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads and storage, particularly in the context of huge AI models, SQLite databases, offline storage archives, and large Wasm modules.
 
 ## References
 
@@ -394,13 +412,12 @@ AI models are admittedly the biggest motivation for working on COS, so one alter
 
 Many thanks for valuable feedback from:
 
-- Christian Liebel
-- François Beaufort
+- **François Beaufort**, Google Chrome
 
 Many thanks for valuable inspiration or ideas from:
 
-- Kenji Baheux
-- Kevin Moore
+- **Kenji Baheux**, Google Chrome
+- **Kevin Moore**, Google Chrome
 
 ## Appendices
 
@@ -416,9 +433,14 @@ WorkerNavigator includes NavigatorCrossOriginStorage;
 [Exposed=(Window, Worker), SecureContext]
 interface CrossOriginStorageManager {
   Promise<FileSystemFileHandle> requestFileHandle(
-      DOMString hash,
+      CrossOriginStorageRequestFileHandleHash hash,
       CrossOriginStorageRequestFileHandleOptions options = {});
 };
+
+dictionary CrossOriginStorageRequestFileHandleHash {
+  DOMString value;
+  DOMString algorithm;
+}
 
 dictionary CrossOriginStorageRequestFileHandleOptions {
   DOMString description;
@@ -432,25 +454,28 @@ dictionary CrossOriginStorageRequestFileHandleOptions {
 async function getBlobHash(blob) {
   const hashAlgorithmIdentifier = 'SHA-256';
 
-  // Get the contents of the blob as binary data contained in an ArrayBuffer
+  // Get the contents of the blob as binary data contained in an ArrayBuffer.
   const arrayBuffer = await blob.arrayBuffer();
 
-  // Hash the arrayBuffer using SHA-256
+  // Hash the arrayBuffer using SHA-256.
   const hashBuffer = await crypto.subtle.digest(
     hashAlgorithmIdentifier,
     arrayBuffer,
   );
 
-  // Convert the ArrayBuffer to a hex string
+  // Convert the ArrayBuffer to a hex string.
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 
-  return `${hashAlgorithmIdentifier}: ${hashHex}`;
+  return {
+    algorithm: hashAlgorithmIdentifier,
+    value: hashHex,
+  };
 }
 
-// Example usage
+// Example usage:
 const fileBlob = await fetch('https://example.com/ai-model.bin').then(
   (response) => response.blob(),
 );
@@ -466,7 +491,7 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> Does this API help with resuming downloads? What if downloading a large file fails before the file ends up in COS?
   </summary>
   <p>
-    <strong>Answer:</strong> Managing downloads is out of scope for this proposal. COS can work with complete or with sharded files that the developer stores in COS as separate blobs and then assembles them after retrieval from COS. This way, downloads can be handled completely out-of-bounds, and developers can, for example, leverage the <a href="https://wicg.github.io/background-fetch/">Background Fetch API</a> or regular <code>fetch()</code> requests with <code>Range</code> headers to download large files.
+    <strong>Answer:</strong> Managing downloads is out of scope of this proposal. COS can work with complete or with sharded files that the developer stores in COS as separate blobs and then assembles them after retrieval from COS. This way, downloads can be handled completely out-of-bounds, and developers can, for example, leverage the <a href="https://wicg.github.io/background-fetch/">Background Fetch API</a> or regular <code>fetch()</code> requests with <code>Range</code> headers to download large files.
   </p>
 </details>
 
@@ -475,6 +500,6 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> Why does this API not target popular JavaScript libraries like jQuery?
   </summary>
   <p>
-    <strong>Answer:</strong> The short answer is version fragmentation. JavaScript libraries are way more fragmented than large AI models, SQLite databases, offline storage archives, and Wasm modules. The longer answer is that when the Chrome team did <a href="https://github.com/shivanigithub/http-cache-partitioning?tab=readme-ov-file#impact-on-metrics">research</a> in the context of <a href="https://github.com/shivanigithub/http-cache-partitioning">partitioning the HTTP cache</a>, they found that after partitioning the HTTP cache <em>"the overall cache miss rate increases by about 2 percentage points but changes to first contentful paint aren't statistically significant and the overall fraction of bytes loaded from the network only increase by around 1.5 percentage points"</em>. Furthermore, since the COS API <a href="#user-consent-and-permissions">requires permission</a> before accessing a file, it would for the majority of web apps not be practical to interrupt the user with a permission prompt for a few kilobytes of savings.
+    <strong>Answer:</strong> The short answer is version fragmentation. JavaScript libraries are way more fragmented than large AI models, SQLite databases, offline storage archives, and Wasm modules. The longer answer is that when the Chrome team did <a href="https://github.com/shivanigithub/http-cache-partitioning?tab=readme-ov-file#impact-on-metrics">research</a> in the context of <a href="https://github.com/shivanigithub/http-cache-partitioning">partitioning the HTTP cache</a>, they found that after partitioning the HTTP cache <em>"the overall cache miss rate increases by about 2 percentage points but changes to first contentful paint aren't statistically significant and the overall fraction of bytes loaded from the network only increase by around 1.5 percentage points"</em>. Furthermore, since the COS API <a href="#user-consent-and-permissions">requires permission</a> before accessing a file, it would, for the majority of web apps, not be practical to interrupt the user with a permission prompt for a few kilo- or megabytes of savings.
   </p>
 </details>
