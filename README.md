@@ -28,12 +28,12 @@ const description = 'Large AI Model';
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    name,
+    description,
   });
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
-  console.log('Retrieved', name, fileBlob);
+  console.log('Retrieved', description, fileBlob);
 } catch (err) {
   if (err.name === 'NotAllowedError') {
     console.log('The user did not grant permission to access the file.');
@@ -129,7 +129,7 @@ const description = 'Large AI model';
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    name,
+    description,
   });
 } catch (err) {
   if (err.name === 'NotFoundError') {
@@ -137,7 +137,7 @@ try {
     const fileBlob = await loadFileFromNetwork();
     try {
       const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-        name,
+        ,
         // Set to `true` to create the file.
         create: true,
       });
@@ -174,11 +174,11 @@ const description = 'Large AI model';
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    name,
+    description,
   });
   // The file exists in COS.
   const fileBlob = await handle.getFile();
-  console.log(`Retrieved file: ${name}`);
+  console.log(`Retrieved file: ${description}`);
   // Return the file as a Blob.
   console.log(fileBlob);
 } catch (err) {
@@ -198,9 +198,9 @@ try {
 
 To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same large language model. The first site stores the model in COS, while the second site retrieves it, each using different human-readable descriptions, one in English and one in Spanish.
 
-##### Site A: Storing a large language model with an English Name
+##### Site A: Storing a large language model with an English description
 
-On Site A, a web application stores a large language model in COS with a human-readable English name, "Large AI Model."
+On Site A, a web application stores a large language model in COS with a human-readable English description, "Large AI Model."
 
 ```js
 // The known hash of the file and the human-readable description.
@@ -213,7 +213,7 @@ const description = 'Large AI model';
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    name,
+    description,
   });
 
   // Use the file and return.
@@ -233,14 +233,14 @@ try {
     }
     try {
       handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-        name,
+        description,
         create: true,
       });
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
 
-      console.log(`File stored with name: ${name}`);
+      console.log(`File stored: ${description}`);
     } catch(err) {
       // The `write()` failed.
     }
@@ -251,9 +251,9 @@ try {
 }
 ```
 
-##### Site B: Retrieving the same model with a Spanish name
+##### Site B: Retrieving the same model with a Spanish description
 
-On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS, but refers to it with a human-readable Spanish name, "Modelo de IA Grande."
+On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS, but refers to it with a human-readable Spanish description, "Modelo de IA Grande."
 
 ```js
 // The known hash of the file and the human-readable description.
@@ -266,11 +266,11 @@ const description = 'Modelo de IA Grande';
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    name,
+    description,
   });
   const fileBlob = await handle.getFile();
-  // This now logs the Spanish name, even if the file was stored with an English name by site A.
-  console.log(`File retrieved with name: ${name}`);
+  // This now logs the Spanish description, even if the file was stored with an English description by site A.
+  console.log(`File retrieved with description: ${description}`);
   // Use the fileBlob as needed.
 } catch(err) {
   if (err.name === 'NotFoundError') {
@@ -286,16 +286,16 @@ try {
 ##### Key points
 
 - **Unrelated sites:** The two sites belong to different origins and do not share any context, ensuring the example demonstrates cross-origin capabilities.
-- **Human-readable descriptions:** Each site assigns its own human-readable description, localized to the user's context. The name isn't shared across origins.
-- **Cross-origin sharing:** Despite the different names and origins, the file is securely identified by its hash, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
+- **Human-readable descriptions:** Each site assigns its own human-readable description, localized to the user's context. The description isn't shared across origins.
+- **Cross-origin sharing:** Despite the different descriptions and origins, the file is securely identified by its hash, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
 
 ## Detailed design discussion
 
 ### User consent and permissions
 
-The permission prompt must clearly display the file's name to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
+The permission prompt must clearly display the file's description to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
-An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { name })` method is called without the `create` option set to `true`, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `name` will be part of the permission text. User agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
+An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { description })` method is called without the `create` option set to `true`, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `description` will be part of the permission text. User agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
 
 If the origin has stored the file before, the user agent can decide to not show a prompt.
 
@@ -421,7 +421,7 @@ interface CrossOriginStorageManager {
 };
 
 dictionary CrossOriginStorageRequestFileHandleOptions {
-  DOMString name;
+  DOMString description;
   optional boolean create = false;
 }
 ```
