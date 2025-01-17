@@ -21,7 +21,7 @@ The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and 
 ```js
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const name = 'Large AI Model';
+const description = 'Large AI Model';
 
 // This triggers a permission prompt:
 // example.com wants to access the file "Large AI Model" stored in your browser.
@@ -122,7 +122,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
 // The human-readable file description.
-const name = 'Large AI model';
+const description = 'Large AI model';
 
 // This triggers a permission prompt:
 // example.com wants to check if the file "Large AI Model" is stored by your browser.
@@ -167,7 +167,7 @@ try {
 // The known hash of the file and the human-readable description.
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const name = 'Large AI model';
+const description = 'Large AI model';
 
 // This triggers a permission prompt:
 // example.com wants to check if the file "Large AI Model" is stored by your browser.
@@ -206,7 +206,7 @@ On Site A, a web application stores a large language model in COS with a human-r
 // The known hash of the file and the human-readable description.
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const name = 'Large AI model';
+const description = 'Large AI model';
 
 // This triggers a permission prompt:
 // site-a.example.com wants to check if the file "Large AI Model" is stored by your browser.
@@ -259,7 +259,7 @@ On Site B, entirely unrelated to Site A, a different web application happens to 
 // The known hash of the file and the human-readable description.
 const hash =
   'SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const name = 'Modelo de IA Grande';
+const description = 'Modelo de IA Grande';
 
 // This triggers a permission prompt:
 // site-b.example.com wants to check if the file "Modelo de IA Grande" is stored by your browser.
