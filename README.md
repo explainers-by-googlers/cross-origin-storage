@@ -24,7 +24,7 @@ const hash =
 const description = 'Large AI Model';
 
 // This triggers a permission prompt:
-// example.com wants to access the file "Large AI Model" stored in your browser.
+// example.com wants to check if the file "Large AI Model" is stored by your browser.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
@@ -63,7 +63,7 @@ COS aims to:
 COS does _not_ aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **Web Storage**.
-- Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin resource access, such as potentially utilizing a cached version.
+- Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin file access, such as potentially utilizing a cached version.
 - Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendix-c-faq).)
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
@@ -85,11 +85,11 @@ Developers working with large AI models can store these models once and access t
 
 ### Use case 2: Large database files and offline storage archives
 
-Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2`](https://geocode.earth/data/whosonfirst/combined/) (8.00&nbsp;GB). Another use case involves large archives, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim`](https://library.kiwix.org/#lang=eng&category=wikipedia) (109.89&nbsp;GB) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once with the COS API has the advantage that multiple web apps can share the same resources.
+Web applications may depend on large SQLite databases, for example, for geodata as provided by Geocode Earth [`whosonfirst-data-admin-latest.db.bz2`](https://geocode.earth/data/whosonfirst/combined/) (8.00&nbsp;GB). Another use case involves large archives, for example, [ZIM files](https://wiki.openzim.org/wiki/ZIM_file_format) like [`wikipedia_en_all_maxi_2024-01.zim`](https://library.kiwix.org/#lang=eng&category=wikipedia) (109.89&nbsp;GB) as used by PWAs like [Kiwix](https://pwa.kiwix.org/www/index.html). Storing such files once with the COS API has the advantage that multiple web apps can share the same files.
 
 ### Use case 3: Large Wasm modules
 
-Web applications that utilize large Wasm modules can store these modules using COS and access them across different origins. This enables efficient sharing of resources between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four resources that are used by more than 1,000 hosts each day making more than two million daily requests in total.
+Web applications that utilize large Wasm modules can store these modules using COS and access them across different origins. This enables efficient sharing of files between applications, reducing redundant downloading and improving performance. Google's Flutter framework alone has four files that are used by more than 1,000 hosts each day making more than two million daily requests in total.
 
 | Request (`https://gstatic.com/flutter-canvaskit/`)                                                                                                                           | Size   | Hosts | Requests |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- | -------- |
@@ -313,7 +313,7 @@ If the user agent knows that the file exists, it can customize the permission pr
    ```
 
 > [!IMPORTANT]
-> The permission could mention other recent origins that have accessed the same resource, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
+> The permission could mention other recent origins that have accessed the same file, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
 
 ### Privacy
 
@@ -321,7 +321,7 @@ Since the file retrieved upon explicit user permission, there's no way for files
 
 ### Hashing
 
-COS relies on the same hashing algorithm to be used for all resources. It's not possible to mix hashing algorithms, since, without access to the original file, there's no way to verify if a hash generated with hashing _algorithm&nbsp;A_ corresponds to a hash generated with hashing _algorithm&nbsp;B_. The used hashing algorithm is encoded in the hash as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
+COS relies on the same hashing algorithm to be used for all files. It's not possible to mix hashing algorithms, since, without access to the original file, there's no way to verify if a hash generated with hashing _algorithm&nbsp;A_ corresponds to a hash generated with hashing _algorithm&nbsp;B_. The used hashing algorithm is encoded in the hash as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), separated by a colon and the actual hash.
 
 ```
 SHA-256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4
@@ -331,31 +331,31 @@ The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-
 
 ### Human-readable descriptions
 
-A valid human-readable description is a string that is not an empty string
+A valid human-readable description is a string that is not an empty string and that doesn't contain linebreaks or control characters.
 
 ## Open questions
 
 ### Concurrency
 
-What should happen if two tabs depend on the same resource, check COS, see it's not there, and start downloading? Should this be handled smartly? How often does this happen in practice? In the worst case, the file gets downloaded twice, but would then still only be stored once.
+What should happen if two tabs depend on the same file, check COS, see the file is not in COS, and start downloading? Should this be handled smartly? How often does this happen in practice? In the worst case, the file gets downloaded twice, but would then still only be stored once.
 
-### Minimum resource size
+### Minimum file size
 
-Should there be a required minimum resource size for a resource to be eligible for COS? Most likely not, since it would be trivial to inflate the file size of non-qualifying resources by adding space characters or comments. The assumption is that the required prompting would be scary enough for websites to only use COS for resources where it really makes sense to have them available cross-origin, that is, where they could profit themselves from using a potentially already cached version rather than downloading their own version from the network.
+Should there be a required minimum file size for a file to be eligible for COS? Most likely not, since it would be trivial to inflate the file size of non-qualifying files by adding space characters or comments. The assumption is that the required prompting would be scary enough for websites to only use COS for files where it really makes sense to have them available cross-origin, that is, where they could profit themselves from using a potentially already cached version rather than downloading their own version from the network.
 
 ### Handling of eviction
 
-Browsers should likely treat resources in COS under the same conditions as if they were [`persist()`](https://storage.spec.whatwg.org/#dom-storagemanager-persist)ed as per the Storage Living Standard.
+Browsers should likely treat files in COS under the same conditions as if they were [`persist()`](https://storage.spec.whatwg.org/#dom-storagemanager-persist)ed as per the Storage Living Standard.
 
-User agents are envisioned to offer browser settings UI for the user to see what resources are stored in COS and what origins recently have used each resource. Based on this stored information about the origins having last used a resource, the UI would let the user decide to delete a resource from COS.
+User agents are envisioned to offer browser settings UI for the user to see what files are stored in COS and what origins recently have used each file. Based on this stored information about the origins having last used a file, the UI would let the user decide to delete a file from COS.
 
 Under critical storage pressure, user agents could offer a manual dialog that invites the user to manually free up storage.
 
-When the user clears site data, all usage tracking associated with the origin is removed from resources in COS. If a resource in COS, after the removal of usage data, is deemed unused, the user agent may delete it from COS.
+When the user clears site data, all usage tracking associated with the origin is removed from files in COS. If a file in COS, after the removal of usage data, is deemed unused, the user agent may delete it from COS.
 
 ### Out-of-bounds access
 
-If a user already has manually downloaded a resource like a large AI model, should the browser offer a way to let the user put the resource in COS? Most likely this doesn't even need specifying, but could just be an affordance provided by the user-agent.
+If a user already has manually downloaded a file like a large AI model, should the browser offer a way to let the user put the file in COS? Most likely this doesn't even need specifying, but could just be an affordance provided by the user-agent.
 
 ## Considered alternatives
 
@@ -463,10 +463,10 @@ getBlobHash(fileBlob).then((hash) => {
 
 <details>
   <summary>
-    <strong>Question:</strong> Does this API help with resuming downloads? What if downloading a big resource fails before the file ends up in COS?
+    <strong>Question:</strong> Does this API help with resuming downloads? What if downloading a large file fails before the file ends up in COS?
   </summary>
   <p>
-    <strong>Answer:</strong> Managing downloads is out of scope for this proposal. COS can work with complete or with sharded files that the developer stores in COS as separate blobs and then assembles them after retrieval from COS. This way, downloads can be handled completely out-of-bounds, and developers can, for example, leverage the <a href="https://wicg.github.io/background-fetch/">Background Fetch API</a> or regular <code>fetch()</code> requests with <code>Range</code> headers to download large resources.
+    <strong>Answer:</strong> Managing downloads is out of scope for this proposal. COS can work with complete or with sharded files that the developer stores in COS as separate blobs and then assembles them after retrieval from COS. This way, downloads can be handled completely out-of-bounds, and developers can, for example, leverage the <a href="https://wicg.github.io/background-fetch/">Background Fetch API</a> or regular <code>fetch()</code> requests with <code>Range</code> headers to download large files.
   </p>
 </details>
 
