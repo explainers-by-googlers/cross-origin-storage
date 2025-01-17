@@ -66,7 +66,7 @@ try {
 
   const writableStream = await handle.createWritable();
   const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(
-    (res) => res.blob()
+    (res) => res.blob(),
   );
   await writableStream.write(fileBlob);
   await writableStream.close();

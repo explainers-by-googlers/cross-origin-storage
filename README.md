@@ -231,7 +231,7 @@ try {
   // Use the file and return.
   // …
   return;
-} catch(err) {
+} catch (err) {
   if (err.name === 'NotFoundError') {
     // Load the file from the network.
     const fileBlob = await loadFileFromNetwork();
@@ -253,7 +253,7 @@ try {
       await writableStream.close();
 
       console.log(`File stored: ${description}`);
-    } catch(err) {
+    } catch (err) {
       // The `write()` failed.
     }
     return;
@@ -287,7 +287,7 @@ try {
   // This now logs the Spanish description, even if the file was stored with an English description by site A.
   console.log(`File retrieved with description: ${description}`);
   // Use the fileBlob as needed.
-} catch(err) {
+} catch (err) {
   if (err.name === 'NotFoundError') {
     // The file wasn't in COS.
     console.error(err.name, err.message);
@@ -317,15 +317,15 @@ If the origin has stored the file before, the user agent can decide to not show 
 If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt:
 
 - If the file doesn't exist:
-   ```
-   example.com wants to check if the file "large file" is stored by your browser.
-   [Allow this time] [Allow on every visit] [Don't allow]
-   ```
+  ```
+  example.com wants to check if the file "large file" is stored by your browser.
+  [Allow this time] [Allow on every visit] [Don't allow]
+  ```
 - If the file does exist:
   ```
    example.com wants to access the file "large file" stored by your browser.
    [Allow this time] [Allow on every visit] [Don't allow]
-   ```
+  ```
 
 > [!IMPORTANT]
 > The permission could mention other recent origins that have accessed the same file, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).

@@ -47,7 +47,7 @@
     if (!data.success) {
       throw new DOMException(
         `File "${data.description}" not found in cross-origin storage.`,
-        'NotFoundError'
+        'NotFoundError',
       );
     }
 
@@ -83,7 +83,7 @@
     if (!userPermission) {
       throw new DOMException(
         `The user did not grant permission to access the file "${description}".`,
-        'NotAllowedError'
+        'NotAllowedError',
       );
     }
 
@@ -94,26 +94,26 @@
     requestFileHandle: async (hash, options = {}) => {
       if (!hash) {
         throw new TypeError(
-          `Failed to execute 'requestFileHandle': first argument 'hash' is required.`
+          `Failed to execute 'requestFileHandle': first argument 'hash' is required.`,
         );
       }
 
       if (!hash.value) {
         throw new TypeError(
-          `Failed to execute 'requestFileHandle': missing required 'hash.value'.`
+          `Failed to execute 'requestFileHandle': missing required 'hash.value'.`,
         );
       }
 
       if (!hash.algorithm) {
         throw new TypeError(
-          `Failed to execute 'requestFileHandle': missing required 'hash.algorithm'.`
+          `Failed to execute 'requestFileHandle': missing required 'hash.algorithm'.`,
         );
       }
 
       const { description, create = false } = options;
       if (!description) {
         throw new TypeError(
-          `Failed to execute 'requestFileHandle': 'options.description' is required.`
+          `Failed to execute 'requestFileHandle': 'options.description' is required.`,
         );
       }
 

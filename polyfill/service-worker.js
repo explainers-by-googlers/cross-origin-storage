@@ -1,8 +1,6 @@
 const CACHE_NAME = 'cos-polyfill';
 
-const FILES_TO_CACHE = [
-  'iframe.html',
-];
+const FILES_TO_CACHE = ['iframe.html'];
 
 self.addEventListener('install', async (event) => {
   try {
@@ -38,6 +36,6 @@ self.addEventListener('fetch', (event) => {
         console.error('Fetch failed; returning fallback response:', error);
         return new Response('Network error occurred', { status: 408 });
       }
-    })()
+    })(),
   );
 });
