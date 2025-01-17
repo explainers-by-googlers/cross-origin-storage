@@ -9,15 +9,14 @@ The **Cross-Origin Storage (COS) Polyfill** provides a JavaScript implementation
 
 The polyfill simulates the COS API to:
 
-1. **Store files across origins** with SHA-256 hashes for unique identification and user-friendly names for permission management.
+1. **Store files across origins** with SHA-256 hashes for unique identification and user-friendly descriptions for permission management.
 2. **Retrieve files from storage**, enabling applications to share large resources like AI models, Wasm modules, or database files.
 3. **Ensure user privacy and security**, with explicit permission prompts for file storage and access.
 
 ## Key features
 
-- **Cross-origin file storage and retrieval** with secure hashing for consistency.
-- **Human-readable names** for user-friendly file management.
-- **Browser-based caching** using the Cache API for efficient storage.
+- **Cross-origin file storage and retrieval** with secure hashing for integrity.
+- **Human-readable description** for user-friendly file management.
 - **User consent** mechanisms via prompts for file access and storage.
 
 ## How it works
@@ -30,7 +29,7 @@ The polyfill consists of several components:
    Acts as a secure intermediary for cross-origin file management, responding to `postMessage()` requests from client applications.
 
 1. **Polyfill library (`cos-polyfill.js`)**
-   Provides a `navigator.crossOriginStorage.*` API, exposing methods to request file handles, store files, and retrieve files.
+   Provides a `navigator.crossOriginStorage.*` API, exposing methods to request a file handle to store and retrieve files.
 
 1. **Utility Functions (`util.js`)**
    Includes helper functions like `getBlobHash()` to compute SHA-256 hashes for files.
@@ -39,13 +38,12 @@ The polyfill consists of several components:
 
 #### Storing a file
 
-1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash, a human-readable name, and `create: true`.
-1. The polyfill prompts the user to grant storage permission.
-1. Upon approval, the polyfill stores the file in the browser's Cache API, keyed by its hash.
+1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash, a human-readable description, and `create: true`.
+1. The polyfill stores the file in the browser's Cache API, keyed by its hash.
 
 #### Retrieving a file
 
-1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash and name.
+1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash and a human-readable description.
 1. The polyfill prompts the user to grant access permission.
 1. If the file exists in the cache, it is returned as a Blob. If not, the client may fetch it from the network.
 
@@ -54,12 +52,15 @@ The polyfill consists of several components:
 #### Storing a file
 
 ```js
-const hash = 'SHA-256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const name = 'Large AI Model';
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+const description = 'Large AI Model';
 
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    name,
+    description,
     create: true,
   });
 
@@ -70,7 +71,7 @@ try {
   await writableStream.write(fileBlob);
   await writableStream.close();
 
-  console.log(`Stored file: ${name}`);
+  console.log(`Stored file: ${description}`);
 } catch (err) {
   console.error(err.name, err.message);
 }
@@ -79,16 +80,19 @@ try {
 #### Retrieving a file
 
 ```javascript
-const hash = 'SHA-256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4';
-const name = 'Large AI Model';
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+const description = 'Large AI Model';
 
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    name,
+    description,
   });
 
   const fileBlob = await handle.getFile();
-  console.log(`Retrieved file: ${name}`, fileBlob);
+  console.log(`Retrieved file: ${description}`, fileBlob);
 } catch (err) {
   console.error(err.name, err.message);
 }
