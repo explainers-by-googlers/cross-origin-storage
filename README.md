@@ -8,6 +8,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 - [Thomas Steiner](mailto:tomac@google.com), Google Chrome
 - [Christian Liebel](mailto:christian@liebel.org), Thinktecture AG
+- [François Beaufort](mailto:fbeaufort@google.com), Google Chrome
 
 ## Participate
 
