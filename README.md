@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/tomayac/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo, consisting of a folder icon with a crossing person." width="100">
 
-This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archives, and WebAssembly (Wasm) modules. Taking inspiration from **Cache Digests for HTTP/2**, the API uses file hashes for integrity, while human-readable descriptions allow for permission management.
+This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archives, and WebAssembly (Wasm) modules. Taking inspiration from **Cache Digests for HTTP/2**, the API uses file hashes for integrity.
 
 This proposal is an early design sketch by Chrome Developer Relations to describe the problem below and solicit feedback on the proposed solution. It has not been approved to ship in Chrome.
 
@@ -19,7 +19,7 @@ This proposal is an early design sketch by Chrome Developer Relations to describ
 
 ## Introduction
 
-The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and Wasm modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity, and human-readable descriptions need to be assigned to files for permission management. The API uses concepts like `FileSystemFileHandle` from the **File System Living Standard** with a focus on cross-origin usage. Here is an example that shows the basic flow for retrieving a file from COS:
+The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and Wasm modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity. The API uses concepts like `FileSystemFileHandle` from the **File System Living Standard** with a focus on cross-origin usage. Here is an example that shows the basic flow for retrieving a file from COS:
 
 ```js
 // The hash of the file we want to access.
@@ -27,20 +27,17 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-// The human-readable file description.
-const description = 'Large AI Model';
-
 // This triggers a permission prompt:
-// example.com wants to check if the file "Large AI Model" is stored by your browser.
+// example.com wants to check if your browser already has a file it needs,
+// possibly saved from another site. If found, it will use the file without
+// changing it.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    description,
-  });
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
-  console.log('Retrieved', description, fileBlob);
+  console.log('Retrieved', fileBlob);
 } catch (err) {
   if (err.name === 'NotAllowedError') {
     console.log('The user did not grant permission to access the file.');
@@ -62,8 +59,7 @@ COS aims to:
 
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
-- Use SHA-256 hashes (see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
-- Require developers to assign human-readable descriptions to files for permission management.
+- Use SHA-256 hashes (see [Appendix&nbsp;B](#appendix-b-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
 
 ## Non-goals
 
@@ -111,14 +107,14 @@ Web applications that utilize large Wasm modules can store these modules using C
 
 ### File Storage Process
 
-The **COS** API will be available through the `navigator.crossOriginStorage` interface. Files will be stored and retrieved using their hashes, ensuring that each file is uniquely identified. A human-readable description needs to be provided for permission management of files.
+The **COS** API will be available through the `navigator.crossOriginStorage` interface. Files will be stored and retrieved using their hashes, ensuring that each file is uniquely identified.
 
 #### Storing a file
 
-1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used hash algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
-1. Request a `FileSystemFileHandle` for the file, specifying the file's hash and a human-readable description. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the browser.
-1. If a file with the hash already exists, return.
-1. Else, store the file in the browser.
+1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used hash algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
+1. Request a `FileSystemFileHandle` for the file, specifying the file's hash.
+1. The resulting `FileSystemFileHandle` can only be used for writing. Trying to read would fail with a `NotAllowed` `DOMException`.
+1. Store the file in the browser.
 
 ```js
 /**
@@ -130,16 +126,14 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-// The human-readable file description.
-const description = 'Large AI model';
 
 // This triggers a permission prompt:
-// example.com wants to check if the file "Large AI Model" is stored by your browser.
+// example.com wants to check if your browser already has a file it needs,
+// possibly saved from another site. If found, it will use the file without
+// changing it.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    description,
-  });
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
 } catch (err) {
   if (err.name === 'NotFoundError') {
     // Load the file from the network.
@@ -166,7 +160,7 @@ try {
 
 #### Retrieving a file
 
-1. Request a file handle using the file's hash and a human-readable description. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the browser.
+1. Request a file handle using the file's hash. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the browser.
 1. Retrieve the file after the user has granted access.
 
 ```js
@@ -179,19 +173,17 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-// The human-readable file description.
-const description = 'Large AI model';
 
 // This triggers a permission prompt:
-// example.com wants to check if the file "Large AI Model" is stored by your browser.
+// example.com wants to check if your browser already has a file it needs,
+// possibly saved from another site. If found, it will use the file without
+// changing it.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    description,
-  });
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
-  console.log(`Retrieved file: ${description}`);
+  console.log('Retrieved file', fileBlob);
   // Return the file as a Blob.
   console.log(fileBlob);
 } catch (err) {
@@ -209,11 +201,11 @@ try {
 
 #### Storing and retrieving a file across unrelated sites
 
-To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same large language model. The first site stores the model in COS, while the second site retrieves it, each using different human-readable descriptions, one in English and one in Spanish.
+To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same large language model. The first site stores the model in COS, while the second site retrieves it.
 
-##### Site A: Storing a large language model with an English description
+##### Site A: Storing a large language model
 
-On Site A, a web application stores a large language model in COS with a human-readable English description, "Large AI Model."
+On Site A, a web application stores a large language model in COS.
 
 ```js
 // The hash of the file we want to access.
@@ -221,16 +213,14 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-// The human-readable file description.
-const description = 'Large AI model';
 
 // This triggers a permission prompt:
-// site-a.example.com wants to check if the file "Large AI Model" is stored by your browser.
+// site-a.example.com wants to check if your browser already has a file it
+// needs, possibly saved from another site. If found, it will use the file
+// without changing it.”
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    description,
-  });
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
 
   // Use the file and return.
   // …
@@ -258,7 +248,7 @@ try {
       await writableStream.write(fileBlob);
       await writableStream.close();
 
-      console.log(`File stored: ${description}`);
+      console.log('File stored.');
     } catch (err) {
       // The `write()` failed.
     }
@@ -269,9 +259,9 @@ try {
 }
 ```
 
-##### Site B: Retrieving the same model with a Spanish description
+##### Site B: Retrieving the same model
 
-On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS, but refers to it with a human-readable Spanish description, "Modelo de IA Grande."
+On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS.
 
 ```js
 // The hash of the file we want to access.
@@ -279,19 +269,16 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-// The human-readable file description.
-const description = 'Modelo de IA Grande';
 
 // This triggers a permission prompt:
-// site-b.example.com wants to check if the file "Modelo de IA Grande" is stored by your browser.
+// site-b.example.com wants to check if your browser already has a file it
+// needs, possibly saved from another site. If found, it will use the file
+// without changing it.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    description,
-  });
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
   const fileBlob = await handle.getFile();
-  // This now logs the Spanish description, even if the file was stored with an English description by site A.
-  console.log(`File retrieved with description: ${description}`);
+  console.log('File retrieved', fileBlob);
   // Use the fileBlob as needed.
 } catch (err) {
   if (err.name === 'NotFoundError') {
@@ -307,34 +294,36 @@ try {
 ##### Key points
 
 - **Unrelated sites:** The two sites belong to different origins and do not share any context, ensuring the example demonstrates cross-origin capabilities.
-- **Human-readable descriptions:** Each site assigns its own human-readable description, localized to the user's context. The description isn't shared across origins.
-- **Cross-origin sharing:** Despite the different descriptions and origins, the file is securely identified by its hash, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
+- **Cross-origin sharing:** Despite the different origins, the file is securely identified by its hash, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
 
 ## Detailed design discussion
 
 ### User consent and permissions
 
-The permission prompt must clearly display the file's description to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
+The permission prompt must clearly convey that the user agent is granting access to a shared file. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
-An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { description })` method is called _without_ the `create` option set to `true`, which can happen to check for existence of the file and to obtain the handle to then get the actual file.
+An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash)` method is called _without_ the `create` option set to `true`, which can happen to check for existence of the file and to obtain the handle to then get the actual file.
 
 The resulting `FileSystemFileHandle` that the developer obtains when `create` is set to `true` can only be used for writing. Trying to call `FileSystemFileHandle.getFile()` would fail with a `NotAllowed` `DOMException`.
 
-The `description` will be part of the permission text. User agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
+User agents can decide to allow access on every visit, or to explicitly ask upon each access attempt.
 
-If the origin has stored the file before, the user agent can decide to not show a prompt.
+If an origin itself has stored the file before, the user agent can decide to not show a prompt if the origin requests access to the file again.
 
 If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt:
 
 - If the file doesn't exist:
   ```
-  example.com wants to check if the file "large file" is stored by your browser.
+  example.com wants to check if your browser already has a file it needs,
+  possibly saved from another site. If found, it will use the file without
+  changing it.
   [Allow this time] [Allow on every visit] [Don't allow]
   ```
 - If the file does exist:
   ```
-   example.com wants to access the file "large file" stored by your browser.
-   [Allow this time] [Allow on every visit] [Don't allow]
+  example.com wants to access a file it needs that was already saved from another site. If you allow,
+  it will use the file without changing it.
+  [Allow this time] [Allow on every visit] [Don't allow]
   ```
 
 > [!IMPORTANT]
@@ -356,10 +345,6 @@ const hash = {
 ```
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
-
-### Human-readable descriptions
-
-A valid human-readable description is a string that is not an empty string and that doesn't contain linebreaks or control characters.
 
 ## Open questions
 
@@ -431,7 +416,7 @@ Many thanks for valuable inspiration or ideas from:
 
 ## Appendices
 
-### Appendix A: Full IDL
+### Appendix&nbsp;A: Full IDL
 
 ```webidl
 interface mixin NavigatorCrossOriginStorage {
@@ -453,12 +438,11 @@ dictionary CrossOriginStorageRequestFileHandleHash {
 }
 
 dictionary CrossOriginStorageRequestFileHandleOptions {
-  DOMString description;
   optional boolean create = false;
 }
 ```
 
-### Appendix B: Blob hash with the Web Crypto API
+### Appendix&nbsp;B: Blob hash with the Web Crypto API
 
 ```js
 async function getBlobHash(blob) {
@@ -494,7 +478,7 @@ getBlobHash(fileBlob).then((hash) => {
 });
 ```
 
-### Appendix C: FAQ
+### Appendix&nbsp;C: Frequently asked questions (FAQ)
 
 <details>
   <summary>

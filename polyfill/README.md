@@ -9,14 +9,13 @@ The **Cross-Origin Storage (COS) Polyfill** provides a JavaScript implementation
 
 The polyfill simulates the COS API to:
 
-1. **Store files across origins** with SHA-256 hashes for unique identification and user-friendly descriptions for permission management.
+1. **Store files across origins** with SHA-256 hashes for unique identification.
 2. **Retrieve files from storage**, enabling applications to share large resources like AI models, Wasm modules, or database files.
 3. **Ensure user privacy and security**, with explicit permission prompts for file storage and access.
 
 ## Key features
 
 - **Cross-origin file storage and retrieval** with secure hashing for integrity.
-- **Human-readable description** for user-friendly file management.
 - **User consent** mechanisms via prompts for file access and storage.
 
 ## How it works
@@ -38,12 +37,12 @@ The polyfill consists of several components:
 
 #### Storing a file
 
-1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash, a human-readable description, and `create: true`.
+1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash and `create: true`.
 1. The polyfill stores the file in the browser's Cache API, keyed by its hash.
 
 #### Retrieving a file
 
-1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash and a human-readable description.
+1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash.
 1. The polyfill prompts the user to grant access permission.
 1. If the file exists in the cache, it is returned as a Blob. If not, the client may fetch it from the network.
 
@@ -56,11 +55,9 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-const description = 'Large AI Model';
 
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    description,
     create: true,
   });
 
@@ -71,7 +68,7 @@ try {
   await writableStream.write(fileBlob);
   await writableStream.close();
 
-  console.log(`Stored file: ${description}`);
+  console.log('Stored file.');
 } catch (err) {
   console.error(err.name, err.message);
 }
@@ -84,15 +81,12 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-const description = 'Large AI Model';
 
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-    description,
-  });
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
 
   const fileBlob = await handle.getFile();
-  console.log(`Retrieved file: ${description}`, fileBlob);
+  console.log('Retrieved file', fileBlob);
 } catch (err) {
   console.error(err.name, err.message);
 }
