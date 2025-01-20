@@ -385,6 +385,8 @@ AI models are admittedly the biggest motivation for working on COS, so one alter
 
 ## Security and privacy considerations
 
+See the complete [questionnaire](security-questionnaire.md) for details.
+
 ## Stakeholder feedback / opposition
 
 - **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads and storage, particularly in the context of huge AI models, SQLite databases, offline storage archives, and large Wasm modules.
