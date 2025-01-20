@@ -313,18 +313,9 @@ If an origin itself has stored the file before, the user agent can decide to not
 If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt:
 
 - If the file doesn't exist:
-  ```
-  example.com wants to check if your browser already has a file it needs,
-  possibly saved from another site. If found, it will use the file without
-  changing it.
-  [Allow this time] [Allow on every visit] [Don't allow]
-  ```
+  ![example.com wants to check if your browser already has a file it needs, possibly saved from another site. If found, it will use the file without changing it. (Allow this time) (Allow on every visit) (Don't allow)](./permission-1.png)
 - If the file does exist:
-  ```
-  example.com wants to access a file it needs that was already saved from another site. If you allow this,
-  it will use the file without changing it.
-  [Allow this time] [Allow on every visit] [Don't allow]
-  ```
+  ![example.com wants to access a file it needs that was already saved from another site. If you allow this, it will use the file without changing it. (Allow this time) (Allow on every visit) (Don't allow)](./permission-2.png)
 
 > [!IMPORTANT]
 > The permission could mention other recent origins that have accessed the same file, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
