@@ -383,6 +383,8 @@ The Cache API is fundamentally modeled around the concepts of `Request` or URL s
 
 AI models are admittedly the biggest motivation for working on COS, so one alternative would be to solve the problem exclusively for AI models, for example, by offering a storage mechanism on the `self.ai.*` namespace that Chrome is experimenting with in the context of built-in AI APIs like the [Prompt API](https://github.com/webmachinelearning/prompt-api) proposal. Two questions arise in the context: First, how would it be enforced that files are really AI models? Second, `self.ai.*` is explicitly focused on built-in AI APIs where the model is provided by the browser and not by the developer. Given this background, this approach doesn't seem like a great fit, and, maybe more importantly, the non-AI [use cases](#use-cases) are well worth solving, too.
 
+## Security and privacy considerations
+
 ## Stakeholder feedback / opposition
 
 - **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads and storage, particularly in the context of huge AI models, SQLite databases, offline storage archives, and large Wasm modules.
