@@ -148,6 +148,9 @@ try {
       const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
         create: true,
       });
+      // The resulting `FileSystemFileHandle` can only be used for writing.
+      // Trying to call `handle.getFile()` would fail with a `NotAllowed`
+      // `DOMException.
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
@@ -248,6 +251,9 @@ try {
       handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
         create: true,
       });
+      // The resulting `FileSystemFileHandle` can only be used for writing.
+      // Trying to call `handle.getFile()` would fail with a `NotAllowed`
+      // `DOMException.
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
@@ -310,7 +316,11 @@ try {
 
 The permission prompt must clearly display the file's description to ensure users understand what file they are being asked to store or retrieve. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
-An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { description })` method is called without the `create` option set to `true`, which can happen to check for existence of the file and to obtain the handle to then get the actual file. The `description` will be part of the permission text. User agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
+An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandle(hash, { description })` method is called _without_ the `create` option set to `true`, which can happen to check for existence of the file and to obtain the handle to then get the actual file.
+
+The resulting `FileSystemFileHandle` that the developer obtains when `create` is set to `true` can only be used for writing. Trying to call `FileSystemFileHandle.getFile()` would fail with a `NotAllowed` `DOMException`.
+
+The `description` will be part of the permission text. User agents can decide to allow this on every visit, or to explicitly ask upon each access attempt.
 
 If the origin has stored the file before, the user agent can decide to not show a prompt.
 
