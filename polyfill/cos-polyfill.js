@@ -51,14 +51,13 @@
   async function handleRequestFileHandleResponse(data) {
     if (!data.success) {
       throw new DOMException(
-        `File "${data.description}" not found in cross-origin storage.`,
+        `File "${data.hash.value}" not found in cross-origin storage.`,
         'NotFoundError',
       );
     }
 
-    const { hash, description } = data;
+    const { hash } = data;
     return {
-      description,
       getFile: async () => {
         return await talkToIframe('getFileData', { hash });
       },
@@ -78,21 +77,21 @@
     };
   }
 
-  async function requestFileHandle(hash, description, create = false) {
+  async function requestFileHandle(hash, create = false) {
     await iframeReadyPromise;
 
     const hostname = location.hostname;
-    const message = `${hostname} wants to check if the file "${description}" is stored by your browser.`;
+    const message = `${hostname} wants to check if your browser already has a file it needs, possibly saved from another site. If found, it will use the file without changing it.`;
 
     const userPermission = confirm(message);
     if (!userPermission) {
       throw new DOMException(
-        `The user did not grant permission to access the file "${description}".`,
+        `The user did not grant permission to access the file "${hash.value}".`,
         'NotAllowedError',
       );
     }
 
-    return talkToIframe('requestFileHandle', { hash, description, create });
+    return talkToIframe('requestFileHandle', { hash, create });
   }
 
   const crossOriginStorage = {
@@ -115,14 +114,8 @@
         );
       }
 
-      const { description, create = false } = options;
-      if (!description) {
-        throw new TypeError(
-          `Failed to execute 'requestFileHandle': 'options.description' is required.`,
-        );
-      }
-
-      return await requestFileHandle(hash, description, create);
+      const { create = false } = options;
+      return await requestFileHandle(hash, create);
     },
   };
 

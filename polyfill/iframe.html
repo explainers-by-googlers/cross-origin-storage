@@ -28,10 +28,10 @@
 
         switch (action) {
           case 'requestFileHandle': {
-            const { hash, create, description } = data;
+            const { hash, create } = data;
             const success = await getFileHandle(hash, create);
             window.parent.postMessage(
-              { action, data: { hash, description, success } },
+              { action, data: { hash, success } },
               event.origin,
             );
             break;
