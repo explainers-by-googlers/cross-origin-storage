@@ -146,8 +146,6 @@ try {
     const fileBlob = await loadFileFromNetwork();
     try {
       const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-        ,
-        // Set to `true` to create the file.
         create: true,
       });
       const writableStream = await handle.createWritable();
@@ -248,7 +246,6 @@ try {
     }
     try {
       handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-        description,
         create: true,
       });
       const writableStream = await handle.createWritable();
