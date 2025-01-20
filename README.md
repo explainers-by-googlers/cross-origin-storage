@@ -321,7 +321,7 @@ If the user agent knows that the file exists, it can customize the permission pr
   ```
 - If the file does exist:
   ```
-  example.com wants to access a file it needs that was already saved from another site. If you allow,
+  example.com wants to access a file it needs that was already saved from another site. If you allow this,
   it will use the file without changing it.
   [Allow this time] [Allow on every visit] [Don't allow]
   ```
