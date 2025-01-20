@@ -513,3 +513,12 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Answer:</strong> The short answer is version fragmentation. JavaScript libraries are way more fragmented than large AI models, SQLite databases, offline storage archives, and Wasm modules. The longer answer is that when the Chrome team did <a href="https://github.com/shivanigithub/http-cache-partitioning?tab=readme-ov-file#impact-on-metrics">research</a> in the context of <a href="https://github.com/shivanigithub/http-cache-partitioning">partitioning the HTTP cache</a>, they found that after partitioning the HTTP cache <em>"the overall cache miss rate increases by about 2 percentage points but changes to first contentful paint aren't statistically significant and the overall fraction of bytes loaded from the network only increase by around 1.5 percentage points"</em>. Furthermore, since the COS API <a href="#user-consent-and-permissions">requires permission</a> before accessing a file, it would, for the majority of web apps, not be practical to interrupt the user with a permission prompt for a few kilo- or megabytes of savings.
   </p>
 </details>
+
+<details>
+  <summary>
+    <strong>Question:</strong> What other API is this API shaped after?
+  </summary>
+  <p>
+    <strong>Answer:</strong> The COS API is shaped after the File System Standard's [`getFileHandle()`](https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle) function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter, in COS, there's the <code>hash</code> object that fulfills the equivalent function of uniquely identifying a file in COS. If <code>options.create</code> isn't set or is set to <code>false</code>, the user agent will, upon user consent, return a handle for the file identified by the hash value. If and only if <code>options.create</code> is set to <code>true</code>, the browser will return a handle that can be written to, but never read from. This design means it's save to not necessarily require a permission prompt for writing, but to always require a permission prompt for reading or existence checks.
+  </p>
+</details>
