@@ -1,3 +1,8 @@
+/**
+ * Copyright 2025 Google LLC.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 const CACHE_NAME = 'cos-polyfill';
 
 const FILES_TO_CACHE = ['iframe.html'];
