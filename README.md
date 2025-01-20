@@ -150,7 +150,7 @@ try {
       });
       // The resulting `FileSystemFileHandle` can only be used for writing.
       // Trying to call `handle.getFile()` would fail with a `NotAllowed`
-      // `DOMException.
+      // `DOMException`.
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
@@ -253,7 +253,7 @@ try {
       });
       // The resulting `FileSystemFileHandle` can only be used for writing.
       // Trying to call `handle.getFile()` would fail with a `NotAllowed`
-      // `DOMException.
+      // `DOMException`.
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
