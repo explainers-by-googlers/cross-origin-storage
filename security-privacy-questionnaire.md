@@ -2,7 +2,7 @@
 
 ## 01. What information does this feature expose, and for what purposes?
 
-The COS API exposes the availability of files identified by their hash across different origins. The purpose is to enable efficient sharing of large files (e.g., AI models, SQLite databases, Wasm modules) to reduce redundant downloads and storage.
+The COS API exposes the availability of files identified by their hash across different origins. The purpose is to enable efficient sharing of large files (for example, AI models, SQLite databases, Wasm modules) to reduce redundant downloads and storage.
 
 ## 02. Do features in your specification expose the minimum amount of information necessary to implement the intended functionality?
 
