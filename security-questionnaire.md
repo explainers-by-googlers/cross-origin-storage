@@ -2,11 +2,11 @@
 
 ## 01. What information does this feature expose, and for what purposes?
 
-The COS API exposes the availability of files identified by their SHA-256 hash across different origins. The purpose is to enable efficient sharing of large files (e.g., AI models, SQLite databases, Wasm modules) to reduce redundant downloads and storage.
+The COS API exposes the availability of files identified by their hash across different origins. The purpose is to enable efficient sharing of large files (e.g., AI models, SQLite databases, Wasm modules) to reduce redundant downloads and storage.
 
 ## 02. Do features in your specification expose the minimum amount of information necessary to implement the intended functionality?
 
-Yes, after explicit user consent, the API exposes only the existence of a file with a known hash and provides access to it. No additional metadata is exposed.
+Yes, after explicit user consent, the API exposes only the existence of a file with a known hash and provides read access to it. No additional metadata nor write access is exposed.
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
@@ -66,7 +66,7 @@ Yes. The specification includes detailed sections addressing security and privac
 
 ## 17. Do features in your specification enable origins to downgrade default security protections?
 
-No.
+Yes, upon explicit user consent.
 
 ## 18. What happens when a document that uses your feature is kept alive in BFCache?
 
@@ -78,7 +78,7 @@ The file access operation will terminate, and any pending storage or retrieval w
 
 ## 20. Does your spec define when and how new kinds of errors should be raised?
 
-Yes. The specification defines specific errors such as `NotAllowedError` (for denied permissions) and `NotFoundError` (for unavailable files).
+No.
 
 ## 21. Does your feature allow sites to learn about the user's use of assistive technology?
 
