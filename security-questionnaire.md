@@ -10,7 +10,7 @@ Yes, the API exposes only the existence of a file and provides access to it afte
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
-No. The API operates solely on file hashes and does not handle or expose any personal or identifiable user information.
+No.
 
 ## 04. How do the features in your specification deal with sensitive information?
 
