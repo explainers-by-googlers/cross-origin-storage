@@ -418,9 +418,8 @@ interface mixin NavigatorCrossOriginStorage {
   [SameObject, SecureContext] readonly attribute CrossOriginStorageManager crossOriginStorage;
 };
 Navigator includes NavigatorCrossOriginStorage;
-WorkerNavigator includes NavigatorCrossOriginStorage;
 
-[Exposed=(Window, Worker), SecureContext]
+[Exposed=(Window), SecureContext]
 interface CrossOriginStorageManager {
   Promise<FileSystemFileHandle> requestFileHandle(
       CrossOriginStorageRequestFileHandleHash hash,
