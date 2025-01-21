@@ -18,7 +18,7 @@ Files can only be accessed with explicit user consent. The API does not allow ar
 
 ## 05. Does data exposed by your specification carry related but distinct information that may not be obvious to users?
 
-No. The API design ensures that only the explicit file hash and its availability are exposed, with no hidden or derived information.
+No.
 
 ## 06. Do the features in your specification introduce state that persists across browsing sessions?
 
