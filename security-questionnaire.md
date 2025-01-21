@@ -58,7 +58,7 @@ The permission model ensures that file access is user-controlled, regardless of 
 
 ## 15. How do the features in this specification work in the context of a browser’s Private Browsing or Incognito mode?
 
-Files stored in COS are not accessible in Private Browsing or Incognito mode unless explicitly allowed by the user agent. Data stored during such sessions is not retained.
+Files previously stored in COS are not accessible in Private Browsing or Incognito mode. Browser vendors may allow COS to work during an Incognito session, but the data would not be retained. Alternatively, Browser vendors may disable COS entirely.
 
 ## 16. Does this specification have both "Security Considerations" and "Privacy Considerations" sections?
 
