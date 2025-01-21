@@ -46,7 +46,7 @@ No.
 
 ## 12. Do features in this specification allow an origin some measure of control over a user agent's native UI?
 
-No. The user agent remains in full control, particularly for displaying permission prompts.
+No.
 
 ## 13. What temporary identifiers do the features in this specification create or expose to the web?
 
