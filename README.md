@@ -385,7 +385,7 @@ AI models are admittedly the biggest motivation for working on COS, so one alter
 
 ## Security and privacy considerations
 
-See the complete [questionnaire](security-questionnaire.md) for details.
+See the complete [questionnaire](security-privacy-questionnaire.md) for details.
 
 ## Stakeholder feedback / opposition
 
@@ -399,10 +399,6 @@ See the complete [questionnaire](security-questionnaire.md) for details.
 - [Cache Digests for HTTP/2](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cache-digest)
 
 ## Acknowledgements
-
-Many thanks for valuable feedback from:
-
-- **François Beaufort**, Google Chrome
 
 Many thanks for valuable inspiration or ideas from:
 
