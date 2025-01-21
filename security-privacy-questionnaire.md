@@ -62,7 +62,7 @@ Files previously stored in COS are not accessible in Private Browsing or Incogni
 
 ## 16. Does this specification have both "Security Considerations" and "Privacy Considerations" sections?
 
-Yes. The specification includes detailed sections addressing security and privacy implications, including hashing, user consent, and eviction policies.
+Yes. The specification includes detailed sections addressing [security considerations](README.MD#security-considerations) and [privacy implications](README.MD#privacy-considerations).
 
 ## 17. Do features in your specification enable origins to downgrade default security protections?
 

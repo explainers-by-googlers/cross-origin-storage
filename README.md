@@ -387,6 +387,26 @@ AI models are admittedly the biggest motivation for working on COS, so one alter
 
 See the complete [questionnaire](security-privacy-questionnaire.md) for details.
 
+### Security considerations
+
+The API mandates [explicit user consent](#user-consent-and-permissions)) before any file access or storage operation, and permission prompts clearly inform users of the requesting site's intent, providing options to allow or deny access. There's no implicit cross-origin information leakage as files in COS are inaccessible without explicit user permission, ensuring no site can infer the presence or absence of specific files without user interaction. User agents can customize permission prompts to minimize confusion while providing transparency. For example, user agents may decide that origins that stored files previously may access them without prompting, provided user agents deem it safe.
+
+Access is scoped to individual files, [identified by their hashes](#hashing). Developers can't arbitrarily access all files, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (e.g., SHA-256), ensuring data integrity. Hashes prevent tampering with the file contens, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself as COS guarantees that the file content matches its hash.
+
+File handles provided by the API can [only perform specific operations based on their context](#user-consent-and-permissions) (e.g., writing, but not reading, during creation). Misuse of file handles is mitigated by these constraints.
+
+User agents are envisioned to offer [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
+
+### Privacy considerations
+
+The use of explicit user permission ensures that COS cannot be exploited for tracking or persistent storage across origins without user awareness. Files in COS can't become unvolunatary [supercookies](https://blog.mozilla.org/en/internet-culture/mozilla-explains-cookies-and-supercookies/) without the user noticing.
+
+Prompts can [differentiate between file existence checks and access requests](#user-consent-and-permissions), reducing the risk of misuse or user misunderstanding. Recent origin access to a file is only visible to users via envisioned browser settings UI, not to other origins.
+
+COS [use cases](#use-cases) are limited on purpose to mitigate abuse. The API is designed for large files, discouraging use for smaller assets like JavaScript libraries. Its permission model inherently discourages overuse due to user interruption.
+
+Files in COS may be evicted under critical storage pressure, maintaining system performance and preventing abuse of storage space.
+
 ## Stakeholder feedback / opposition
 
 - **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads and storage, particularly in the context of huge AI models, SQLite databases, offline storage archives, and large Wasm modules.
