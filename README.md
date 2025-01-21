@@ -391,7 +391,7 @@ See the complete [questionnaire](security-privacy-questionnaire.md) for details.
 
 The API mandates [explicit user consent](#user-consent-and-permissions) before any file access or storage operation, and permission prompts clearly inform users of the requesting site's intent, providing options to allow or deny access. There's no implicit cross-origin information leakage as files in COS are inaccessible without explicit user permission, ensuring no site can infer the presence or absence of specific files without user interaction. User agents can customize permission prompts to minimize confusion while providing transparency. For example, user agents may decide that origins that stored files previously may access them without prompting, provided user agents deem it safe.
 
-Access is scoped to individual files, [identified by their hashes](#hashing). Developers can't arbitrarily access all files, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contens, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself as COS guarantees that the file content matches its hash.
+Access is scoped to individual files, [identified by their hashes](#hashing). Developers can't arbitrarily access all files, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contents, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself as COS guarantees that the file content matches its hash.
 
 File handles provided by the API can [only perform specific operations based on their context](#user-consent-and-permissions) (for example, writing, but not reading, during creation). Misuse of file handles is mitigated by these constraints.
 
@@ -399,7 +399,7 @@ User agents are envisioned to offer [settings UI for managing COS files](#handli
 
 ### Privacy considerations
 
-The use of explicit user permission ensures that COS cannot be exploited for tracking or persistent storage across origins without user awareness. Files in COS can't become unvolunatary [supercookies](https://blog.mozilla.org/en/internet-culture/mozilla-explains-cookies-and-supercookies/) without the user noticing.
+The use of explicit user permission ensures that COS cannot be exploited for tracking or persistent storage across origins without user awareness. Files in COS can't become involuntary [supercookies](https://blog.mozilla.org/en/internet-culture/mozilla-explains-cookies-and-supercookies/) without the user noticing.
 
 Prompts can [differentiate between file existence checks and access requests](#user-consent-and-permissions), reducing the risk of misuse or user misunderstanding. Recent origin access to a file is only visible to users via envisioned browser settings UI, not to other origins.
 
