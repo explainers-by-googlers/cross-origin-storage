@@ -58,7 +58,7 @@ Explicit user consent is required for cross-origin access.
 
 ## 15. How do the features in this specification work in the context of a browser’s Private Browsing or Incognito mode?
 
-Files previously stored in COS are not accessible in Private Browsing or Incognito mode. Browser vendors may allow COS to work during an Incognito session, but the data would not be retained. Alternatively, Browser vendors may disable COS entirely.
+Files previously stored in COS are not accessible in Private Browsing or Incognito mode. Browser vendors may allow COS to work during an Incognito session, but the data would not be retained. Alternatively, browser vendors may disable COS entirely.
 
 ## 16. Does this specification have both "Security Considerations" and "Privacy Considerations" sections?
 
