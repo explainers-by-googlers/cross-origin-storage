@@ -218,7 +218,7 @@ const hash = {
 // This triggers a permission prompt:
 // site-a.example.com wants to check if your browser already has a file it
 // needs, possibly saved from another site. If found, it will use the file
-// without changing it.”
+// without changing it.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
   const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
@@ -323,7 +323,7 @@ If the user agent knows that the file exists, it can customize the permission pr
 
 ### Privacy
 
-Since the file retrieved upon explicit user permission, there's no way for files stored in COS to become supercookies without raising the user's suspicion. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon. User agents can decide to not prompt if the present origin has stored the file before.
+Since the file retrieved upon explicit user permission, there's no way for files stored in COS to become supercookies without raising the user's suspicion. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon. User agents can decide not to prompt if the present origin has stored the file before.
 
 ### Hashing
 
