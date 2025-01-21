@@ -6,7 +6,7 @@ The COS API exposes the availability of files identified by their hash across di
 
 ## 02. Do features in your specification expose the minimum amount of information necessary to implement the intended functionality?
 
-Yes, after explicit user consent, the API exposes only the existence of a file with a known hash and provides read access to it. No additional metadata nor write access is exposed.
+Yes, after explicit user consent, the API exposes only the existence of a file with a known hash and provides read access to it. No additional metadata is exposed. Write access is always granted, just like any page can freely and until its storage quota is reached store arbitrary data in other storage mechanisms like the bucket file system (origin private file system), IndexedDB, or the Cache API.
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
