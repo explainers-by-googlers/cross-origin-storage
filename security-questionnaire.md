@@ -26,7 +26,7 @@ Yes. Files stored in COS persist across sessions. However, their access is gated
 
 ## 07. Do the features in your specification expose information about the underlying platform to origins?
 
-No. The API does not provide any platform-specific details to origins.
+No.
 
 ## 08. Does this specification allow an origin to send data to the underlying platform?
 
