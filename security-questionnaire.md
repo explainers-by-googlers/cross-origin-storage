@@ -70,7 +70,7 @@ Yes, upon explicit user consent.
 
 ## 18. What happens when a document that uses your feature is kept alive in BFCache?
 
-The BFCache behavior should be aligned with user agent policies. File access requests may trigger re-validation if necessary.
+The BFCache behavior is aligned with that of the File System Standard ([whatwg/fs#17](https://github.com/whatwg/fs/issues/17)).
 
 ## 19. What happens when a document that uses your feature gets disconnected?
 
