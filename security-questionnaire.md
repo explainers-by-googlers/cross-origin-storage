@@ -50,7 +50,7 @@ No.
 
 ## 13. What temporary identifiers do the features in this specification create or expose to the web?
 
-None. File access is based solely on static hashes, which are not session-specific identifiers.
+None.
 
 ## 14. How does this specification distinguish between behavior in first-party and third-party contexts?
 
