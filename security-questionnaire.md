@@ -6,7 +6,7 @@ The COS API exposes the availability of files identified by their SHA-256 hash a
 
 ## 02. Do features in your specification expose the minimum amount of information necessary to implement the intended functionality?
 
-Yes, the API exposes only the existence of a file and provides access to it after explicit user consent. No additional metadata or file contents are exposed.
+Yes, after explicit user consent, the API exposes only the existence of a file with a known hash and provides access to it. No additional metadata is exposed.
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
