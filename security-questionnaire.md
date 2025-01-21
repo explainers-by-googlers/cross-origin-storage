@@ -30,7 +30,7 @@ No.
 
 ## 08. Does this specification allow an origin to send data to the underlying platform?
 
-No. The API strictly enables storage and retrieval of files identified by hashes without direct interaction with the underlying platform.
+No.
 
 ## 09. Do features in this specification enable access to device sensors?
 
