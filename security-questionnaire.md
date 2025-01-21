@@ -66,7 +66,7 @@ Yes. The specification includes detailed sections addressing security and privac
 
 ## 17. Do features in your specification enable origins to downgrade default security protections?
 
-No. The API requires explicit user consent for all access, ensuring that default security protections remain intact.
+No.
 
 ## 18. What happens when a document that uses your feature is kept alive in BFCache?
 
