@@ -54,7 +54,7 @@ None. File access is based solely on static hashes, which are not session-specif
 
 ## 14. How does this specification distinguish between behavior in first-party and third-party contexts?
 
-The permission model ensures that file access is user-controlled, regardless of the context. Explicit user consent is required for cross-origin access.
+Explicit user consent is required for cross-origin access.
 
 ## 15. How do the features in this specification work in the context of a browser’s Private Browsing or Incognito mode?
 
