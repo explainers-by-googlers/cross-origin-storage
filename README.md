@@ -59,7 +59,7 @@ COS aims to:
 
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
-- Use SHA-256 hashes (see [Appendix&nbsp;B](#appendix-b-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
+- Use SHA-256 hashes (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
 
 ## Non-goals
 
@@ -67,7 +67,7 @@ COS does _not_ aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **Web Storage**.
 - Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin file access, such as potentially utilizing a cached version.
-- Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendix-c-faq).)
+- Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendixc-frequently-asked-questions-faq).)
 - Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
 
@@ -111,7 +111,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 
 #### Storing a file
 
-1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendix-b-blob-hash-with-the-web-crypto-api)). The used hash algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
+1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The used hash algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 1. Request a `FileSystemFileHandle` for the file, specifying the file's hash.
 1. The resulting `FileSystemFileHandle` can only be used for writing. Trying to read would fail with a `NotAllowed` `DOMException`.
 1. Store the file in the browser.
