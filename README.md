@@ -60,7 +60,7 @@ COS aims to:
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
 - Use SHA-256 hashes (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
-- Make the Web more sustainable by reducing the number of redundant huge downloads of files the user agent already has potentially stored locally.
+- Make the Web more sustainable and ethical by reducing the number of redundant huge downloads of files the user agent already has potentially stored locally.
 
 ## Non-goals
 
@@ -338,14 +338,15 @@ const hash = {
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
 
-### Web Sustainability
+### Web sustainability and
 
 In the context of [evaluating carbon emissions in digital data usage](https://websitesustainability.com/cache/files/research23.pdf), current methodologies predominantly utilize a [kilowatt-hour (kWh) per gigabyte (GB) framework](https://sustainablewebdesign.org/estimating-digital-emissions/) to estimate the operational energy intensity of data transmission and storage. This approach provides the following energy consumption benchmarks:
 
 - **Network transmission:** 0.013&nbsp;kWh/GB
 - **User devices:** 0.081&nbsp;kWh/GB
 
-While this document doesn't aim to critically assess the precision of these estimates, it is an established principle that minimizing redundant data downloads and storage is inherently beneficial for sustainability. Consequently, one of the key objectives of the COS API is to enhance Web sustainability by reducing redundant large file downloads when such files are possibly already stored locally on the user's device.
+While this document doesn't aim to critically assess the precision of these estimates, it is an established principle that minimizing redundant data downloads and storage is inherently beneficial for sustainability. The [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/) specifically highlight that the Web [_"is an environmentally sustainable platform
+"_](https://w3ctag.github.io/ethical-web-principles/#sustainable) and suggest _"lowering carbon emissions by minimizing data storage and processing requirements"_ as measures to get there. Consequently, one of the key objectives of the COS API is to enhance Web sustainability by reducing redundant large file downloads when such files are possibly already stored locally on the user's device.
 
 > [!IMPORTANT]
 > In the context of AI, its implications for sustainability efforts are undeniable. It's essential to adhere to [Web Sustainability Guidelines](https://w3c.github.io/sustainableweb-wsg/) when integrating AI solutions. Prior to implementing AI, it's recommended to [assess and research visitor needs](https://w3c.github.io/sustainableweb-wsg/#assess-and-research-visitor-needs) to ensure that AI is a justifiable and effective solution that truly improves the experience. For example, by increasing user privacy of video calls by applying AI-based background blurring.
@@ -433,8 +434,13 @@ Files in COS may be evicted under critical storage pressure, maintaining system 
 - [Storage Living Standard ](https://storage.spec.whatwg.org/)
 - [Cache Digests for HTTP/2](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cache-digest)
 - [Web Sustainability Guidelines (WSG)](https://w3c.github.io/sustainableweb-wsg/)
+- [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/)
 
 ## Acknowledgements
+
+Many thanks for valuable feedback from:
+
+- **Yash Raj Bharti**, independent freelancer
 
 Many thanks for valuable inspiration or ideas from:
 
