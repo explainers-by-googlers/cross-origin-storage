@@ -75,7 +75,7 @@ COS does _not_ aim to:
 > [!IMPORTANT]
 > COS has distinct objectives from the [Shared Storage API](https://github.com/WICG/shared-storage) proposal, which serves as common key/value storage infrastructure for privacy-preserving cross-site use cases.
 >
-> It is also distinct from the [Related Website Partition API](https://github.com/explainers-by-googlers/related-website-partition-api) proposal, which allows third-party embeds to request access to a storage partition that is accessible across sites in a single [Related Website Set](https://wicg.github.io/first-party-sets/).
+> It's also distinct from the [Related Website Partition API](https://github.com/explainers-by-googlers/related-website-partition-api) proposal, which allows third-party embeds to request access to a storage partition that is accessible across sites in a single [Related Website Set](https://wicg.github.io/first-party-sets/).
 
 ## User research
 
@@ -140,9 +140,12 @@ try {
     // Load the file from the network.
     const fileBlob = await loadFileFromNetwork();
     try {
-      const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-        create: true,
-      });
+      const handle = await navigator.crossOriginStorage.requestFileHandle(
+        hash,
+        {
+          create: true,
+        },
+      );
       // The resulting `FileSystemFileHandle` can only be used for writing.
       // Trying to call `handle.getFile()` would fail with a `NotAllowed`
       // `DOMException`.
@@ -345,7 +348,7 @@ In the context of [evaluating carbon emissions in digital data usage](https://we
 - **Network transmission:** 0.013&nbsp;kWh/GB
 - **User devices:** 0.081&nbsp;kWh/GB
 
-While this document doesn't aim to critically assess the precision of these estimates, it is an established principle that minimizing redundant data downloads and storage is inherently beneficial for sustainability. The [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/) specifically highlight that the Web [_"is an environmentally sustainable platform"_](https://w3ctag.github.io/ethical-web-principles/#sustainable) and suggest _"lowering carbon emissions by minimizing data storage and processing requirements"_ as measures to get there. Consequently, one of the key objectives of the COS API is to enhance Web sustainability by reducing redundant large file downloads when such files are possibly already stored locally on the user's device.
+While this document doesn't aim to critically assess the precision of these estimates, it's an established principle that minimizing redundant data downloads and storage is inherently beneficial for sustainability. The [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/) specifically highlight that the Web [_"is an environmentally sustainable platform"_](https://w3ctag.github.io/ethical-web-principles/#sustainable) and suggest _"lowering carbon emissions by minimizing data storage and processing requirements"_ as measures to get there. Consequently, one of the key objectives of the COS API is to enhance Web sustainability by reducing redundant large file downloads when such files are possibly already stored locally on the user's device.
 
 > [!IMPORTANT]
 > In the context of AI, its implications for sustainability efforts are undeniable. It's essential to adhere to [Web Sustainability Guidelines](https://w3c.github.io/sustainableweb-wsg/) when integrating AI solutions. Prior to implementing AI, it's recommended to [assess and research visitor needs](https://w3c.github.io/sustainableweb-wsg/#assess-and-research-visitor-needs) to ensure that AI is a justifiable and effective solution that truly improves the experience. For example, by increasing user privacy of video calls by applying AI-based background blurring.
