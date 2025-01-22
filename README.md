@@ -140,9 +140,12 @@ try {
     // Load the file from the network.
     const fileBlob = await loadFileFromNetwork();
     try {
-      const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
-        create: true,
-      });
+      const handle = await navigator.crossOriginStorage.requestFileHandle(
+        hash,
+        {
+          create: true,
+        },
+      );
       // The resulting `FileSystemFileHandle` can only be used for writing.
       // Trying to call `handle.getFile()` would fail with a `NotAllowed`
       // `DOMException`.
