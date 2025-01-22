@@ -69,7 +69,6 @@ COS does _not_ aim to:
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **Web Storage**.
 - Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin file access, such as potentially utilizing a cached version.
 - Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendixc-frequently-asked-questions-faq).)
-- Provide backend or cloud storage solutions.
 - Allow cross-origin file access _without_ explicit user consent.
 
 > [!IMPORTANT]
@@ -121,7 +120,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The used hash algorithm is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 1. Request a `FileSystemFileHandle` for the file, specifying the file's hash.
 1. The resulting `FileSystemFileHandle` can only be used for writing. Trying to read would fail with a `NotAllowed` `DOMException`.
-1. Store the file in the browser.
+1. Store the file in the user agent.
 
 ```js
 /**
@@ -170,7 +169,7 @@ try {
 
 #### Retrieving a file
 
-1. Request a file handle using the file's hash. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the browser.
+1. Request a file handle using the file's hash. This will trigger a permission prompt if it's okay for the origin to check if the file is stored by the user agent.
 1. Retrieve the file after the user has granted access.
 
 ```js
@@ -320,7 +319,11 @@ User agents can decide to allow access on every visit, or to explicitly ask upon
 
 If an origin itself has stored the file before, the user agent can decide to not show a prompt if the origin requests access to the file again.
 
-If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt:
+If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt.
+
+> [!IMPORTANT]
+> All permission strings in this explainer are purely for illustrative purposes. User agents are expected to customize them.
+
 
 - If the file doesn't exist:
   ![example.com wants to check if your browser already has a file it needs, possibly saved from another site. If found, it will use the file without changing it. (Allow this time) (Allow on every visit) (Don't allow)](./permission-1.png)
@@ -328,7 +331,7 @@ If the user agent knows that the file exists, it can customize the permission pr
   ![example.com wants to access a file it needs that was already saved from another site. If you allow this, it will use the file without changing it. (Allow this time) (Allow on every visit) (Don't allow)](./permission-2.png)
 
 > [!IMPORTANT]
-> The permission could mention other recent origins that have accessed the same file, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special browser settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
+> The permission could mention other recent origins that have accessed the same file, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed a file stored in COS available in special user agent settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
 
 ### Privacy
 
@@ -336,7 +339,9 @@ Since the file retrieved upon explicit user permission, there's no way for files
 
 ### Hashing
 
-COS relies on the same hashing algorithm to be used for all files. It's not possible to mix hashing algorithms, since, without access to the original file, there's no way to verify if a hash generated with hashing _algorithm&nbsp;A_ corresponds to a hash generated with hashing _algorithm&nbsp;B_. The used hashing algorithm is encoded in the hash as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
+The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
+
+The used hashing algorithm is encoded in the hash object as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future.
 
 ```js
 const hash = {
@@ -344,8 +349,6 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 ```
-
-The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
 
 ### Web sustainability
 
@@ -358,8 +361,6 @@ While this document doesn't aim to critically assess the precision of these esti
 
 > [!IMPORTANT]
 > In the context of AI, its implications for sustainability efforts are undeniable. It's essential to adhere to [Web Sustainability Guidelines](https://w3c.github.io/sustainableweb-wsg/) when integrating AI solutions. Prior to implementing AI, it's recommended to [assess and research visitor needs](https://w3c.github.io/sustainableweb-wsg/#assess-and-research-visitor-needs) to ensure that AI is a justifiable and effective solution that truly improves the experience. For example, by increasing user privacy of video calls by applying AI-based background blurring.
->
-> For AI models, as with all Web assets, it's critical to optimize performance and resource utilization by implementing effective [browser caching strategies](https://w3c.github.io/sustainableweb-wsg/#optimize-browser-caching), leveraging [Content Delivery Networks (CDNs) and edge caching](https://w3c.github.io/sustainableweb-wsg/#consider-cdns-and-edge-caching), and, most importantly, designing a [lightweight user experience by default](https://w3c.github.io/sustainableweb-wsg/#create-a-lightweight-experience-by-default). For example, by prioritizing using the smallest AI model that meets the required quality needs to minimize resource consumption while maintaining functionality.
 
 ## Open questions
 
@@ -373,17 +374,15 @@ Should there be a required minimum file size for a file to be eligible for COS? 
 
 ### Handling of eviction
 
-Browsers should likely treat files in COS under the same conditions as if they were `'persistent'` as per the [Storage Living Standard](https://storage.spec.whatwg.org/#persistence).
+Under critical storage pressure, user agents could offer a dialog that invites the user to manually free up storage. The user agent could also delete files automatically based on, for example, a least recently used approach.
 
-User agents are envisioned to offer browser settings UI for the user to see what files are stored in COS and what origins have least recently used each file. The user can then choose to delete files from COS using the UI.
-
-Under critical storage pressure, user agents could offer a manual dialog that invites the user to manually free up storage.
+User agents are further envisioned to offer user agent settings UI for the user to see what files are stored in COS and what origins have (least) recently used each file. The user can then choose to delete files from COS using this UI.
 
 When the user clears site data, all usage information associated with the origin should be removed from files in COS. If a file in COS, after the removal of usage information, is deemed unused, the user agent may delete it from COS.
 
 ### Manual COS management
 
-If a user already has manually downloaded a file like a large AI model, should the browser offer a way to let the user put the file in COS? This could just be an affordance provided by the user agent.
+If a user already has manually downloaded a file like a large AI model, should the user agent offer a way to let the user put the file in COS? This could just be an affordance provided by the user agent.
 
 ## Considered alternatives
 
@@ -405,7 +404,7 @@ The Cache API is fundamentally modeled around the concepts of `Request` or URL s
 
 ### Solving the problem only for AI models
 
-AI models are admittedly the biggest motivation for working on COS, so one alternative would be to solve the problem exclusively for AI models, for example, by offering a storage mechanism on the `self.ai.*` namespace that Chrome is experimenting with in the context of built-in AI APIs like the [Prompt API](https://github.com/webmachinelearning/prompt-api) proposal. Two questions arise in the context: First, how would it be enforced that files are really AI models? Second, `self.ai.*` is explicitly focused on built-in AI APIs where the model is provided by the browser and not by the developer. Given this background, this approach doesn't seem like a great fit, and, maybe more importantly, the non-AI [use cases](#use-cases) are well worth solving, too.
+AI models are admittedly the biggest motivation for working on COS, so one alternative would be to solve the problem exclusively for AI models, for example, by offering a storage mechanism on the `self.ai.*` namespace that Chrome is experimenting with in the context of built-in AI APIs like the [Prompt API](https://github.com/webmachinelearning/prompt-api) proposal. Two questions arise in the context: First, how would it be enforced that files are really AI models? Second, `self.ai.*` is explicitly focused on built-in AI APIs where the model is provided by the user agent and not by the developer. Given this background, this approach doesn't seem like a great fit, and, maybe more importantly, the non-AI [use cases](#use-cases) are well worth solving, too.
 
 ## Security and privacy considerations
 
@@ -413,7 +412,7 @@ See the complete [questionnaire](security-privacy-questionnaire.md) for details.
 
 ### Security considerations
 
-The API mandates [explicit user consent](#user-consent-and-permissions) before any file access or storage operation, and permission prompts clearly inform users of the requesting site's intent, providing options to allow or deny access. There's no implicit cross-origin information leakage as files in COS are inaccessible without explicit user permission, ensuring no site can infer the presence or absence of specific files without user interaction. User agents can customize permission prompts to minimize confusion while providing transparency. For example, user agents may decide that origins that stored files previously may access them without prompting, provided user agents deem it safe.
+The API mandates [explicit user consent](#user-consent-and-permissions) before any file access, and permission prompts clearly inform users of the requesting site's intent, providing options to allow or deny access. There's no implicit cross-origin information leakage as files in COS are inaccessible without explicit user permission, ensuring no site can infer the presence or absence of specific files across origins without user interaction. User agents can customize permission prompts to minimize confusion while providing transparency. For example, user agents may decide that origins that stored files previously may access them without prompting, provided user agents deem it safe.
 
 Access is scoped to individual files, [identified by their hashes](#hashing). Developers can't arbitrarily access all files, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contents, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself as COS guarantees that the file content matches its hash.
 
@@ -425,7 +424,7 @@ User agents are envisioned to offer [settings UI for managing COS files](#handli
 
 The use of explicit user permission ensures that COS cannot be exploited for tracking or persistent storage across origins without user awareness. Files in COS can't become involuntary [supercookies](https://blog.mozilla.org/en/internet-culture/mozilla-explains-cookies-and-supercookies/) without the user noticing.
 
-Prompts can [differentiate between file existence checks and access requests](#user-consent-and-permissions), reducing the risk of misuse or user misunderstanding. Recent origin access to a file is only visible to users via envisioned browser settings UI, not to other origins.
+Prompts can [differentiate between file existence checks and access requests](#user-consent-and-permissions), reducing the risk of misuse or user misunderstanding. Recent origin access to a file is only visible to users via envisioned user agent settings UI, not to other origins.
 
 COS [use cases](#use-cases) are limited on purpose to mitigate abuse. The API is designed for large files, discouraging use for smaller assets like JavaScript libraries. Its permission model inherently discourages overuse due to user interruption.
 
@@ -543,6 +542,6 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> What other API is this API shaped after?
   </summary>
   <p>
-    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter, in COS, there's the <code>hash</code> object that fulfills the equivalent function of uniquely identifying a file in COS. If <code>options.create</code> isn't set or is set to <code>false</code>, the user agent will, upon user consent, return a handle for the file identified by the hash value. If and only if <code>options.create</code> is set to <code>true</code>, the browser will return a handle that can be written to, but never read from. This design means it's safe to not necessarily require a permission prompt for writing but to always require a permission prompt for reading or existence checks across origins.
+    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter, in COS, there's the <code>hash</code> object that fulfills the equivalent function of uniquely identifying a file in COS. If <code>options.create</code> isn't set or is set to <code>false</code>, the user agent will, upon user consent, return a handle for the file identified by the hash value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return a handle that can be written to, but never read from. This design means it's safe to not necessarily require a permission prompt for writing but to always require a permission prompt for reading or existence checks across origins.
   </p>
 </details>
