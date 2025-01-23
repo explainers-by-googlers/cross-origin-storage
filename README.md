@@ -60,7 +60,7 @@ COS aims to:
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
 - Use SHA-256 hashes (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
-- Make the Web more sustainable and ethical by reducing the number of redundant huge downloads of files the user agent already has potentially stored locally.
+- Make the web more sustainable and ethical by reducing the number of redundant huge downloads of files the user agent already has potentially stored locally.
 
 ## Non-goals
 
@@ -84,7 +84,19 @@ Feedback from developers working with large AI models, SQLite databases, offline
 
 [Joshua Lochner](https://huggingface.co/Xenova) (aka. Xenova) from Hugging Face had the following to say in his [talk at the Chrome Web AI Summit](https://youtu.be/n18Lrbo8VU8?t=1040):
 
-> _"From the user's perspective, they could search for web-compatible models on the Hugging Face hub, install it with a single click, and then access it across multiple domains. Currently, Transformers.js is limited in this regard, since models are cached on a per site or per extension basis."_
+> _"One can imagine a browser-based web store for models similar to the Chrome Web Store for extensions. From the user's perspective, they could search for web-compatible models on the Hugging Face hub, install it with a single click, and then access it across multiple domains. Currently, Transformers.js is limited in this regard, since models are cached on a per site or per extension basis."_
+
+### User feedback example: Web Machine Learning Working Group
+
+Participants of the Web Machine Learning Working Group at the W3C in their meeting on September 21, 2023, discussed [Storage APIs for caching large models](https://www.w3.org/2023/09/21-webmachinelearning-minutes.html#t03). A proposal named [Hybrid AI Explorations](https://github.com/webmachinelearning/proposals/issues/5) listed the following open issues:
+
+> _"If the model runs on the client, large models need to be downloaded, possibly multiple times in different contexts. This incurs a startup latency."_
+
+> _"Models are large and can consume significant storage on the client, which needs to be managed."_
+
+This led to the creation of a dedicated [Hybrid AI explainer](https://github.com/webmachinelearning/hybrid-ai/blob/main/explainer.md), which in its introduction states:
+
+> _"For example, ML models are large. This creates network cost, transfer time, and storage problems. As mentioned, client capabilities can vary. This creates adaptation, partitioning, and versioning problems. We would like to discuss potential solutions to these problems, such as shared caches, progressive model updates, and capability/requirements negotiation."_
 
 ## Use cases
 
@@ -432,7 +444,7 @@ Files in COS may be evicted under critical storage pressure, maintaining system 
 
 ## Stakeholder feedback / opposition
 
-- **Web Developers**: Positive feedback for enabling sharing large files without repeated downloads and storage, particularly in the context of huge AI models, SQLite databases, offline storage archives, and large Wasm modules.
+- **Web Developers**: [Positive feedback](#user-research) for enabling sharing large files without repeated downloads and storage, particularly in the context of huge AI models, SQLite databases, offline storage archives, and large Wasm modules.
 
 ## References
 
