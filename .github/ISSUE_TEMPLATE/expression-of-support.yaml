@@ -1,7 +1,7 @@
 name: Expression of support
 description: "Fill out this form if you support the Cross-Origin Storage (COS) API proposal."
 title: "[Expression of support]: "
-labels: ["expression-of-support"]
+labels: ["expression of support"]
 
 body:
   - type: "markdown"
