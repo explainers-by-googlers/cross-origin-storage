@@ -23,10 +23,10 @@ The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and 
 
 ```js
 // The hash of the desired file.
-const hashes = [{
+const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}];
+};
 // A user gesture like a click must have occurred before.
 try {
   // This triggers a permission prompt. For example:
@@ -34,7 +34,7 @@ try {
   // possibly saved from another site. If found, it will use the files without
   // changing them.
   // [Allow this time] [Allow on every visit] [Don't allow]
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
@@ -146,10 +146,10 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
  */
 
 // The hash of the desired file.
-const hashes = [{
+const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}];
+};
 
 // First, check if the file is already in COS.
 try {
@@ -158,7 +158,7 @@ try {
   // possibly saved from another site. If found, it will use the files without
   // changing them.
   // [Allow this time] [Allow on every visit] [Don't allow]
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
@@ -171,7 +171,7 @@ try {
     const fileBlob = await loadFileFromNetwork();
     try {
       const [handle] = await navigator.crossOriginStorage.requestFileHandles(
-        hashes,
+        [hash],
         {
           create: true,
         },
@@ -269,10 +269,10 @@ try {
  */
 
 // The hash of the desired file.
-const hashes = [{
+const hashes = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}];
+};
 
 // This triggers a permission prompt. For example:
 // example.com wants to check if your browser already has files the site needs,
@@ -280,7 +280,7 @@ const hashes = [{
 // changing them.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
   console.log('Retrieved file', fileBlob);
@@ -351,10 +351,10 @@ On Site A, a web application stores a large language model in COS.
 
 ```js
 // The hash of the desired file.
-const hashes = [{
+const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}];
+};
 
 // This triggers a permission prompt. For example:
 // site-a.example.com wants to check if your browser already has files the site
@@ -362,7 +362,7 @@ const hashes = [{
 // without changing them.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
 
   // Use the file and return.
   // …
@@ -374,13 +374,13 @@ try {
     // Compute the control hash using the method in Appendix B.
     const controlHash = await getBlobHash(fileBlob);
     // Check if control hash and known hash are the same.
-    if (controlHash !== hashes[0].value) {
+    if (controlHash !== hash.value) {
       // Downloaded file and desired file are different.
       // …
       return;
     }
     try {
-      const [handle] = await navigator.crossOriginStorage.requestFileHandles(hashes, {
+      const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
         create: true,
       });
       // The resulting `FileSystemFileHandle` can only be used for writing.
@@ -407,10 +407,10 @@ On Site B, entirely unrelated to Site A, a different web application happens to 
 
 ```js
 // The hash of the desired file.
-const hashes = [{
+const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}];
+};
 
 // This triggers a permission prompt. For example:
 // site-b.example.com wants to check if your browser already has files the site
@@ -418,7 +418,7 @@ const hashes = [{
 // without changing them.
 // [Allow this time] [Allow on every visit] [Don't allow]
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   const fileBlob = await handle.getFile();
   console.log('File retrieved', fileBlob);
   // Use the fileBlob as needed.
