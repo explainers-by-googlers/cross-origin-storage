@@ -335,7 +335,7 @@ try {
     console.log(fileBlobs);
     return;
   }
-  // 'NotAllowedError', the user didn't grant access to the file.
+  // 'NotAllowedError', the user didn't grant access to the files.
   console.log('The user did not grant access to the files.');
 }
 ```
