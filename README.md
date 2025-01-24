@@ -506,7 +506,7 @@ What should happen if two tabs depend on the same file, check COS, see the file 
 
 ### Partial COS matches
 
-If the developer wants to check if two files A and B, with the hashes hash_A and hash_B are stored in COS, but only one of the two is stored, the API will still fail with a `NotFoundError` `DOMException` without revealing the partial match. Should it? Our current thinking is that it complicates error handling, especially since the expected use cases commonly require all files to be present for the app to function, for example, the tokenizer, configurations, weights, and graph with an AI model. Additionally it's preferable to not reveal partial matches for privacy reasons, as this would allow (very limited) enumeration of COS contents.
+If the developer wants to check if two files A and B, with the hashes hash_A and hash_B are stored in COS, but only one of the two is stored, the API will still fail with a `NotFoundError` `DOMException` without revealing the partial match. Should it? Our current thinking is that it complicates error handling, especially since the expected use cases commonly require all files to be present for the app to function, for example, the tokenizer, configurations, weights, and graph with an AI model. Additionally, it's preferable to not reveal partial matches for privacy reasons, as this would allow (very limited) enumeration of COS contents.
 
 ### Minimum file size
 
