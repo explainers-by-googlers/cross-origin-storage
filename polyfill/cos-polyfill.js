@@ -23,16 +23,15 @@
   async function talkToIframe(action, payload) {
     return new Promise((resolve, reject) => {
       function handleIframeMessage(event) {
-        const { action: responseAction, data } = event.data;
+        window.removeEventListener('message', handleIframeMessage);
 
+        const { action: responseAction, data } = event.data;
         if (responseAction !== action) {
           return;
         }
-
-        window.removeEventListener('message', handleIframeMessage);
-
-        if (responseAction === 'requestFileHandle') {
-          handleRequestFileHandleResponse(data).then(resolve).catch(reject);
+        
+        if (responseAction === 'requestFileHandles') {
+          handleRequestFileHandlesResponse(data).then(resolve).catch(reject);
         } else if (responseAction === 'getFileData') {
           resolve(data.arrayBuffer);
         } else if (responseAction === 'storeFileData') {
@@ -48,7 +47,7 @@
     });
   }
 
-  async function handleRequestFileHandleResponse(data) {
+  async function handleRequestFileHandlesResponse(data) {
     if (!data.success) {
       throw new DOMException(
         `File "${data.hash.value}" not found in cross-origin storage.`,
@@ -56,66 +55,73 @@
       );
     }
 
-    const { hash } = data;
-    return {
-      getFile: async () => {
-        return await talkToIframe('getFileData', { hash });
-      },
-      createWritable: async () => {
-        return {
-          write: async (blob) => {
-            return await talkToIframe('storeFileData', {
-              hash,
-              arrayBuffer: await blob.arrayBuffer(),
-            });
-          },
-          close: async () => {
-            // no-op
-          },
-        };
-      },
-    };
+    const { hashes } = data;
+    const handles = [];
+    for (const hash of hashes) {
+      handles.push({
+        getFile: async () => {
+          return await talkToIframe('getFileData', { hash });
+        },
+        createWritable: async () => {
+          return {
+            write: async (blob) => {
+              return await talkToIframe('storeFileData', {
+                hash,
+                arrayBuffer: await blob.arrayBuffer(),
+              });
+            },
+            close: async () => {
+              // no-op
+            },
+          };
+        },
+      });
+    }
+    return handles;
   }
 
-  async function requestFileHandle(hash, create = false) {
+  async function requestFileHandles(hashes, create = false) {
     await iframeReadyPromise;
 
     const hostname = location.hostname;
-    const message = `${hostname} wants to check if your browser already has a file it needs, possibly saved from another site. If found, it will use the file without changing it.`;
-
+    const message = `${hostname} wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them.`;
     const userPermission = confirm(message);
     if (!userPermission) {
       throw new DOMException(
-        `The user did not grant permission to access the file "${hash.value}".`,
+        `The user did not grant permission to access the files "${hashes.map((hash) => hash.value).join(', ')}".`,
         'NotAllowedError',
       );
     }
 
-    return talkToIframe('requestFileHandle', { hash, create });
+    return talkToIframe('requestFileHandles', { hashes, create });
   }
 
   const crossOriginStorage = {
-    requestFileHandle: async (hash, options = {}) => {
-      if (!hash) {
+    requestFileHandles: async (hashes, options = {}) => {
+      if (!hashes) {
         throw new TypeError(
-          `Failed to execute 'requestFileHandle': first argument 'hash' is required.`,
+          `Failed to execute 'requestFileHandles': first argument 'hashes' is required.`,
         );
       }
-
-      if (!hash.value) {
+      if (!Array.isArray(hashes)) {
         throw new TypeError(
-          `Failed to execute 'requestFileHandle': missing required 'hash.value'.`,
+          `Failed to execute 'requestFileHandles': first argument 'hashes' must be an array.`,
         );
       }
-
-      if (!hash.algorithm) {
-        throw new TypeError(
-          `Failed to execute 'requestFileHandle': missing required 'hash.algorithm'.`,
-        );
+      for (const hash of hashes) {
+        if (!hash.value) {
+          throw new TypeError(
+            `Failed to execute 'requestFileHandles': missing required 'hash.value'.`,
+          );
+        }
+        if (!hash.algorithm) {
+          throw new TypeError(
+            `Failed to execute 'requestFileHandles': missing required 'hash.algorithm'.`,
+          );
+        }
       }
-
       const { create = false } = options;
-      return await requestFileHandle(hash, create);
+      return await requestFileHandles(hashes, create);
     },
   };
 

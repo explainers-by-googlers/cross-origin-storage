@@ -27,9 +27,20 @@
         const { action, data } = event.data;
 
         switch (action) {
-          case 'requestFileHandle': {
-            const { hash, create } = data;
-            const success = await getFileHandle(hash, create);
+          case 'requestFileHandles': {
+            const { hashes, create } = data;
+            const success = [];
+            for (const hash of hashes) {
+              const handle = await getFileHandle(hash, create);
+              if (!handle) {
+                window.parent.postMessage(
+                  { action, data: { hashes, success } },
+                  event.origin,
+                );
+                break;
+              }
+              success.push(handle);
+            }
             window.parent.postMessage(
               { action, data: { hash, success } },
               event.origin,
