@@ -22,7 +22,7 @@ This proposal is an early design sketch by Chrome Developer Relations to describ
 The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and Wasm modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity. The API uses concepts like `FileSystemFileHandle` from the **File System Living Standard** with a focus on cross-origin usage particularities. Here's an example that shows the basic flow for retrieving a file from COS, which requires [transient activation](https://html.spec.whatwg.org/multipage/interaction.html#transient-activation):
 
 ```js
-// The hashes of the desired files.
+// The hash of the desired file.
 const hashes = [{
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
@@ -145,7 +145,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
  * Example usage to store a single file.
  */
 
-// The hashes of the desired file(s).
+// The hash of the desired file.
 const hashes = [{
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
@@ -199,7 +199,7 @@ try {
  * Example usage to store multiple files.
  */
 
-// The hashes of the desired file(s).
+// The hashes of the desired files.
 const hashes = [{
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
@@ -227,9 +227,9 @@ try {
   // If the files weren't in COS, load them from the network and store them in
   // COS.
   if (err.name === 'NotFoundError') {
-    // Load the files from the network.
-    const fileBlobs = await loadFilesFromNetwork();
     try {
+      // Load the files from the network.
+      const fileBlobs = await loadFilesFromNetwork();
       const handles = await navigator.crossOriginStorage.requestFileHandles(
         hashes,
         {
@@ -260,12 +260,14 @@ try {
 1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes. This will trigger a permission prompt if it's okay for the origin to check if the files are stored by the user agent.
 1. Retrieve the sequence of `FileSystemFileHandle` objects after the user has granted access.
 
+##### Example: Retrieving a single file
+
 ```js
 /**
  * Example usage to retrieve a single file.
  */
 
-// The hashes of the desired file(s).
+// The hash of the desired file.
 const hashes = [{
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
@@ -296,6 +298,48 @@ try {
 }
 ```
 
+##### Example: Retrieving multiple files
+
+```js
+/**
+ * Example usage to retrieve multiple files.
+ */
+
+// The hashes of the desired files.
+const hashes = [{
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+}, {
+  algorithm: 'SHA-256',
+  value: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+}];
+
+// This triggers a permission prompt. For example:
+// example.com wants to check if your browser already has files the site needs,
+// possibly saved from another site. If found, it will use the files without
+// changing them.
+// [Allow this time] [Allow on every visit] [Don't allow]
+try {
+  const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  // The files exist in COS.
+  for (const handle of handles) {
+    const fileBlob = await handle.getFile();
+    // Return the file as a Blob.
+    console.log('Retrieved file', fileBlob);
+  }
+} catch (err) {
+  if (err.name === 'NotFoundError') {
+    // Load the files from the network.
+    const fileBlobs = await loadFilesFromNetwork();
+    // Return the files as a Blob.
+    console.log(fileBlobs);
+    return;
+  }
+  // 'NotAllowedError', the user didn't grant access to the file.
+  console.log('The user did not grant access to the files.');
+}
+```
+
 #### Storing and retrieving a file across unrelated sites
 
 To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same large language model. The first site stores the model in COS, while the second site retrieves it.
@@ -305,7 +349,7 @@ To illustrate the capabilities of the COS API, consider the following example wh
 On Site A, a web application stores a large language model in COS.
 
 ```js
-// The hashes of the desired file(s).
+// The hash of the desired file.
 const hashes = [{
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
@@ -361,7 +405,7 @@ try {
 On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS.
 
 ```js
-// The hashes of the desired file(s).
+// The hash of the desired file.
 const hashes = [{
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
