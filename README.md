@@ -452,6 +452,8 @@ Each of the `FileSystemFileHandle` objects in the resulting sequence of `FileSys
 
 Following an initial required permission, user agents can decide to allow access on every following visit, or to explicitly ask upon each access attempt.
 
+A change in the order of the hashes in the `hashes` array doesn't matter when accessing the same set of files repeatedly for reading, that is, no new permission prompt is required. It's also allowed to request reading access to just a subset of previously accessed files without triggering another permission prompt.
+
 If an origin itself has stored the file before, the user agent can decide to not show a prompt if the same origin requests access to the file again.
 
 If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt.
