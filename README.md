@@ -225,7 +225,8 @@ try {
   return;
 } catch (err) {
   // If the files weren't in COS, load them from the network and store them in
-  // COS.
+  // COS. The method throws a `NotFoundError` `DOMException` if _any_ of the
+  // files isn't found.
   if (err.name === 'NotFoundError') {
     try {
       // Load the files from the network.
