@@ -41,10 +41,10 @@ try {
   console.log('Retrieved', fileBlob);
 } catch (err) {
   if (err.name === 'NotAllowedError') {
-    console.log('The user did not grant permission to access the files.');
+    console.log('The user did not grant permission to access the file.');
     return;
   }
-  // `NotFoundError`, the files weren't found in COS.
+  // `NotFoundError`, the file wasn't found in COS.
   console.error(err.name, err.message);
 }
 ```
@@ -452,7 +452,7 @@ Each of the `FileSystemFileHandle` objects in the resulting sequence of `FileSys
 
 Following an initial required permission, user agents can decide to allow access on every following visit, or to explicitly ask upon each access attempt.
 
-A change in the order of the hashes in the `hashes` array doesn't matter when accessing the same set of files repeatedly for reading, that is, no new permission prompt is required. It's also allowed to request reading access to just a subset of previously accessed files without triggering another permission prompt.
+If the user grants permission for subsequent visits, a change in the order of the hashes in the `hashes` array doesn't matter when accessing the same set of files. It's also allowed to request reading access to just a subset of previously accessed files without triggering another permission prompt.
 
 If an origin itself has stored the file before, the user agent can decide to not show a prompt if the same origin requests access to the file again.
 
