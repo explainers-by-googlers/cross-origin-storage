@@ -138,6 +138,8 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 1. Each of the `FileSystemFileHandle` objects in the resulting sequence of `FileSystemFileHandle` objects can only be used for writing. Trying to read would fail with a `NotAllowed` `DOMException`.
 1. Store the files in the user agent.
 
+##### Example: Storing a single file
+
 ```js
 /**
  * Example usage to store a single file.
@@ -149,14 +151,21 @@ const hashes = [{
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 }];
 
-// This triggers a permission prompt. For example:
-// example.com wants to check if your browser already has files the site needs,
-// possibly saved from another site. If found, it will use the files without
-// changing them.
-// [Allow this time] [Allow on every visit] [Don't allow]
+// First, check if the file is already in COS.
 try {
+  // This triggers a permission prompt. For example:
+  // example.com wants to check if your browser already has files the site needs,
+  // possibly saved from another site. If found, it will use the files without
+  // changing them.
+  // [Allow this time] [Allow on every visit] [Don't allow]
   const [handle] = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  // The file exists in COS.
+  const fileBlob = await handle.getFile();
+  // Do something with the blob.
+  console.log('Retrieved', fileBlob);
+  return;
 } catch (err) {
+  // If the file wasn't in COS, load it from the network and store it in COS.
   if (err.name === 'NotFoundError') {
     // Load the file from the network.
     const fileBlob = await loadFileFromNetwork();
@@ -173,6 +182,68 @@ try {
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
+    } catch (err) {
+      // The `write()` failed.
+    }
+    return;
+  }
+  // 'NotAllowedError', the user didn't grant access to the file.
+  console.log('The user did not grant access to the file.');
+}
+```
+
+##### Example: Storing multiple files
+
+```js
+/**
+ * Example usage to store multiple files.
+ */
+
+// The hashes of the desired file(s).
+const hashes = [{
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+}, {
+  algorithm: 'SHA-256',
+  value: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+}];
+
+// First, check if the files are already in COS.
+try {
+  // This triggers a permission prompt. For example:
+  // example.com wants to check if your browser already has files the site needs,
+  // possibly saved from another site. If found, it will use the files without
+  // changing them.
+  // [Allow this time] [Allow on every visit] [Don't allow]
+  const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  // The files exist in COS.
+  for (const handle of handles) {
+    const fileBlob = await handle.getFile();
+    // Do something with the blob.
+    console.log('Retrieved', fileBlob);
+  }
+  return;
+} catch (err) {
+  // If the files weren't in COS, load them from the network and store them in
+  // COS.
+  if (err.name === 'NotFoundError') {
+    // Load the files from the network.
+    const fileBlobs = await loadFilesFromNetwork();
+    try {
+      const handles = await navigator.crossOriginStorage.requestFileHandles(
+        hashes,
+        {
+          create: true,
+        },
+      );
+      handles.forEach((handle, i) => {
+        // The resulting `FileSystemFileHandle` can only be used for writing.
+        // Trying to call `handle.getFile()` would fail with a `NotAllowed`
+        // `DOMException`.
+        const writableStream = await handle.createWritable();
+        await writableStream.write(fileBlobs[i]);
+        await writableStream.close();
+      });
     } catch (err) {
       // The `write()` failed.
     }
