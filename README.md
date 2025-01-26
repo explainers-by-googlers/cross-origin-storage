@@ -557,3 +557,12 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter, in COS, there's the <code>hash</code> object that fulfills the equivalent function of uniquely identifying a file in COS. If <code>options.create</code> isn't set or is set to <code>false</code>, the user agent will, upon user consent, return a handle for the file identified by the hash value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return a handle that can be written to, but never read from. This design means it's safe to not necessarily require a permission prompt for writing but to always require a permission prompt for reading or existence checks across origins.
   </p>
 </details>
+
+<details>
+  <summary>
+    <strong>Question:</strong> Can workers access Cross-Origin Storage?
+  </summary>
+  <p>
+    <strong>Answer:</strong> Workers cannot directly access Cross-Origin Storage because cross-origin checks or reads require user activation and explicit permission. However, the <a href="https://github.com/WICG/capability-delegation">Capability Delegation</a> proposal might enable other global objects to gain permission in the future. For now, worker access is not pursued, especially since documents can access files in COS on the main thread and transfer the blobs to a worker as needed.
+</p>
+</details>
