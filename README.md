@@ -33,7 +33,7 @@ try {
   // example.com wants to check if your browser already has files the site needs,
   // possibly saved from another site. If found, it will use the files without
   // changing them.
-  // [Allow this time] [Allow on every visit] [Don't allow]
+  // [Allow this time] [Allow on every visit] [Never allow]
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
@@ -157,7 +157,7 @@ try {
   // example.com wants to check if your browser already has files the site needs,
   // possibly saved from another site. If found, it will use the files without
   // changing them.
-  // [Allow this time] [Allow on every visit] [Don't allow]
+  // [Allow this time] [Allow on every visit] [Never allow]
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
@@ -214,7 +214,7 @@ try {
   // example.com wants to check if your browser already has files the site needs,
   // possibly saved from another site. If found, it will use the files without
   // changing them.
-  // [Allow this time] [Allow on every visit] [Don't allow]
+  // [Allow this time] [Allow on every visit] [Never allow]
   const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
   // The files exist in COS.
   for (const handle of handles) {
@@ -278,7 +278,7 @@ const hash = {
 // example.com wants to check if your browser already has files the site needs,
 // possibly saved from another site. If found, it will use the files without
 // changing them.
-// [Allow this time] [Allow on every visit] [Don't allow]
+// [Allow this time] [Allow on every visit] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   // The file exists in COS.
@@ -319,7 +319,7 @@ const hashes = [{
 // example.com wants to check if your browser already has files the site needs,
 // possibly saved from another site. If found, it will use the files without
 // changing them.
-// [Allow this time] [Allow on every visit] [Don't allow]
+// [Allow this time] [Allow on every visit] [Never allow]
 try {
   const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
   // The files exist in COS.
@@ -360,7 +360,7 @@ const hash = {
 // site-a.example.com wants to check if your browser already has files the site
 // needs, possibly saved from another site. If found, it will use the files
 // without changing them.
-// [Allow this time] [Allow on every visit] [Don't allow]
+// [Allow this time] [Allow on every visit] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
 
@@ -416,7 +416,7 @@ const hash = {
 // site-b.example.com wants to check if your browser already has files the site
 // needs, possibly saved from another site. If found, it will use the files
 // without changing them.
-// [Allow this time] [Allow on every visit] [Don't allow]
+// [Allow this time] [Allow on every visit] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   const fileBlob = await handle.getFile();
@@ -444,17 +444,20 @@ try {
 
 The permission prompt must clearly convey that the user agent is granting access to shared files. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
 
+> [!IMPORTANT]
+> We envision user agents to enrich permission prompts based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
+
 An **access permission** will be shown every time the `navigator.crossOriginStorage.requestFileHandles(hashes)` method is called _without_ the `create` option set to `true`, which can happen to check for existence of files and to obtain the handles to then get the actual files.
 
 Accessing files requires [transient activation](https://html.spec.whatwg.org/multipage/interaction.html#transient-activation). Storing files can happen at any time and doesn't require [user activation](https://html.spec.whatwg.org/multipage/interaction.html#transient-activation).
 
 Each of the `FileSystemFileHandle` objects in the resulting sequence of `FileSystemFileHandle` objects that the developer obtains when `create` is set to `true` can only be used for writing. Trying to call `FileSystemFileHandle.getFile()` would fail with a `NotAllowed` `DOMException`.
 
-Following an initial required permission, user agents can decide to allow access on every following visit, or to explicitly ask upon each access attempt.
+Following an initial required permission, user agents can decide to allow access on every following visit, or to explicitly ask upon each access attempt. If an origin itself has stored the file before, the user agent can decide to not show a prompt if the same origin requests access to the file again.
 
 If the user grants permission for subsequent visits, a change in the order of the hashes in the `hashes` array doesn't matter when accessing the same set of files. It's also allowed to request reading access to just a subset of previously accessed files without triggering another permission prompt.
 
-If an origin itself has stored the file before, the user agent can decide to not show a prompt if the same origin requests access to the file again.
+If the user has disallowed access to COS by clicking **Block** or **Never allow** or similar in the permission prompt, the developer can always fall back to traditional ways of obtaining files over the network, like `fetch()` or `XMLHttpRequest`, or possibly cached versions of the files in the Cache API or IndexedDB. The permission can be reset to the initial state using the user agent's site settings UI.
 
 If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt.
 
@@ -462,9 +465,9 @@ If the user agent knows that the file exists, it can customize the permission pr
 > All permission strings in this explainer are purely for illustrative purposes. User agents are expected to customize them.
 
 - If the files don't exist:
-  ![example.com wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them. (Allow this time) (Allow on every visit) (Don't allow)](./permission-1.png)
+  ![example.com wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them. (Allow this time) (Allow on every visit) (Never allow)](./permission-1.png)
 - If the files do exist:
-  ![example.com wants to access files it needs that were already saved from another site. If you allow this, it will use the files without changing them. (Allow this time) (Allow on every visit) (Don't allow)](./permission-2.png)
+  ![example.com wants to access files it needs that were already saved from another site. If you allow this, it will use the files without changing them. (Allow this time) (Allow on every visit) (Never allow)](./permission-2.png)
 
 > [!IMPORTANT]
 > The permission could mention other recent origins that have accessed the same files, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed files stored in COS available in special user agent settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
@@ -530,7 +533,7 @@ If a user already has manually downloaded a file like a large AI model, should t
 
 Apps could reference to the same file identified by a unique hash using different descriptions. For example, an English site could refer to the [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) AI model as "Gemma AI model from Google", whereas another Spanish site could refer to it as "modelo de IA grande de Google". This information could in theory even be surfaced in the permission prompt. In practice, though, we fear attacks where sites set descriptions like "Click 'Accept' to prove that you are not a bot", which should never make it into a permission prompt. Further, the description could also be inaccurate or deceptive.
 
-Instead, we envision user agents to enrich permission prompts based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt.
+Instead, we envision user agents to enrich permission prompts based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
 
 ### Storing files without hashing
 
@@ -566,7 +569,7 @@ File handles provided by the API can [only perform specific operations based on 
 
 User agents are envisioned to offer [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
 
- We envision user agents to enrich permission prompts based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt.
+ We envision user agents to enrich permission prompts based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
 
 ### Privacy considerations
 
