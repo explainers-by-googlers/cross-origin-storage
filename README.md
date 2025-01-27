@@ -34,7 +34,9 @@ try {
   // possibly saved from another site. If found, it will use the files without
   // changing them.
   // [Allow this time] [Allow on every visit] [Never allow]
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+    hash,
+  ]);
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
@@ -158,7 +160,9 @@ try {
   // possibly saved from another site. If found, it will use the files without
   // changing them.
   // [Allow this time] [Allow on every visit] [Never allow]
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+    hash,
+  ]);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
@@ -280,7 +284,9 @@ const hash = {
 // changing them.
 // [Allow this time] [Allow on every visit] [Never allow]
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+    hash,
+  ]);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
   console.log('Retrieved file', fileBlob);
@@ -307,13 +313,16 @@ try {
  */
 
 // The hashes of the desired files.
-const hashes = [{
-  algorithm: 'SHA-256',
-  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}, {
-  algorithm: 'SHA-256',
-  value: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
-}];
+const hashes = [
+  {
+    algorithm: 'SHA-256',
+    value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+  },
+  {
+    algorithm: 'SHA-256',
+    value: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+  },
+];
 
 // This triggers a permission prompt. For example:
 // example.com wants to check if your browser already has files the site needs,
@@ -362,7 +371,9 @@ const hash = {
 // without changing them.
 // [Allow this time] [Allow on every visit] [Never allow]
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+    hash,
+  ]);
 
   // Use the file and return.
   // …
@@ -380,9 +391,12 @@ try {
       return;
     }
     try {
-      const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
-        create: true,
-      });
+      const [handle] = await navigator.crossOriginStorage.requestFileHandles(
+        [hash],
+        {
+          create: true,
+        },
+      );
       // The resulting `FileSystemFileHandle` can only be used for writing.
       // Trying to call `handle.getFile()` would fail with a `NotAllowed`
       // `DOMException`.
@@ -418,7 +432,9 @@ const hash = {
 // without changing them.
 // [Allow this time] [Allow on every visit] [Never allow]
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+    hash,
+  ]);
   const fileBlob = await handle.getFile();
   console.log('File retrieved', fileBlob);
   // Use the fileBlob as needed.
@@ -483,10 +499,12 @@ The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-
 The used hashing algorithm is encoded in each hash object's `algorithm` field of the `hashes` array as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future.
 
 ```js
-const hashes = [{
-  algorithm: 'SHA-256',
-  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}];
+const hashes = [
+  {
+    algorithm: 'SHA-256',
+    value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+  },
+];
 ```
 
 ### Web sustainability
@@ -569,7 +587,7 @@ File handles provided by the API can [only perform specific operations based on 
 
 User agents are envisioned to offer [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
 
- We envision user agents to enrich permission prompts based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
+We envision user agents to enrich permission prompts based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
 
 ### Privacy considerations
 
