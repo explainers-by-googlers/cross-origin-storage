@@ -2,7 +2,6 @@
   Copyright 2025 Google LLC.
   SPDX-License-Identifier: Apache-2.0
 -->
-
 <!doctype html>
 <html lang="en">
   <head>
@@ -25,7 +24,7 @@
 
       window.addEventListener('message', async (event) => {
         const { action, data } = event.data;
-
+        console.log(action, data);
         switch (action) {
           case 'requestFileHandles': {
             const { hashes, create } = data;
@@ -37,12 +36,12 @@
                   { action, data: { hashes, success } },
                   event.origin,
                 );
-                break;
+                return;
               }
               success.push(handle);
             }
             window.parent.postMessage(
-              { action, data: { hash, success } },
+              { action, data: { hashes, success } },
               event.origin,
             );
             break;

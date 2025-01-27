@@ -29,7 +29,7 @@
         if (responseAction !== action) {
           return;
         }
-        
+
         if (responseAction === 'requestFileHandles') {
           handleRequestFileHandlesResponse(data).then(resolve).catch(reject);
         } else if (responseAction === 'getFileData') {
@@ -48,9 +48,9 @@
   }
 
   async function handleRequestFileHandlesResponse(data) {
-    if (!data.success) {
+    if (!data.success.length) {
       throw new DOMException(
-        `File "${data.hash.value}" not found in cross-origin storage.`,
+        `Files "${data.hashes.map((hash) => hash.value).join(', ')}" not found in cross-origin storage.`,
         'NotFoundError',
       );
     }
@@ -83,14 +83,16 @@
   async function requestFileHandles(hashes, create = false) {
     await iframeReadyPromise;
 
-    const hostname = location.hostname;
-    const message = `${hostname} wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them.`;
-    const userPermission = confirm(message);
-    if (!userPermission) {
-      throw new DOMException(
-        `The user did not grant permission to access the files "${hashes.map((hash) => hash.value).join(', ')}".`,
-        'NotAllowedError',
-      );
+    if (!create) {
+      const hostname = location.hostname;
+      const message = `${hostname} wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them.`;
+      const userPermission = confirm(message);
+      if (!userPermission) {
+        throw new DOMException(
+          `The user did not grant permission to access the files "${hashes.map((hash) => hash.value).join(', ')}".`,
+          'NotAllowedError',
+        );
+      }
     }
 
     return talkToIframe('requestFileHandles', { hashes, create });

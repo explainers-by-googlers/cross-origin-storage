@@ -1,60 +1,60 @@
 name: Expression of support
-description: "Fill out this form if you support the Cross-Origin Storage (COS) API proposal."
-title: "[Expression of support]: "
-labels: ["expression of support"]
+description: 'Fill out this form if you support the Cross-Origin Storage (COS) API proposal.'
+title: '[Expression of support]: '
+labels: ['expression of support']
 
 body:
-  - type: "markdown"
+  - type: 'markdown'
     attributes:
       value: "# Expression of Support\nFill out this form if you support the **Cross-Origin Storage (COS) API** proposal and would possibly make use of it in your apps."
-  - type: "checkboxes"
+  - type: 'checkboxes'
     attributes:
-      label: "What are the primary cross-origin storage use cases in your apps?"
+      label: 'What are the primary cross-origin storage use cases in your apps?'
       options:
-        - label: "AI models"
-        - label: "SQLite databases"
-        - label: "Offline storage archives"
-        - label: "Wasm modules"
-        - label: "Other"
+        - label: 'AI models'
+        - label: 'SQLite databases'
+        - label: 'Offline storage archives'
+        - label: 'Wasm modules'
+        - label: 'Other'
     validations:
       required: true
-  - type: "dropdown"
+  - type: 'dropdown'
     attributes:
-      label: "Would you use this API in production as a progressive enhancement?"
+      label: 'Would you use this API in production as a progressive enhancement?'
       options:
-        - "Yes"
-        - "No"
-        - "Maybe"
+        - 'Yes'
+        - 'No'
+        - 'Maybe'
     validations:
       required: true
-  - type: "textarea"
+  - type: 'textarea'
     attributes:
-      label: "Why is cross-origin storage important for your use case?"
-      description: "Describe the challenges you face with current solutions and how this API would address them."      
+      label: 'Why is cross-origin storage important for your use case?'
+      description: 'Describe the challenges you face with current solutions and how this API would address them.'
     validations:
       required: true
-  - type: "input"
+  - type: 'input'
     attributes:
-      label: "What company do you work for?"
-      description: "If you can share what company you work for, this would help us prioritize the API."
-      placeholder: "Example Company, Inc."
+      label: 'What company do you work for?'
+      description: 'If you can share what company you work for, this would help us prioritize the API.'
+      placeholder: 'Example Company, Inc.'
     validations:
       required: false
-  - type: "textarea"
+  - type: 'textarea'
     attributes:
-      label: "Concerns or reservations"
-      description: "Do you foresee any potential issues with adopting this API, such as privacy, security, or implementation challenges?"
+      label: 'Concerns or reservations'
+      description: 'Do you foresee any potential issues with adopting this API, such as privacy, security, or implementation challenges?'
     validations:
       required: false
-  - type: "textarea"
+  - type: 'textarea'
     attributes:
-      label: "Additional features or improvements"
+      label: 'Additional features or improvements'
       description: "Are there any additional features you'd like to see in the API or any enhancements to its current design?"
     validations:
       required: false
-  - type: "textarea"
+  - type: 'textarea'
     attributes:
-      label: "Any other feedback"
-      description: "Is there anything else you want the team to know?"
+      label: 'Any other feedback'
+      description: 'Is there anything else you want the team to know?'
     validations:
       required: false

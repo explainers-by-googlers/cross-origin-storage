@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗄️</text></svg>"
+    />
+    <title>Cross-Origin Storage Polyfill</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+      }
+
+      html {
+        box-sizing: border-box;
+      }
+
+      *,
+      *:before,
+      *:after {
+        box-sizing: inherit;
+      }
+
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: clamp(320px, 90%, 1000px);
+        margin: auto;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-block-end: 1rem;
+      }
+
+      button {
+        width: fit-content;
+      }
+
+      label {
+        font-weight: bold;
+      }
+
+      small {
+        display: block;
+      }
+
+      pre {
+        font-family: ui-monospace, monospace;
+        color: red;
+      }
+    </style>
+    <script src="cos-polyfill.js" type="module"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <h1>AI Sentiment Analysis</h1>
+    <form>
+      <label for="input">Enter text to analyze:</label>
+      <input type="text" value="I feel unhappy and disappointed today" />
+      <button type="submit">Analyze sentiment</button>
+      <small
+        >This will try to retrieve a "large" AI model from cross-origin storage.
+        If the model isn't found, it will download the file from the network and
+        then store it in cross-origin storage.</small
+      >
+    </form>
+    <label for="output">Detected sentiment:</label>
+    <output id="output">Pending AI model download.</output>
+    <hr />
+    <h2>Source code</h2>
+    <pre><code class="language-js"></code></pre>
+
+    <script type="module">
+      import { getBlobHash } from './util.js';
+
+      const obtainModel = async () => {
+        /* HIGHLIGHT START */
+        const hash = {
+          algorithm: 'SHA-256',
+          value:
+            '0fb85c8c503d43711cf821d5629ac17fecaf1a3e98517c73038e72105aaf56d9',
+        };
+        console.log('Looking for file in cross-origin storage', hash);
+
+        try {
+          const [handle] =
+            await navigator.crossOriginStorage.requestFileHandles([hash]);
+
+          const fileBlob = await handle.getFile();
+          console.log('File found in cross-origin storage', fileBlob);
+          return fileBlob;
+        } catch (err) {
+          console.error(err.name, err.message);
+
+          if (err.name === 'NotFoundError' || err.name === 'NotAllowedError') {
+            try {
+              console.log(
+                'Fetching file from network',
+                new URL('sentiment-analysis-model.bin', location.href).href,
+              );
+              const fileBlob = await fetch('sentiment-analysis-model.bin').then(
+                (res) => res.blob(),
+              );
+
+              const controlHash = await getBlobHash(fileBlob);
+              if (
+                controlHash.algorithm !== hash.algorithm ||
+                controlHash.value !== hash.value
+              ) {
+                throw new Error('Hash mismatch');
+              }
+              console.log('File hash and control hash match.');
+              console.log('File obtained from network', fileBlob);
+
+              const [handle] =
+                await navigator.crossOriginStorage.requestFileHandles([hash], {
+                  create: true,
+                });
+
+              const writable = await handle.createWritable();
+              await writable.write(fileBlob);
+              await writable.close();
+              console.log('File stored in cross-origin storage', fileBlob);
+              return fileBlob;
+            } catch (error) {
+              console.error(error.name, error.message);
+            }
+          }
+        }
+        /* HIGHLIGHT END */
+      };
+
+      const form = document.querySelector('form');
+      const input = document.querySelector('input');
+      const output = document.querySelector('output');
+
+      let model = null;
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) {
+          return;
+        }
+        model = model || (await (await obtainModel()).text());
+        const sentimentRegExp = new RegExp(model, 'i');
+        const match = text.match(sentimentRegExp);
+
+        if (match?.groups?.happy) {
+          output.textContent =
+            '😃 Positive sentiment detected: ' + match.groups.happy;
+        } else if (match?.groups?.sad) {
+          output.textContent =
+            '☹️ Negative sentiment detected: ' + match.groups.sad;
+        } else {
+          output.textContent = '🤷 No clear sentiment detected.';
+        }
+      });
+
+      const regExp =
+        /.*?\/\* HIGHLIGHT START \*\/(.*?)\/\* HIGHLIGHT END \*\/.*?/gms;
+      const sourceCode = regExp.exec(
+        await fetch('.').then((response) => response.text()),
+      )[1];
+      document.querySelector('code').textContent = sourceCode;
+      hljs.highlightAll();
+    </script>
+  </body>
+</html>
