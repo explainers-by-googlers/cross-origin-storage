@@ -33,7 +33,7 @@ try {
   // example.com wants to check if your browser already has files the site needs,
   // possibly saved from another site. If found, it will use the files without
   // changing them.
-  // [Allow this time] [Allow while visiting the site] [Never allow]
+  // [Allow while visiting the site] [Allow this time] [Never allow]
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
   ]);
@@ -159,7 +159,7 @@ try {
   // example.com wants to check if your browser already has files the site needs,
   // possibly saved from another site. If found, it will use the files without
   // changing them.
-  // [Allow this time] [Allow while visiting the site] [Never allow]
+  // [Allow while visiting the site] [Allow this time] [Never allow]
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
   ]);
@@ -218,7 +218,7 @@ try {
   // example.com wants to check if your browser already has files the site needs,
   // possibly saved from another site. If found, it will use the files without
   // changing them.
-  // [Allow this time] [Allow while visiting the site] [Never allow]
+  // [Allow while visiting the site] [Allow this time] [Never allow]
   const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
   // The files exist in COS.
   for (const handle of handles) {
@@ -282,7 +282,7 @@ const hash = {
 // example.com wants to check if your browser already has files the site needs,
 // possibly saved from another site. If found, it will use the files without
 // changing them.
-// [Allow this time] [Allow while visiting the site] [Never allow]
+// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
@@ -328,7 +328,7 @@ const hashes = [
 // example.com wants to check if your browser already has files the site needs,
 // possibly saved from another site. If found, it will use the files without
 // changing them.
-// [Allow this time] [Allow while visiting the site] [Never allow]
+// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
   // The files exist in COS.
@@ -369,7 +369,7 @@ const hash = {
 // site-a.example.com wants to check if your browser already has files the site
 // needs, possibly saved from another site. If found, it will use the files
 // without changing them.
-// [Allow this time] [Allow while visiting the site] [Never allow]
+// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
@@ -430,7 +430,7 @@ const hash = {
 // site-b.example.com wants to check if your browser already has files the site
 // needs, possibly saved from another site. If found, it will use the files
 // without changing them.
-// [Allow this time] [Allow while visiting the site] [Never allow]
+// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
@@ -481,9 +481,9 @@ If the user agent knows that the file exists, it can customize the permission pr
 > All permission strings in this explainer are purely for illustrative purposes. User agents are expected to customize them.
 
 - If the files don't exist:
-  ![example.com wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them. (Allow this time) (Allow while visiting the site) (Never allow)](./permission-1.png)
+  ![example.com wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them. (Allow while visiting the site) (Allow this time) (Never allow)](./permission-1.png)
 - If the files do exist:
-  ![example.com wants to access files it needs that were already saved from another site. If you allow this, it will use the files without changing them. (Allow this time) (Allow while visiting the site) (Never allow)](./permission-2.png)
+  ![example.com wants to access files it needs that were already saved from another site. If you allow this, it will use the files without changing them. (Allow while visiting the site) (Allow this time) (Never allow)](./permission-2.png)
 
 > [!IMPORTANT]
 > The permission could mention other recent origins that have accessed the same files, but this may be misinterpreted by the user as information the current site may learn, which is never the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed files stored in COS available in special user agent settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
