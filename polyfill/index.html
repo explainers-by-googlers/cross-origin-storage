@@ -100,66 +100,67 @@
     <script type="module">
       import { getBlobHash } from './util.js';
 
+      /* HIGHLIGHT START */
+      // The hash of the AI sentiment analysis model.
+      const hash = {
+        algorithm: "SHA-256",
+        value: "0fb85c8c503d43711cf821d5629ac17fecaf1a3e98517c73038e72105aaf56d9",
+      };
+
       const obtainModel = async () => {
-        /* HIGHLIGHT START */
-        // The hash of the AI sentiment analysis model.
-        const hash = {
-          algorithm: 'SHA-256',
-          value:
-            '0fb85c8c503d43711cf821d5629ac17fecaf1a3e98517c73038e72105aaf56d9',
-        };
         try {
           /* BEGIN MARK */
           // Retrieving a file from cross-origin storage.
-          const [handle] =
-            await navigator.crossOriginStorage.requestFileHandles([
-              hash,
-            ]); /* END MARK */
+          const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+            hash,
+          ]); /* END MARK */
           const fileBlob = await handle.getFile();
-          console.log('File found in cross-origin storage:', fileBlob);
+          console.log("File found in cross-origin storage:", fileBlob);
           return fileBlob;
-        } catch (err) {
-          console.error(err.name, err.message);
-          // If the file wasn't found in cross-origin storage or if the user
-          // didn't grant access to cross-origin storage, fall back to the network.
-          if (err.name === 'NotFoundError' || err.name === 'NotAllowedError') {
-            try {
-              console.log(
-                'Fetching file from network:',
-                new URL('sentiment-analysis-model.bin', location.href).href,
-              );
-              const fileBlob = await fetch('sentiment-analysis-model.bin').then(
-                (res) => res.blob(),
-              );
-              console.log('File obtained from network:', fileBlob);
-              const controlHash = await getBlobHash(fileBlob);
-              if (
-                controlHash.algorithm !== hash.algorithm ||
-                controlHash.value !== hash.value
-              ) {
-                throw new Error('Hash mismatch.');
-              }
-              console.log('File hash and control hash match.');
-              if (err.name === 'NotAllowedError') {
-                return fileBlob;
-              } /* BEGIN MARK */
-              // Storing a file in cross-origin storage.
-              const [handle] =
-                await navigator.crossOriginStorage.requestFileHandles([hash], {
-                  create: true,
-                }); /* END MARK */
-              const writable = await handle.createWritable();
-              await writable.write(fileBlob);
-              await writable.close();
-              console.log('File stored in cross-origin storage:', fileBlob);
-              return fileBlob;
-            } catch (error) {
-              console.error(error.name, error.message);
-            }
-          }
+        } catch (error) {
+          const storeFile = error.name === "NotFoundError";
+          return obtainModelFromNetwork(storeFile);
         }
-        /* HIGHLIGHT END */
       };
+
+      const obtainModelFromNetwork = async (storeFile) => {
+        console.log("Fetching file from network...");
+        try {
+          const fileResponse = await fetch("sentiment-analysis-model.bin");
+          const fileBlob = await fileResponse.blob();
+          console.log("File obtained from network:", fileBlob);
+          const { algorithm, value } = await getBlobHash(fileBlob);
+          if (algorithm !== hash.algorithm || value !== hash.value) {
+            throw new Error("Hash mismatch.");
+          }
+          console.log("File hash and control hash match.");
+          if (storeFile) {
+            saveFileInCrossOriginStorage(fileBlob);
+          }
+          return fileBlob;
+        } catch (error) {
+          console.error(error.name, error.message);
+        }
+      };
+
+      const saveFileInCrossOriginStorage = async (fileBlob) => {
+        try {
+          /* BEGIN MARK */
+          // Storing a file in cross-origin storage.
+          const options = { create: true };
+          const [handle] = await navigator.crossOriginStorage.requestFileHandles(
+            [hash],
+            options,
+          ); /* END MARK */
+          const writable = await handle.createWritable();
+          await writable.write(fileBlob);
+          await writable.close();
+          console.log("File stored in cross-origin storage:", fileBlob);
+        } catch (error) {
+          console.error(error.name, error.message);
+        }
+      };
+      /* HIGHLIGHT END */
 
       const form = document.querySelector('form');
       const input = document.querySelector('input');
