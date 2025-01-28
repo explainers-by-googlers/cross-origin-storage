@@ -8,6 +8,7 @@ const CACHE_NAME = 'cos-polyfill';
 const FILES_TO_CACHE = ['iframe.html'];
 
 self.addEventListener('install', async (event) => {
+  self.skipWaiting();
   try {
     const cache = await caches.open(CACHE_NAME);
     await cache.addAll(FILES_TO_CACHE);
@@ -17,11 +18,12 @@ self.addEventListener('install', async (event) => {
 });
 
 self.addEventListener('activate', async (event) => {
-  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(clients.claim());
+  const cacheAllowlist = [CACHE_NAME];
   try {
     const cacheNames = await caches.keys();
     const deletePromises = cacheNames.map((cacheName) => {
-      if (!cacheWhitelist.includes(cacheName)) {
+      if (!cacheAllowlist.includes(cacheName)) {
         return caches.delete(cacheName);
       }
     });

@@ -25,8 +25,8 @@ The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and 
 async function onButtonClick() {
   // The hash of the desired file.
   const hash = {
-    algorithm: "SHA-256",
-    value: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4",
+    algorithm: 'SHA-256',
+    value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
   };
   let handle;
   // This triggers a permission prompt. For example:
@@ -37,8 +37,8 @@ async function onButtonClick() {
   try {
     [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   } catch (err) {
-    if (err.name === "NotAllowedError") {
-      console.log("The user did not grant permission to access the file.");
+    if (err.name === 'NotAllowedError') {
+      console.log('The user did not grant permission to access the file.');
       return;
     }
   }
