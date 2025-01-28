@@ -39,6 +39,16 @@
 
       button {
         width: fit-content;
+        background-color: green;
+        color: white;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        outline: white solid 1px;
+        outline-offset: -1px;
       }
 
       label {
@@ -52,6 +62,7 @@
       pre {
         font-family: ui-monospace, monospace;
         color: red;
+        text-wrap-mode: wrap;
       }
     </style>
     <script src="cos-polyfill.js" type="module"></script>
@@ -74,7 +85,10 @@
       >
     </form>
     <label for="output">Detected sentiment:</label>
-    <output id="output">Pending AI model download.</output>
+    <output id="output">⏳ Pending AI model download</output>
+    <hr />
+    <h2>Event log</h2>
+    <pre></pre>
     <hr />
     <h2>Source code</h2>
     <pre><code class="language-js"></code></pre>
@@ -84,52 +98,56 @@
 
       const obtainModel = async () => {
         /* HIGHLIGHT START */
+        // The hash of the AI sentiment analysis model.
         const hash = {
           algorithm: 'SHA-256',
           value:
             '0fb85c8c503d43711cf821d5629ac17fecaf1a3e98517c73038e72105aaf56d9',
         };
-        console.log('Looking for file in cross-origin storage', hash);
-
         try {
+          /* BEGIN MARK */
+          // Retrieving a file from cross-origin storage.
           const [handle] =
-            await navigator.crossOriginStorage.requestFileHandles([hash]);
-
+            await navigator.crossOriginStorage.requestFileHandles([
+              hash,
+            ]); /* END MARK */
           const fileBlob = await handle.getFile();
-          console.log('File found in cross-origin storage', fileBlob);
+          console.log('File found in cross-origin storage:', fileBlob);
           return fileBlob;
         } catch (err) {
           console.error(err.name, err.message);
-
+          // If the file wasn't found in cross-origin storage or if the user
+          // didn't grant access to cross-origin storage, fall back to the network.
           if (err.name === 'NotFoundError' || err.name === 'NotAllowedError') {
             try {
               console.log(
-                'Fetching file from network',
+                'Fetching file from network:',
                 new URL('sentiment-analysis-model.bin', location.href).href,
               );
               const fileBlob = await fetch('sentiment-analysis-model.bin').then(
                 (res) => res.blob(),
               );
-
+              console.log('File obtained from network:', fileBlob);
               const controlHash = await getBlobHash(fileBlob);
               if (
                 controlHash.algorithm !== hash.algorithm ||
                 controlHash.value !== hash.value
               ) {
-                throw new Error('Hash mismatch');
+                throw new Error('Hash mismatch.');
               }
               console.log('File hash and control hash match.');
-              console.log('File obtained from network', fileBlob);
-
+              if (err.name === 'NotAllowedError') {
+                return fileBlob;
+              } /* BEGIN MARK */
+              // Storing a file in cross-origin storage.
               const [handle] =
                 await navigator.crossOriginStorage.requestFileHandles([hash], {
                   create: true,
-                });
-
+                }); /* END MARK */
               const writable = await handle.createWritable();
               await writable.write(fileBlob);
               await writable.close();
-              console.log('File stored in cross-origin storage', fileBlob);
+              console.log('File stored in cross-origin storage:', fileBlob);
               return fileBlob;
             } catch (error) {
               console.error(error.name, error.message);
@@ -142,6 +160,7 @@
       const form = document.querySelector('form');
       const input = document.querySelector('input');
       const output = document.querySelector('output');
+      const pre = document.querySelector('pre');
 
       let model = null;
 
@@ -166,13 +185,72 @@
         }
       });
 
+      /**
+       * Event logging.
+       */
+      Blob.prototype.toString = function () {
+        return `Blob {
+  size: ${this.size} bytes,
+  type: "${this.type || 'N/A'}",
+}`;
+      };
+
+      const originalConsoleLog = console.log;
+      const originalConsoleError = console.error;
+
+      console.log = (...args) => {
+        originalConsoleLog.apply(console, args);
+        const message = args
+          .map((arg) =>
+            arg instanceof Blob
+              ? arg.toString()
+              : typeof arg === 'string'
+                ? arg
+                : JSON.stringify(arg, null, 2),
+          )
+          .join(' ');
+        pre.append(document.createTextNode(message + '\n\n'));
+      };
+
+      console.error = (...args) => {
+        originalConsoleError.apply(console, args);
+        const message = args
+          .map((arg) =>
+            arg instanceof Blob
+              ? arg.toString()
+              : typeof arg === 'string'
+                ? arg
+                : JSON.stringify(arg, null, 2),
+          )
+          .join(' ');
+        pre.append(document.createTextNode(message + '\n\n'));
+      };
+
+      /**
+       * Show relevant source code.
+       */
+      const code = document.querySelector('code');
       const regExp =
         /.*?\/\* HIGHLIGHT START \*\/(.*?)\/\* HIGHLIGHT END \*\/.*?/gms;
       const sourceCode = regExp.exec(
         await fetch('.').then((response) => response.text()),
       )[1];
-      document.querySelector('code').textContent = sourceCode;
+      code.append(sourceCode.trim());
       hljs.highlightAll();
+      code.innerHTML = code.innerHTML
+        .replaceAll(
+          '<span class="hljs-comment">/* BEGIN MARK */</span>',
+          '<mark>',
+        )
+        .replaceAll(
+          '<span class="hljs-comment">/* END MARK */</span>',
+          '</mark>',
+        )
+        .split(/\n/)
+        .map((line) => line.replace(/^        /, ''))
+        .join('\n')
+        .replace(/\n(\s*)<mark>\s*/g, '\n$1<mark>')
+        .replace(/<mark>\n(\s*)/g, '\n$1<mark>');
     </script>
   </body>
 </html>

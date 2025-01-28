@@ -50,7 +50,7 @@
   async function handleRequestFileHandlesResponse(data) {
     if (!data.success.length) {
       throw new DOMException(
-        `Files "${data.hashes.map((hash) => hash.value).join(', ')}" not found in cross-origin storage.`,
+        `File${data.hashes.length > 1 ? 's' : ''} "${data.hashes.map((hash) => hash.value).join(', ')}" not found in cross-origin storage.`,
         'NotFoundError',
       );
     }
@@ -89,7 +89,7 @@
       const userPermission = confirm(message);
       if (!userPermission) {
         throw new DOMException(
-          `The user did not grant permission to access the files "${hashes.map((hash) => hash.value).join(', ')}".`,
+          `The user did not grant permission to access the file${hashes.length > 1 ? 's' : ''} "${hashes.map((hash) => hash.value).join(', ')}".`,
           'NotAllowedError',
         );
       }
