@@ -78,9 +78,14 @@
       <input type="text" value="I feel unhappy and disappointed today" />
       <button type="submit">Analyze sentiment</button>
       <small
-        >This will try to retrieve a "large" AI model from cross-origin storage.
+        >💡 This demo will try to retrieve a "large" AI model from cross-origin storage.
         If the model isn't found, it will download the file from the network and
         then store it in cross-origin storage if the user has granted access.</small
+      >
+      <small
+        >⚠️ The polyfill emulates the behavior of the cross-origin storage. It
+        can't actually store or retrieve files across different origins or show
+        real permission prompts.</small
       >
     </form>
     <label for="output">Detected sentiment:</label>
