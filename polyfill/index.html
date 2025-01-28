@@ -167,7 +167,6 @@
               [hash],
               options,
             ); /* END MARK */
-          console.log(handle);
           const writable = await handle.createWritable();
           await writable.write(fileBlob);
           await writable.close();
