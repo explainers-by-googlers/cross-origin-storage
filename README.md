@@ -22,32 +22,29 @@ This proposal is an early design sketch by Chrome Developer Relations to describ
 The **Cross-Origin Storage (COS)** API provides a cross-origin file storage and retrieval mechanism for web applications. It allows applications to store and access large files, such as AI models, SQLite databases, offline storage archives, and Wasm modules across different origins securely and with user consent. Taking inspiration from **Cache Digests for HTTP/2**, files are identified by their hashes to ensure integrity. The API uses concepts like `FileSystemFileHandle` from the **File System Living Standard** with a focus on cross-origin usage particularities. Here's an example that shows the basic flow for retrieving a file from COS, which requires [transient activation](https://html.spec.whatwg.org/multipage/interaction.html#transient-activation):
 
 ```js
-// The hash of the desired file.
-const hash = {
-  algorithm: 'SHA-256',
-  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-};
-// A user gesture like a click must have occurred before.
-try {
+async function onButtonClick() {
+  // The hash of the desired file.
+  const hash = {
+    algorithm: "SHA-256",
+    value: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4",
+  };
+  let handle;
   // This triggers a permission prompt. For example:
   // example.com wants to check if your browser already has files the site needs,
   // possibly saved from another site. If found, it will use the files without
   // changing them.
   // [Allow while visiting the site] [Allow this time] [Never allow]
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
-    hash,
-  ]);
+  try {
+    [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  } catch (err) {
+    if (err.name === "NotAllowedError") {
+      console.log("The user did not grant permission to access the file.");
+      return;
+    }
+  }
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
-  console.log('Retrieved', fileBlob);
-} catch (err) {
-  if (err.name === 'NotAllowedError') {
-    console.log('The user did not grant permission to access the file.');
-    return;
-  }
-  // `NotFoundError`, the file wasn't found in COS.
-  console.error(err.name, err.message);
 }
 ```
 
