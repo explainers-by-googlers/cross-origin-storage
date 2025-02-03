@@ -216,7 +216,7 @@
         }
         // Ask for permission.
         const iframe = createPermissionDialogIframe(host);
- 	      iframe.onload = () => {
+        iframe.onload = () => {
           const dialog = iframe.contentDocument.body.querySelector('dialog');
           dialog.returnValue = '';
           dialog.addEventListener('close', async () => {
@@ -247,7 +247,7 @@
               talkToIframe('requestFileHandles', { hashes, create }),
             );
           });
-        }
+        };
       });
     }
     return talkToIframe('requestFileHandles', { hashes, create });
