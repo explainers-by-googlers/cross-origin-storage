@@ -48,6 +48,8 @@ async function onButtonClick() {
 }
 ```
 
+![Cross-origin storage permission prompt mock-up. The prompt says: "example.com wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them". There are three buttons: Allow while visiting the site, Allow this time, Never allow.](./cos-permission.png)
+
 ## Risk awareness
 
 > [!CAUTION]
