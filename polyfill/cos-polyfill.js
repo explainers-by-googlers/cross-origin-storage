@@ -51,6 +51,7 @@
     font-family: system-ui, sans-serif;
     font-size: 14px;
     border: none;
+    box-sizing: border-box;
     block-size: 100%;
     width: fit-content;
     max-width: 500px;
@@ -125,7 +126,7 @@
     iframe.style.left = '120px';
     iframe.style.overflow = 'hidden';
     document.body.append(iframe);
-    iframe.contentDocument.body.innerHTML = html;
+    iframe.srcdoc = html;
     return iframe;
   }
 
@@ -215,36 +216,38 @@
         }
         // Ask for permission.
         const iframe = createPermissionDialogIframe(host);
-        const dialog = iframe.contentDocument.body.querySelector('dialog');
-        dialog.returnValue = '';
-        dialog.addEventListener('close', async () => {
-          iframe.remove();
-          let returnValue = dialog.returnValue;
-          if (returnValue === '×') {
-            returnValue = '';
-          }
-          dialog.remove();
-          if (
-            returnValue === 'never-allow' ||
-            returnValue === 'allow-session'
-          ) {
-            await talkToIframe('storePermission', {
-              host,
-              permission: returnValue,
-            });
-          }
-          if (!returnValue || returnValue === 'never-allow') {
-            return reject(
-              new DOMException(
-                `The user did not grant permission to access the file${hashes.length > 1 ? 's' : ''} "${hashes.map((hash) => hash.value).join(', ')}".`,
-                'NotAllowedError',
-              ),
+ 	      iframe.onload = () => {
+          const dialog = iframe.contentDocument.body.querySelector('dialog');
+          dialog.returnValue = '';
+          dialog.addEventListener('close', async () => {
+            iframe.remove();
+            let returnValue = dialog.returnValue;
+            if (returnValue === '×') {
+              returnValue = '';
+            }
+            dialog.remove();
+            if (
+              returnValue === 'never-allow' ||
+              returnValue === 'allow-session'
+            ) {
+              await talkToIframe('storePermission', {
+                host,
+                permission: returnValue,
+              });
+            }
+            if (!returnValue || returnValue === 'never-allow') {
+              return reject(
+                new DOMException(
+                  `The user did not grant permission to access the file${hashes.length > 1 ? 's' : ''} "${hashes.map((hash) => hash.value).join(', ')}".`,
+                  'NotAllowedError',
+                ),
+              );
+            }
+            return resolve(
+              talkToIframe('requestFileHandles', { hashes, create }),
             );
-          }
-          return resolve(
-            talkToIframe('requestFileHandles', { hashes, create }),
-          );
-        });
+          });
+        }
       });
     }
     return talkToIframe('requestFileHandles', { hashes, create });
