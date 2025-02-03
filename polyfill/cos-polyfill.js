@@ -51,6 +51,7 @@
     font-family: system-ui, sans-serif;
     font-size: 14px;
     border: none;
+    block-size: 100%;
     width: fit-content;
     max-width: 500px;
   }
@@ -65,8 +66,14 @@
   }
   section {
     display: flex;
-    align-items: anchor-center;
+    align-items: center;
     gap: 10px;
+  }
+
+  @supports (align-items: anchor-center) {
+    section {
+      align-items: anchor-center;
+    }
   }
   @media (prefers-color-scheme: dark) {
     dialog {
