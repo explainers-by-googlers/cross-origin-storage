@@ -70,6 +70,7 @@ COS does _not_ aim to:
 - Replace content delivery networks (CDNs). The required prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin file access, such as potentially utilizing a cached version.
 - Store popular JavaScript libraries like jQuery. (See the [FAQ](#appendixc-frequently-asked-questions-faq).)
 - Allow cross-origin file access _without_ explicit user consent.
+- Question the same-origin policy or make changes to it.
 
 > [!IMPORTANT]
 > COS has distinct objectives from the [Shared Storage API](https://github.com/WICG/shared-storage) proposal, which serves as common key/value storage infrastructure for privacy-preserving cross-site use cases.
