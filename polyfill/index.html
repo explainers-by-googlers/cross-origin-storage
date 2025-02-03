@@ -68,6 +68,10 @@
         font-family: ui-monospace, monospace;
         text-wrap-mode: wrap;
       }
+
+      pre > span {
+        color: red;
+      }
     </style>
     <script src="cos-polyfill.js" type="module"></script>
     <link
@@ -106,7 +110,6 @@
     <hr />
     <h2>Source code</h2>
     <pre><code class="language-js"></code></pre>
-
     <script type="module">
       import { getBlobHash } from './util.js';
 
@@ -167,7 +170,6 @@
               [hash],
               options,
             ); /* END MARK */
-          console.log(handle);
           const writable = await handle.createWritable();
           await writable.write(fileBlob);
           await writable.close();
@@ -244,7 +246,9 @@
                 : JSON.stringify(arg, null, 2),
           )
           .join(' ');
-        pre.append(document.createTextNode(message + '\n\n'));
+        const span = document.createElement('span');
+        span.append(message + '\n\n');
+        pre.append(span);
       };
 
       /**

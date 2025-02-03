@@ -22,9 +22,15 @@
 
       const cache = await caches.open('cos-storage');
 
+      try {
+        localStorage.getItem('cosPermissions') ||
+          localStorage.setItem('cosPermissions', '{}');
+      } catch {
+        localStorage.setItem('cosPermissions', '{}');
+      }
+
       window.addEventListener('message', async (event) => {
         const { action, data } = event.data;
-        console.log(action, data);
         switch (action) {
           case 'requestFileHandles': {
             const { hashes, create } = data;
@@ -62,6 +68,48 @@
               { action, data: { hash, arrayBuffer } },
               event.origin,
             );
+            break;
+          }
+          case 'getPermission': {
+            try {
+              const permissions = JSON.parse(
+                localStorage.getItem('cosPermissions'),
+              );
+              const { host } = data;
+              window.parent.postMessage(
+                { action, data: { permission: permissions[host] || false } },
+                event.origin,
+              );
+            } catch {
+              window.parent.postMessage(
+                { action, data: { permission: false } },
+                event.origin,
+              );
+            }
+            break;
+          }
+          case 'storePermission': {
+            try {
+              const permissions = JSON.parse(
+                localStorage.getItem('cosPermissions'),
+              );
+              const { host, permission } = data;
+              permissions[host] = permission;
+              console.log(permissions);
+              localStorage.setItem(
+                'cosPermissions',
+                JSON.stringify(permissions),
+              );
+              window.parent.postMessage(
+                { action, data: { success: true } },
+                event.origin,
+              );
+            } catch {
+              window.parent.postMessage(
+                { action, data: { success: false } },
+                event.origin,
+              );
+            }
             break;
           }
           default:
