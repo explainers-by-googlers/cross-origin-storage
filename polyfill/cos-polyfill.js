@@ -125,7 +125,7 @@
     iframe.style.left = '120px';
     iframe.style.overflow = 'hidden';
     document.body.append(iframe);
-    iframe.contentDocument.body.innerHTML = html;
+    iframe.srcdoc = html;
     return iframe;
   }
 
