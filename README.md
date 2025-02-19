@@ -61,7 +61,7 @@ COS aims to:
 
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
-- Use SHA-256 hashes (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
+- Guaranteeing data integrity and consistency for file identification (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)).
 - Make the web more sustainable and ethical by reducing the number of redundant huge downloads of files the user agent already has potentially stored locally.
 
 ## Non-goals
