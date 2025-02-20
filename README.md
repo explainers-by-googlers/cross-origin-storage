@@ -130,6 +130,10 @@ Web applications that utilize large Wasm modules can store these modules using C
 
 (**Source:** Google-internal data from the Flutter team: "Flutter engine assets by unique hosts - one day - Dec 10, 2024".)
 
+#### Use case 4: Game engines
+
+Web games built with game engines that have browser support like [Godot](https://godotengine.org/), [Unity](https://unity.com/), or [Construct&nbsp;3](https://www.construct.net/en) to name a few popular examples can store the core game engine code in COS and only load game-specific assets like textures and game logic from the network. Web gaming portals like [WebGamer](https://webgamer.io/) that host plenty of casual games with a short path to gameplay on different cross-origin iframes can benefit greatly from this.
+
 ## Potential solution
 
 ### File Storage Process
