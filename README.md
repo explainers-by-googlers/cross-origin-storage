@@ -39,8 +39,10 @@ async function onButtonClick() {
   } catch (err) {
     if (err.name === 'NotAllowedError') {
       console.log('The user did not grant permission to access the file.');
-      return;
+    } else if (err.name === 'NotFoundError') {
+      console.log('The file was not found in Cross-Origin Storage.');
     }
+    return;
   }
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
