@@ -48,6 +48,8 @@ async function onButtonClick() {
 }
 ```
 
+![Cross-origin storage permission prompt mock-up. The prompt says: "example.com wants to check if your browser already has files the site needs, possibly saved from another site. If found, it will use the files without changing them". There are three buttons: Allow while visiting the site, Allow this time, Never allow.](./cos-permission.png)
+
 ## Risk awareness
 
 > [!CAUTION]
@@ -59,7 +61,7 @@ COS aims to:
 
 - Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, SQLite databases, offline storage archives (for example, complete website archives at the scale of Wikipedia), and Wasm modules.
 - Ensure security and user control with explicit consent before accessing or storing files.
-- Use SHA-256 hashes (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)) for file identification, guaranteeing data integrity and consistency.
+- Guaranteeing data integrity and consistency for file identification (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)).
 - Make the web more sustainable and ethical by reducing the number of redundant huge downloads of files the user agent already has potentially stored locally.
 
 ## Non-goals
@@ -81,13 +83,13 @@ COS does _not_ aim to:
 
 Feedback from developers working with large AI models, SQLite databases, offline storage archives, and Wasm modules has highlighted the need for an efficient way to store and retrieve such large files across web applications on different origins. These developers are looking for a standardized solution that allows files to be stored once and accessed by multiple applications, without needing to download and store the files redundantly. COS ensures this is possible while maintaining privacy and security via user consent.
 
-### User feedback example: Hugging Face
+### User needs example: Hugging Face
 
 [Joshua Lochner](https://huggingface.co/Xenova) (aka. Xenova) from Hugging Face had the following to say in his [talk at the Chrome Web AI Summit](https://youtu.be/n18Lrbo8VU8?t=1040):
 
 > _"One can imagine a browser-based web store for models similar to the Chrome Web Store for extensions. From the user's perspective, they could search for web-compatible models on the Hugging Face hub, install it with a single click, and then access it across multiple domains. Currently, Transformers.js is limited in this regard, since models are cached on a per site or per extension basis."_
 
-### User feedback example: Web Machine Learning Working Group
+### User needs example: Web Machine Learning Working Group
 
 Participants of the Web Machine Learning Working Group at the W3C in their meeting on September 21, 2023, discussed [Storage APIs for caching large models](https://www.w3.org/2023/09/21-webmachinelearning-minutes.html#t03). A proposal named [Hybrid AI Explorations](https://github.com/webmachinelearning/proposals/issues/5) listed the following open issues:
 
@@ -98,6 +100,12 @@ Participants of the Web Machine Learning Working Group at the W3C in their meeti
 This led to the creation of a dedicated [Hybrid AI explainer](https://github.com/webmachinelearning/hybrid-ai/blob/main/explainer.md), which in its introduction states:
 
 > _"For example, ML models are large. This creates network cost, transfer time, and storage problems. As mentioned, client capabilities can vary. This creates adaptation, partitioning, and versioning problems. We would like to discuss potential solutions to these problems, such as shared caches, progressive model updates, and capability/requirements negotiation."_
+
+### User needs example: Mozilla
+
+In their [standards position](https://github.com/mozilla/standards-positions/issues/1067#issuecomment-2631718109) on the [Writing Assistance APIs](https://github.com/webmachinelearning/writing-assistance-apis/tree/main), Mozilla engineer [Brian Grinstead](https://github.com/bgrins) wrote:
+
+> _"We acknowledge a downside with this approach related to lack of shared client storage for model weights — it would be a better experience if the browser only had to download large weights one time. We don’t know of a privacy-preserving way to do this, short of high level APIs like these which abstract away the details of inference."_
 
 ## Use cases
 
@@ -121,6 +129,10 @@ Web applications that utilize large Wasm modules can store these modules using C
 | [`a18df97ca57a249df5d8d68cd0820600223ce262/canvaskit.wasm`](https://gstatic.com/flutter-canvaskit/a18df97ca57a249df5d8d68cd0820600223ce262/canvaskit.wasm)                   | 6.4 MB | 1,014 | 288,800  |
 
 (**Source:** Google-internal data from the Flutter team: "Flutter engine assets by unique hosts - one day - Dec 10, 2024".)
+
+#### Use case 4: Game engines
+
+Web games built with game engines that have browser support like [Godot](https://godotengine.org/), [Unity](https://unity.com/), or [Construct&nbsp;3](https://www.construct.net/en) to name a few popular examples can store the core game engine code in COS and only load game-specific assets like textures and game logic from the network. Web gaming portals like [WebGamer](https://webgamer.io/) that host plenty of casual games with a short path to gameplay on different cross-origin iframes can benefit greatly from this.
 
 ## Potential solution
 
