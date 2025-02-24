@@ -1,6 +1,6 @@
 # Explainer for the Cross-Origin Storage (COS) API
 
-<img src="https://raw.githubusercontent.com/tomayac/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo, consisting of a folder icon with a crossing person." width="100">
+<img src="https://raw.githubusercontent.com/explainers-by-googlers/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo, consisting of a folder icon with a crossing person." width="100">
 
 This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins with explicit user consent. Using concepts introduced in **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large files, such as AI models, SQLite databases, offline storage archives, and WebAssembly (Wasm) modules. Taking inspiration from **Cache Digests for HTTP/2**, the API uses file hashes for integrity.
 
@@ -14,8 +14,8 @@ This proposal is an early design sketch by Chrome Developer Relations to describ
 
 ## Participate
 
-- [Issues](https://github.com/tomayac/cross-origin-storage/issues)
-- [PRs](https://github.com/tomayac/cross-origin-storage/pulls)
+- [Issues](https://github.com/explainers-by-googlers/cross-origin-storage/issues)
+- [PRs](https://github.com/explainers-by-googlers/cross-origin-storage/pulls)
 
 ## Introduction
 
