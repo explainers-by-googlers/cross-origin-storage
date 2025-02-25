@@ -3,7 +3,7 @@
 The **Cross-Origin Storage (COS) Polyfill** provides a JavaScript implementation of the proposed [Cross-Origin Storage (COS) API](https://github.com/explainers-by-googlers/cross-origin-storage), enabling web applications to store and retrieve large files securely across origins with explicit user consent.
 
 > [!CAUTION]
-> This polyfill doesn't actually work as the final API would. It still stores files redundantly as it can't overcome storage partitioning. It aims at emulating the behavior of the `navigator.crossOriginStorage.requestFileHandle()` function.
+> This polyfill doesn't actually work as the final API would. It still stores files redundantly as it can't overcome storage partitioning. It aims at emulating the behavior of the `navigator.crossOriginStorage.requestFileHandles()` function.
 
 ## Overview
 
@@ -37,18 +37,18 @@ The polyfill consists of several components:
 
 #### Storing a file
 
-1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash and `create: true`.
+1. A client invokes `navigator.crossOriginStorage.requestFileHandles()` with a file's hash and `create: true`.
 1. The polyfill stores the file in the browser's Cache API, keyed by its hash.
 
 #### Retrieving a file
 
-1. A client invokes `navigator.crossOriginStorage.requestFileHandle()` with a file's hash.
+1. A client invokes `navigator.crossOriginStorage.requestFileHandles()` with a file's hash.
 1. The polyfill prompts the user to grant access permission.
 1. If the file exists in the cache, it is returned as a Blob. If not, the client may fetch it from the network.
 
 ### Example usage
 
-#### Storing a file
+#### Code sample for storing a file
 
 ```js
 const hash = {
@@ -57,7 +57,7 @@ const hash = {
 };
 
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
     create: true,
   });
 
@@ -74,7 +74,7 @@ try {
 }
 ```
 
-#### Retrieving a file
+#### Code sample for retrieving a file
 
 ```javascript
 const hash = {
@@ -83,7 +83,7 @@ const hash = {
 };
 
 try {
-  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
 
   const fileBlob = await handle.getFile();
   console.log('Retrieved file', fileBlob);
@@ -94,9 +94,4 @@ try {
 
 ## Demo
 
-Two testable clients are available:
-
-- [COS Client 1](https://cos-client1.glitch.me/)
-- [COS Client 2](https://cos-client2.glitch.me/)
-
-Both clients embed the [COS polyfill iframe](https://explainers-by-googlers.github.io/cross-origin-storage/polyfill/iframe.html).
+To get a feeling for how this works, check out the [demo of the polyfill](https://explainers-by-googlers.github.io/cross-origin-storage/polyfill/) that simulates the behavior of the Cross-Origin Storage API. Of course it can't actually store or retrieve files across different origins or show real permission prompts.
