@@ -57,9 +57,12 @@ const hash = {
 };
 
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
-    create: true,
-  });
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles(
+    [hash],
+    {
+      create: true,
+    },
+  );
 
   const writableStream = await handle.createWritable();
   const fileBlob = await fetch('https://example.com/large-ai-model.bin').then(
@@ -83,7 +86,9 @@ const hash = {
 };
 
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+    hash,
+  ]);
 
   const fileBlob = await handle.getFile();
   console.log('Retrieved file', fileBlob);
