@@ -16,6 +16,7 @@ This proposal is an early design sketch by Chrome Developer Relations to describ
 
 - [Issues](https://github.com/explainers-by-googlers/cross-origin-storage/issues)
 - [PRs](https://github.com/explainers-by-googlers/cross-origin-storage/pulls)
+- Support this proposal: https://github.com/explainers-by-googlers/cross-origin-storage/labels/expression%20of%20support
 
 ## Introduction
 
