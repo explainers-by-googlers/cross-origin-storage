@@ -10,14 +10,19 @@
   let iframeReadyPromise;
 
   function createIframe() {
-    iframe = document.createElement('iframe');
     iframeReadyPromise = new Promise((resolve) => {
-      iframe.onload = resolve;
+      iframe = document.createElement('iframe');
+      iframe.loading = 'eager';
+      iframe.onload = function () {
+        resolve();
+      };
+      iframe.src = POLYFILL_IFRAME_SRC;
+      iframe.style.display = 'none';
+      document.body.append(iframe);
+      if (iframe.contentDocument.readyState === 'complete') {
+        resolve();
+      }
     });
-
-    iframe.src = POLYFILL_IFRAME_SRC;
-    iframe.style.display = 'none';
-    document.body.append(iframe);
   }
 
   function createPermissionDialogIframe(host) {
@@ -182,6 +187,7 @@
               return await talkToIframe('storeFileData', {
                 hash,
                 arrayBuffer: await blob.arrayBuffer(),
+                mimeType: { 'content-type': blob.type },
               });
             },
             close: async () => {

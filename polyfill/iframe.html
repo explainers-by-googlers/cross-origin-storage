@@ -62,8 +62,8 @@
             break;
           }
           case 'storeFileData': {
-            const { hash, arrayBuffer } = data;
-            await storeFileData(hash, arrayBuffer);
+            const { hash, arrayBuffer, mimeType } = data;
+            await storeFileData(hash, arrayBuffer, mimeType);
             window.parent.postMessage(
               { action, data: { hash, arrayBuffer } },
               event.origin,
@@ -95,7 +95,6 @@
               );
               const { host, permission } = data;
               permissions[host] = permission;
-              console.log(permissions);
               localStorage.setItem(
                 'cosPermissions',
                 JSON.stringify(permissions),
@@ -117,9 +116,14 @@
         }
       });
 
-      async function storeFileData(hash, arrayBuffer) {
+      async function storeFileData(hash, arrayBuffer, mimeType) {
         const key = generateCacheKey(hash);
-        await cache.put(key, new Response(arrayBuffer));
+        await cache.put(
+          key,
+          new Response(arrayBuffer, {
+            headers: { 'content-type': mimeType },
+          }),
+        );
       }
 
       async function getFileData(hash) {
