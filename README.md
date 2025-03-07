@@ -16,6 +16,7 @@ This proposal is an early design sketch by Chrome Developer Relations to describ
 
 - [Issues](https://github.com/explainers-by-googlers/cross-origin-storage/issues)
 - [PRs](https://github.com/explainers-by-googlers/cross-origin-storage/pulls)
+- Support this proposal: https://github.com/explainers-by-googlers/cross-origin-storage/labels/expression%20of%20support
 
 ## Introduction
 
@@ -503,6 +504,8 @@ If the user agent knows that the file exists, it can customize the permission pr
 ### Privacy
 
 Since the files are retrieved only upon explicit user permission, there's no way for files stored in COS to become supercookies without raising the user's suspicion. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon. User agents can decide to not prompt if the present origin has stored the file before.
+
+User agents are also expected to use (on-device) machine learning to identify possible fingerprinting attempts. For example, if a site crafts unique hashes for each user (which hints at fingerprinting), user agents can detect this and block the COS prompt. Popular browsers like Chrome have [successfully applied this technique](https://blog.google/products/chrome/building-a-more-helpful-browser-with-machine-learning/#:~:text=More%20peace%20of%20mind%2C%20less%20annoying%20prompts) for a long time to silence notification spam.
 
 ### Hashing
 
