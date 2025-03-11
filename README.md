@@ -505,6 +505,8 @@ If the user agent knows that the file exists, it can customize the permission pr
 
 Since the files are retrieved only upon explicit user permission, there's no way for files stored in COS to become supercookies without raising the user's suspicion. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon. User agents can decide to not prompt if the present origin has stored the file before.
 
+If a file is only used on a couple websites, then a site can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which another site might take advantage of knowing. The attacker site would need to probe hashes of resources it's interested in, which the user would need to approve by granting permission to do so.
+
 User agents are also expected to use (on-device) machine learning to identify possible fingerprinting attempts. For example, if a site crafts unique hashes for each user (which hints at fingerprinting), user agents can detect this and block the COS prompt. Popular browsers like Chrome have [successfully applied this technique](https://blog.google/products/chrome/building-a-more-helpful-browser-with-machine-learning/#:~:text=More%20peace%20of%20mind%2C%20less%20annoying%20prompts) for a long time to silence notification spam.
 
 ### Hashing
