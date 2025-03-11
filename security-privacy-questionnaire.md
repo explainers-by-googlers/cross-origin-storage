@@ -10,7 +10,7 @@ Yes, after explicit user consent, the API exposes only the existence of a file w
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
-No.
+Possibly. If a COS file is only used on a couple websites, then a site can discover that the user visited those sites by checking for the file's presence. The attacker site would need to probe hashes of resources it's interested in, which the user would need to approve by granting permission to do so. One such attack could be checking for the presence of game engines, and thereby deriving that the user may be interested in gaming.
 
 ## 04. How do the features in your specification deal with sensitive information?
 
