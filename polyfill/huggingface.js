@@ -19,6 +19,7 @@ const cachedFileHashes = JSON.parse(
 Blob.prototype.toString = function () {
   return `Blob {
   size: ${this.size} bytes,
+  type:
 }`;
 };
 
