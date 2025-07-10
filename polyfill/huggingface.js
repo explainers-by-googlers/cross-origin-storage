@@ -19,7 +19,7 @@ const cachedFileHashes = JSON.parse(
 Blob.prototype.toString = function () {
   return `Blob {
   size: ${this.size} bytes,
-  type:
+  type: "${this.type || 'N/A'}",
 }`;
 };
 
@@ -118,5 +118,6 @@ const transcriber = await pipeline(
 const url =
   'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
 const transcription = await transcriber(url);
+output.innerHTML = '';
 output.append(JSON.stringify(transcription));
 // { text: ' And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.' }
