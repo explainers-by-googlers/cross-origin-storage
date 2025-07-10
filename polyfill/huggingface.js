@@ -5,45 +5,91 @@ import {
 import { getBlobHash } from './util.js';
 import './cos-polyfill.js';
 
+const pre = document.querySelector('pre');
+const output = document.querySelector('output');
+
 const cachedFileHashesLocalStorageKey = 'cached-file-hashes';
 const cachedFileHashes = JSON.parse(
   localStorage.getItem(cachedFileHashesLocalStorageKey) ?? '{}',
 );
 
+/**
+ * Event logging.
+ */
+Blob.prototype.toString = function () {
+  return `Blob {
+  size: ${this.size} bytes,
+}`;
+};
+
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
+console.log = (...args) => {
+  originalConsoleLog.apply(console, args);
+  const message = args
+    .map((arg) =>
+      arg instanceof Blob
+        ? arg.toString()
+        : typeof arg === 'string'
+          ? arg
+          : JSON.stringify(arg, null, 2),
+    )
+    .join(' ');
+  pre.append(document.createTextNode(message + '\n\n'));
+};
+
+console.error = (...args) => {
+  originalConsoleError.apply(console, args);
+  const message = args
+    .map((arg) =>
+      arg instanceof Blob
+        ? arg.toString()
+        : typeof arg === 'string'
+          ? arg
+          : JSON.stringify(arg, null, 2),
+    )
+    .join(' ');
+  if (/onnxruntime/.test(message)) {
+    return;
+  }
+  const span = document.createElement('span');
+  span.append(message + '\n\n');
+  pre.append(span);
+};
+
 env.useBrowserCache = false;
 env.useCustomCache = true;
 env.customCache = {
   match: async (request) => {
-    console.log('cosCache.match', request);
     request = request
       .replace('https://huggingface.co', '')
       .replace(/^\/models/, '');
     const hashValue = cachedFileHashes[request];
     if (!hashValue) {
-      console.log('cosCache.match MISS', request);
       return undefined;
     }
 
     const hash = { algorithm: 'SHA-256', value: hashValue };
+    console.log('Trying to access file in cross-origin storage...', hash);
     try {
       const [handle] = await navigator.crossOriginStorage.requestFileHandles([
         hash,
       ]);
-      console.log('cosCache.match HIT', request, hashValue);
-      return new Response(await handle.getFile());
+      const blob = await handle.getFile();
+      console.log('File found in cross-origin storage:', blob);
+      return new Response(blob);
     } catch (err) {
       console.error(err.name, err.message);
       return undefined;
     }
   },
   put: async (request, response) => {
-    console.log('cosCache.put', request, response);
     const blob = await response.blob();
     const hash = await getBlobHash(blob);
     request = request
       .replace('https://huggingface.co', '')
       .replace(/\/resolve\/main/, '');
-    console.log('cosCache.put', request);
     cachedFileHashes[request] = hash.value;
     localStorage.setItem(
       cachedFileHashesLocalStorageKey,
@@ -56,6 +102,7 @@ env.customCache = {
     const writableStream = await handle.createWritable();
     await writableStream.write(blob);
     await writableStream.close();
+    console.log('File stored in cross-origin storage:', blob);
   },
 };
 
@@ -69,6 +116,6 @@ const transcriber = await pipeline(
 // Transcribe audio from a URL
 const url =
   'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
-const output = await transcriber(url);
-document.body.append(JSON.stringify(output));
+const transcription = await transcriber(url);
+output.append(JSON.stringify(transcription));
 // { text: ' And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.' }
