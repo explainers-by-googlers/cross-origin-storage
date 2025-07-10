@@ -1,14 +1,10 @@
-<!--
-  Copyright 2025 Google LLC.
-  SPDX-License-Identifier: Apache-2.0
--->
 <!doctype html>
 <html lang="en">
   <head>
     <title>Cross-Origin Storage Polyfill</title>
   </head>
   <body>
-    <script type="module">
+    <script>
       if ('serviceWorker' in navigator) {
         (async () => {
           try {
@@ -20,8 +16,6 @@
         })();
       }
 
-      const cache = await caches.open('cos-storage');
-
       try {
         localStorage.getItem('cosPermissions') ||
           localStorage.setItem('cosPermissions', '{}');
@@ -29,8 +23,11 @@
         localStorage.setItem('cosPermissions', '{}');
       }
 
+      let cache;
       window.addEventListener('message', async (event) => {
-        const { action, data } = event.data;
+        cache = cache || (await caches.open('cos-storage'));
+        const { messageId, action, data } = event.data;
+        let responseData;
         switch (action) {
           case 'requestFileHandles': {
             const { hashes, create } = data;
@@ -38,36 +35,28 @@
             for (const hash of hashes) {
               const handle = await getFileHandle(hash, create);
               if (!handle) {
+                responseData = { hashes, success };
                 window.parent.postMessage(
-                  { action, data: { hashes, success } },
+                  { messageId, data: responseData },
                   event.origin,
                 );
                 return;
               }
               success.push(handle);
             }
-            window.parent.postMessage(
-              { action, data: { hashes, success } },
-              event.origin,
-            );
+            responseData = { hashes, success };
             break;
           }
           case 'getFileData': {
             const { hash } = data;
             const arrayBuffer = await getFileData(hash);
-            window.parent.postMessage(
-              { action, data: { hash, arrayBuffer } },
-              event.origin,
-            );
+            responseData = { hash, arrayBuffer };
             break;
           }
           case 'storeFileData': {
             const { hash, arrayBuffer, mimeType } = data;
             await storeFileData(hash, arrayBuffer, mimeType);
-            window.parent.postMessage(
-              { action, data: { hash, arrayBuffer } },
-              event.origin,
-            );
+            responseData = { hash, arrayBuffer };
             break;
           }
           case 'getPermission': {
@@ -76,15 +65,9 @@
                 localStorage.getItem('cosPermissions'),
               );
               const { host } = data;
-              window.parent.postMessage(
-                { action, data: { permission: permissions[host] || false } },
-                event.origin,
-              );
+              responseData = { permission: permissions[host] || false };
             } catch {
-              window.parent.postMessage(
-                { action, data: { permission: false } },
-                event.origin,
-              );
+              responseData = { permission: false };
             }
             break;
           }
@@ -99,21 +82,20 @@
                 'cosPermissions',
                 JSON.stringify(permissions),
               );
-              window.parent.postMessage(
-                { action, data: { success: true } },
-                event.origin,
-              );
+              responseData = { success: true };
             } catch {
-              window.parent.postMessage(
-                { action, data: { success: false } },
-                event.origin,
-              );
+              responseData = { success: false };
             }
             break;
           }
           default:
             console.warn('Unknown action:', action);
+            return;
         }
+        window.parent.postMessage(
+          { messageId, data: responseData },
+          event.origin,
+        );
       });
 
       async function storeFileData(hash, arrayBuffer, mimeType) {

@@ -8,6 +8,7 @@
 
   let iframe;
   let iframeReadyPromise;
+  const pendingRequests = new Map();
 
   function createIframe() {
     iframeReadyPromise = new Promise((resolve) => {
@@ -16,12 +17,9 @@
       iframe.onload = function () {
         resolve();
       };
-      iframe.src = POLYFILL_IFRAME_SRC;
       iframe.style.display = 'none';
+      iframe.src = POLYFILL_IFRAME_SRC;
       document.body.append(iframe);
-      if (iframe.contentDocument.readyState === 'complete') {
-        resolve();
-      }
     });
   }
 
@@ -135,34 +133,37 @@
     return iframe;
   }
 
-  async function talkToIframe(action, payload) {
-    return new Promise((resolve, reject) => {
-      function handleIframeMessage(event) {
-        window.removeEventListener('message', handleIframeMessage);
+  window.addEventListener('message', (event) => {
+    const { messageId, data } = event.data;
+    if (pendingRequests.has(messageId)) {
+      const { resolve, reject, action } = pendingRequests.get(messageId);
+      pendingRequests.delete(messageId);
 
-        const { action: responseAction, data } = event.data;
-        if (responseAction !== action) {
-          return;
-        }
-
-        if (responseAction === 'requestFileHandles') {
-          handleRequestFileHandlesResponse(data).then(resolve).catch(reject);
-        } else if (responseAction === 'getFileData') {
-          resolve(data.arrayBuffer);
-        } else if (responseAction === 'storeFileData') {
-          resolve(data);
-        } else if (responseAction === 'getPermission') {
-          resolve(data.permission);
-        } else if (responseAction === 'storePermission') {
-          resolve(data.success);
-        } else {
-          reject(new Error(`Unexpected action: ${responseAction}`));
-        }
+      if (action === 'requestFileHandles') {
+        handleRequestFileHandlesResponse(data).then(resolve).catch(reject);
+      } else if (action === 'getFileData') {
+        resolve(data.arrayBuffer);
+      } else if (action === 'storeFileData') {
+        resolve(data);
+      } else if (action === 'getPermission') {
+        resolve(data.permission);
+      } else if (action === 'storePermission') {
+        resolve(data.success);
+      } else {
+        reject(new Error(`Unexpected action: ${action}`));
       }
+    }
+  });
 
-      window.addEventListener('message', handleIframeMessage);
-
-      iframe.contentWindow.postMessage({ action, data: payload }, '*');
+  async function talkToIframe(action, payload) {
+    await iframeReadyPromise;
+    const messageId = crypto.randomUUID();
+    return new Promise((resolve, reject) => {
+      pendingRequests.set(messageId, { resolve, reject, action });
+      iframe.contentWindow.postMessage(
+        { messageId, action, data: payload },
+        '*',
+      );
     });
   }
 
@@ -201,7 +202,6 @@
   }
 
   async function requestFileHandles(hashes, create = false) {
-    await iframeReadyPromise;
     // Only ask for permission if `{create: false}`.;
     if (!create) {
       return new Promise(async (resolve, reject) => {
