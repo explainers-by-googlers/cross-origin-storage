@@ -1,0 +1,21 @@
+{
+  "name": "Cross-Origin Storage",
+  "description": "This extension implements the proposed Cross-Origin Storage (COS) API, which allows web applications to store and retrieve files across different origins with explicit user consent.",
+  "version": "1.0",
+  "manifest_version": 3,
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "logo-cos.png"
+  },
+  "icons": {
+    "128": "logo-cos.png"
+  },
+  "content_scripts": [
+    {
+      "js": ["content-script.js"],
+      "matches": ["https://*/*"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}
