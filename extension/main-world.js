@@ -191,22 +191,25 @@
   }
 
   async function requestFileHandlesWithPermission(hashes, create = false) {
+    const origin = location.origin;
+
     if (create) {
       const responseData = await talkToBridge('requestFileHandles', {
         hashes,
         create,
+        origin,
       });
       return handleRequestFileHandlesResponse(responseData);
     }
 
     return new Promise(async (resolve, reject) => {
-      const origin = location.origin;
       const bridgeResponse = await talkToBridge('getPermission', { origin });
       const { permission } = bridgeResponse;
       if (permission === 'allow-session') {
         const responseData = await talkToBridge('requestFileHandles', {
           hashes,
           create,
+          origin,
         });
         resolve(handleRequestFileHandlesResponse(responseData));
         return;
@@ -251,6 +254,7 @@
           const responseData = await talkToBridge('requestFileHandles', {
             hashes,
             create,
+            origin,
           });
           resolve(handleRequestFileHandlesResponse(responseData));
         });

@@ -11,89 +11,18 @@ script.onload = function () {
 };
 (document.head || document.documentElement).appendChild(script);
 
-/**
- * A library to handle base64 encoding and decoding.
- * @namespace base64
- * @property {function(ArrayBuffer): string} encode - Encodes an ArrayBuffer into a base64 string.
- * @property {function(string): ArrayBuffer} decode - Decodes a base64 string into an ArrayBuffer.
- */
-var base64 = (function () {
-  'use strict';
+/*
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const { action, data } = message;
+  switch (action) {
+    case 'getBlobURL': {
 
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-  // Use a lookup table to find the index of each base64 character.
-  const lookup = new Uint8Array(256);
-  for (let i = 0; i < chars.length; i++) {
-    lookup[chars.charCodeAt(i)] = i;
+  });
+      break;
+    }
   }
 
-  /**
-   * Encodes an ArrayBuffer into a base64 string.
-   * @param {ArrayBuffer} arraybuffer The ArrayBuffer to encode.
-   * @returns {string} The base64-encoded string.
-   */
-  const encode = (arraybuffer) => {
-    const bytes = new Uint8Array(arraybuffer);
-    const len = bytes.length;
-    let base64 = '';
-
-    for (let i = 0; i < len; i += 3) {
-      base64 += chars[bytes[i] >> 2];
-      base64 += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
-      base64 += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
-      base64 += chars[bytes[i + 2] & 63];
-    }
-
-    if (len % 3 === 2) {
-      base64 = base64.substring(0, base64.length - 1) + '=';
-    } else if (len % 3 === 1) {
-      base64 = base64.substring(0, base64.length - 2) + '==';
-    }
-
-    return base64;
-  };
-
-  /**
-   * Decodes a base64 string into an ArrayBuffer.
-   * @param {string} base64 The base64 string to decode.
-   * @returns {ArrayBuffer} The decoded ArrayBuffer.
-   */
-  const decode = (base64) => {
-    const len = base64.length;
-    let bufferLength = len * 0.75;
-
-    if (base64.endsWith('==')) {
-      bufferLength -= 2;
-    } else if (base64.endsWith('=')) {
-      bufferLength -= 1;
-    }
-
-    const arraybuffer = new ArrayBuffer(bufferLength);
-    const bytes = new Uint8Array(arraybuffer);
-    let p = 0;
-
-    for (let i = 0; i < len; i += 4) {
-      const encoded1 = lookup[base64.charCodeAt(i)];
-      const encoded2 = lookup[base64.charCodeAt(i + 1)];
-      const encoded3 = lookup[base64.charCodeAt(i + 2)];
-      const encoded4 = lookup[base64.charCodeAt(i + 3)];
-
-      bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
-      bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
-      bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
-    }
-
-    return arraybuffer;
-  };
-
-  // Expose the public functions.
-  return {
-    encode: encode,
-    decode: decode,
-  };
-})();
+*/
 
 // 2. Listen for messages from the MAIN world script
 window.addEventListener('message', async (event) => {
@@ -107,148 +36,30 @@ window.addEventListener('message', async (event) => {
   }
   const { id, action, data } = event.data;
 
-  // If the action is a file handle request, notify the background script for tracking.
-  if (action === 'requestFileHandles') {
-    chrome.runtime.sendMessage({
-      action: 'trackResourceAccess',
-      data: {
-        hashes: data.hashes,
-      },
+  // 3. Forward the message to the background script
+  if (data.arrayBuffer) {
+    // Send ArrayBuffer as Blob URL.
+    const blob = new Blob([data.arrayBuffer], {
+      type: 'application/octet-stream',
     });
+    data.blobURL = URL.createObjectURL(blob);
+    delete data.arrayBuffer;
   }
-
-  let responseData;
-
-  try {
-    switch (action) {
-      case 'requestFileHandles': {
-        const { hashes, create } = data;
-        const success = [];
-        for (const hash of hashes) {
-          const handle = await getFileHandle(hash, create);
-          if (!handle) {
-            responseData = { hashes, success };
-            window.postMessage(
-              {
-                source: 'cos-polyfill-isolated',
-                id: id,
-                data: responseData,
-              },
-              event.origin,
-            );
-            return; // Exit early
-          }
-          success.push(handle);
-        }
-        responseData = { hashes, success };
-        break;
-      }
-      case 'getFileData': {
-        const { hash } = data;
-        let arrayBuffer = await getFileData(hash);
-        responseData = { hash, arrayBuffer };
-        break;
-      }
-      case 'storeFileData': {
-        let { hash, arrayBuffer, mimeType } = data;
-        await storeFileData(hash, arrayBuffer, mimeType);
-        responseData = { hash, arrayBuffer };
-        break;
-      }
-      case 'getPermission': {
-        const { origin } = data;
-        const permissions = await chrome.storage.local.get('cosPermissions');
-        const hostPermission =
-          (permissions.cosPermissions || {})[origin] || false;
-        responseData = { permission: hostPermission };
-        break;
-      }
-      case 'storePermission': {
-        const { origin, permission } = data;
-        const result = await chrome.storage.local.get('cosPermissions');
-        const permissions = result.cosPermissions || {};
-        permissions[origin] = permission;
-        await chrome.storage.local.set({ cosPermissions: permissions });
-        responseData = { success: true };
-        break;
-      }
-      default:
-        console.warn('Unknown action:', action);
-        responseData = { error: `Unknown action: ${action}` };
-        break;
-    }
-    // Send the successful response at the end.
-    if (responseData) {
-      window.postMessage(
-        {
-          source: 'cos-polyfill-isolated',
-          id: id,
-          data: responseData,
-        },
-        event.origin,
+  chrome.runtime.sendMessage({ action, data }, async (response) => {
+    console.log(response);
+    if (response.data.blobURL) {
+      // Send Blob URL as ArrayBuffer.
+      response.data.arrayBuffer = await fetch(response.data.blobURL).then(
+        (response) => response.blob(),
       );
     }
-  } catch (error) {
-    // Send an error response if something goes wrong.
-    console.error(`Error processing action "${action}":`, error);
-
     window.postMessage(
       {
         source: 'cos-polyfill-isolated',
         id: id,
-        error: error.message,
+        data: response.data,
       },
       event.origin,
     );
-  }
-});
-
-function generateCacheKey(hash) {
-  //return `https://cos.polyfill.cache/${hash.value}`;
-  return `${hash.algorithm}_${hash.value}`;
-}
-
-async function storeFileData(hash, arrayBuffer, mimeType) {
-  arrayBuffer = base64.encode(arrayBuffer);
-  const key = generateCacheKey(hash);
-  /*
-  arrayBuffer = base64.decode(arrayBuffer);
-  await cache.put(
-    key,
-    new Response(arrayBuffer, {
-      headers: {
-        'content-type': mimeType['content-type'] || 'application/octet-stream',
-      },
-    }),
-  );
-  */
-  await chrome.storage.local.set({
-    [key]: arrayBuffer,
   });
-}
-
-async function getFileData(hash) {
-  const key = generateCacheKey(hash);
-  /*
-  const response = await cache.match(key);
-  // Data comes as ArrayBuffer out of Cache, but send as Base64.
-  return base64.encode(response.arrayBuffer());
-  */
-  let response = (await chrome.storage.local.get(key))[key];
-  response = base64.decode(response);
-  return response;
-}
-
-async function getFileHandle(hash, create) {
-  const key = generateCacheKey(hash);
-  /*
-  if (!create) {
-    return !!(await cache.match(key));
-  }
-  return true;
-  */
-  if (!create) {
-    return (await chrome.storage.local.getKeys()).includes(key);
-  }
-  return true;
-}
+});

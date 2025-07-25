@@ -3,7 +3,7 @@
   "name": "Cross-Origin Storage Polyfill",
   "version": "1.1",
   "description": "A polyfill for the Cross-Origin Storage API, packaged as a Chrome extension.",
-  "permissions": ["storage", "unlimitedStorage"],
+  "permissions": ["storage", "unlimitedStorage", "offscreen"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
