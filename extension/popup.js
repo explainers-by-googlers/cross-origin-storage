@@ -1,37 +1,12 @@
-class ResourceManager {
-  constructor(data = {}) {
-    this.originToHashes = data.originToHashes || {};
-    this.hashToOrigins = data.hashToOrigins || {};
-    this.accessHistory = data.accessHistory || {};
-  }
-  getHashesByOrigin(origin) {
-    return this.originToHashes[origin] || [];
-  }
-  getOriginsByHash(hash) {
-    return this.hashToOrigins[hash] || [];
-  }
-  getAllOrigins() {
-    return Object.keys(this.originToHashes).sort();
-  }
-  getAllHashes() {
-    return Object.keys(this.hashToOrigins).sort();
-  }
-  getAccessHistory(origin, hash) {
-    return this.accessHistory[`${origin}|${hash}`] || [];
-  }
-}
+import ResourceManager from './resource-manager.js';
 
 /**
  * Main function to initialize the popup view.
  */
 async function initializePopup() {
-  // Request live data from the background script.
-  const liveData = await chrome.runtime.sendMessage({
-    action: 'getResourceData',
-  });
-
   // Initialize the resource manager with the live data.
-  const resourceManager = new ResourceManager(liveData);
+  const resourceManager = new ResourceManager();
+  await resourceManager.loadManagerFromStorage();
 
   // Get references to DOM elements
   const originSelect = document.getElementById('origin-select');

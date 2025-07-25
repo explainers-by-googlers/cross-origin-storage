@@ -5,7 +5,8 @@
   "description": "A polyfill for the Cross-Origin Storage API, packaged as a Chrome extension.",
   "permissions": ["storage", "unlimitedStorage", "offscreen"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "popup.html",
