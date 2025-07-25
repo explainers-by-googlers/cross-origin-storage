@@ -107,6 +107,16 @@ window.addEventListener('message', async (event) => {
   }
   const { id, action, data } = event.data;
 
+  // If the action is a file handle request, notify the background script for tracking.
+  if (action === 'requestFileHandles') {
+    chrome.runtime.sendMessage({
+      action: 'trackResourceAccess',
+      data: {
+        hashes: data.hashes,
+      },
+    });
+  }
+
   let responseData;
 
   try {
