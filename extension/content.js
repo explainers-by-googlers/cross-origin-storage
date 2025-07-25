@@ -156,18 +156,18 @@ window.addEventListener('message', async (event) => {
         break;
       }
       case 'getPermission': {
-        const { host } = data;
+        const { origin } = data;
         const permissions = await chrome.storage.local.get('cosPermissions');
         const hostPermission =
-          (permissions.cosPermissions || {})[host] || false;
+          (permissions.cosPermissions || {})[origin] || false;
         responseData = { permission: hostPermission };
         break;
       }
       case 'storePermission': {
-        const { host, permission } = data;
+        const { origin, permission } = data;
         const result = await chrome.storage.local.get('cosPermissions');
         const permissions = result.cosPermissions || {};
-        permissions[host] = permission;
+        permissions[origin] = permission;
         await chrome.storage.local.set({ cosPermissions: permissions });
         responseData = { success: true };
         break;
@@ -205,7 +205,7 @@ window.addEventListener('message', async (event) => {
 
 function generateCacheKey(hash) {
   //return `https://cos.polyfill.cache/${hash.value}`;
-  return hash.value;
+  return `${hash.algorithm}_${hash.value}`;
 }
 
 async function storeFileData(hash, arrayBuffer, mimeType) {

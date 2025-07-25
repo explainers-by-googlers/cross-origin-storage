@@ -78,7 +78,7 @@ async function saveManagerToStorage() {
 loadManagerFromStorage();
 
 // Listen for messages from other parts of the extension.
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'trackResourceAccess') {
     const origin = sender.origin;
     const { hashes } = message.data;
