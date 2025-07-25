@@ -121,15 +121,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'getFileData': {
           const { hash } = data;
           let arrayBuffer = await getFileData(cache, hash);
-          // Data comes as ArrayBuffer out of Cache, but send as Base64.
-          arrayBuffer = base64.encode(arrayBuffer);
           responseData = { hash, arrayBuffer };
           break;
         }
         case 'storeFileData': {
-          // Data comes in as Base64, but store as ArrayBuffer in Cache.
           let { hash, arrayBuffer, mimeType } = data;
-          arrayBuffer = base64.decode(arrayBuffer);
           await storeFileData(cache, hash, arrayBuffer, mimeType);
           responseData = { hash, arrayBuffer };
           break;
@@ -174,11 +170,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // --- Helper functions remain the same ---
 
 function generateCacheKey(hash) {
-  return `https://cos.polyfill.cache/${hash.value}`;
+  //return `https://cos.polyfill.cache/${hash.value}`;
+  return hash.value;
 }
 
 async function storeFileData(cache, hash, arrayBuffer, mimeType) {
   const key = generateCacheKey(hash);
+  /*
+  arrayBuffer = base64.decode(arrayBuffer);
   await cache.put(
     key,
     new Response(arrayBuffer, {
@@ -187,18 +186,33 @@ async function storeFileData(cache, hash, arrayBuffer, mimeType) {
       },
     }),
   );
+  */
+  await chrome.storage.local.set({
+    [key]: arrayBuffer,
+  });
 }
 
 async function getFileData(cache, hash) {
   const key = generateCacheKey(hash);
+  /*
   const response = await cache.match(key);
-  return response ? response.arrayBuffer() : null;
+  // Data comes as ArrayBuffer out of Cache, but send as Base64.
+  return base64.encode(response.arrayBuffer());
+  */
+  const response = (await chrome.storage.local.get(key))[key];
+  return response;
 }
 
 async function getFileHandle(cache, hash, create) {
   const key = generateCacheKey(hash);
+  /*
   if (!create) {
     return !!(await cache.match(key));
+  }
+  return true;
+  */
+  if (!create) {
+    return (await chrome.storage.local.getKeys()).includes(key);
   }
   return true;
 }

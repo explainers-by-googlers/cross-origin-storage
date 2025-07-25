@@ -61,7 +61,6 @@ var base64 = (function () {
    * @returns {ArrayBuffer} The decoded ArrayBuffer.
    */
   const decode = (base64) => {
-    console.log('🔥', typeof base64);
     const len = base64.length;
     let bufferLength = len * 0.75;
 
@@ -115,7 +114,6 @@ window.addEventListener('message', (event) => {
   }
   chrome.runtime.sendMessage({ action, data }, (response) => {
     if (response.data.arrayBuffer && response.data.arrayBuffer.length) {
-      console.log(response.data.arrayBuffer);
       // Send Base64 as ArrayBuffer.
       response.data.arrayBuffer = base64.decode(response.data.arrayBuffer);
     }
