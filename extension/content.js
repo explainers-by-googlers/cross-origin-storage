@@ -96,7 +96,7 @@ var base64 = (function () {
 })();
 
 // 2. Listen for messages from the MAIN world script
-window.addEventListener('message', (event) => {
+window.addEventListener('message', async (event) => {
   // We only accept messages from ourselves
   if (
     event.source !== window ||
@@ -107,23 +107,138 @@ window.addEventListener('message', (event) => {
   }
   const { id, action, data } = event.data;
 
-  // 3. Forward the message to the background script
-  if (data.arrayBuffer) {
-    // Send ArrayBuffer as Base64.
-    data.arrayBuffer = base64.encode(data.arrayBuffer);
-  }
-  chrome.runtime.sendMessage({ action, data }, (response) => {
-    if (response.data.arrayBuffer && response.data.arrayBuffer.length) {
-      // Send Base64 as ArrayBuffer.
-      response.data.arrayBuffer = base64.decode(response.data.arrayBuffer);
+  let responseData;
+
+  try {
+    switch (action) {
+      case 'requestFileHandles': {
+        const { hashes, create } = data;
+        const success = [];
+        for (const hash of hashes) {
+          const handle = await getFileHandle(hash, create);
+          if (!handle) {
+            responseData = { hashes, success };
+            window.postMessage(
+              {
+                source: 'cos-polyfill-isolated',
+                id: id,
+                data: responseData,
+              },
+              event.origin,
+            );
+            return; // Exit early
+          }
+          success.push(handle);
+        }
+        responseData = { hashes, success };
+        break;
+      }
+      case 'getFileData': {
+        const { hash } = data;
+        let arrayBuffer = await getFileData(hash);
+        responseData = { hash, arrayBuffer };
+        break;
+      }
+      case 'storeFileData': {
+        let { hash, arrayBuffer, mimeType } = data;
+        await storeFileData(hash, arrayBuffer, mimeType);
+        responseData = { hash, arrayBuffer };
+        break;
+      }
+      case 'getPermission': {
+        const { host } = data;
+        const permissions = await chrome.storage.local.get('cosPermissions');
+        const hostPermission =
+          (permissions.cosPermissions || {})[host] || false;
+        responseData = { permission: hostPermission };
+        break;
+      }
+      case 'storePermission': {
+        const { host, permission } = data;
+        const result = await chrome.storage.local.get('cosPermissions');
+        const permissions = result.cosPermissions || {};
+        permissions[host] = permission;
+        await chrome.storage.local.set({ cosPermissions: permissions });
+        responseData = { success: true };
+        break;
+      }
+      default:
+        console.warn('Unknown action:', action);
+        responseData = { error: `Unknown action: ${action}` };
+        break;
     }
+    // Send the successful response at the end.
+    if (responseData) {
+      window.postMessage(
+        {
+          source: 'cos-polyfill-isolated',
+          id: id,
+          data: responseData,
+        },
+        event.origin,
+      );
+    }
+  } catch (error) {
+    // Send an error response if something goes wrong.
+    console.error(`Error processing action "${action}":`, error);
+
     window.postMessage(
       {
         source: 'cos-polyfill-isolated',
         id: id,
-        data: response.data,
+        error: error.message,
       },
       event.origin,
     );
-  });
+  }
 });
+
+function generateCacheKey(hash) {
+  //return `https://cos.polyfill.cache/${hash.value}`;
+  return hash.value;
+}
+
+async function storeFileData(hash, arrayBuffer, mimeType) {
+  arrayBuffer = base64.encode(arrayBuffer);
+  const key = generateCacheKey(hash);
+  /*
+  arrayBuffer = base64.decode(arrayBuffer);
+  await cache.put(
+    key,
+    new Response(arrayBuffer, {
+      headers: {
+        'content-type': mimeType['content-type'] || 'application/octet-stream',
+      },
+    }),
+  );
+  */
+  await chrome.storage.local.set({
+    [key]: arrayBuffer,
+  });
+}
+
+async function getFileData(hash) {
+  const key = generateCacheKey(hash);
+  /*
+  const response = await cache.match(key);
+  // Data comes as ArrayBuffer out of Cache, but send as Base64.
+  return base64.encode(response.arrayBuffer());
+  */
+  let response = (await chrome.storage.local.get(key))[key];
+  response = base64.decode(response);
+  return response;
+}
+
+async function getFileHandle(hash, create) {
+  const key = generateCacheKey(hash);
+  /*
+  if (!create) {
+    return !!(await cache.match(key));
+  }
+  return true;
+  */
+  if (!create) {
+    return (await chrome.storage.local.getKeys()).includes(key);
+  }
+  return true;
+}
