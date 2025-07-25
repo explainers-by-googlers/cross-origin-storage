@@ -1,8 +1,3 @@
-/**
- * This is the MAIN world script.
- * It has NO access to chrome.* APIs but can modify the page's `navigator` object.
- */
-
 (() => {
   if (navigator.crossOriginStorage) {
     return;
@@ -10,7 +5,7 @@
 
   const pendingRequests = new Map();
 
-  // Listen for responses from the bridge script
+  // Listen for responses from the bridge content script.
   window.addEventListener('message', (event) => {
     if (
       event.source !== window ||
@@ -27,7 +22,6 @@
     }
   });
 
-  // This function replaces chrome.runtime.sendMessage
   function talkToBridge(action, payload) {
     return new Promise((resolve, reject) => {
       const id = crypto.randomUUID();

@@ -1,4 +1,3 @@
-// NOTE: Paste the refactored ResourceManager class from step 1 here.
 class ResourceManager {
   constructor(data = {}) {
     this.originToHashes = data.originToHashes || {};
@@ -26,21 +25,21 @@ class ResourceManager {
  * Main function to initialize the popup view.
  */
 async function initializePopup() {
-  // 1. Request live data from the background script
+  // Request live data from the background script.
   const liveData = await chrome.runtime.sendMessage({
     action: 'getResourceData',
   });
 
-  // 2. Initialize the resource manager with the live data
+  // Initialize the resource manager with the live data.
   const resourceManager = new ResourceManager(liveData);
 
-  // 3. Get references to DOM elements
+  // Get references to DOM elements
   const originSelect = document.getElementById('origin-select');
   const hashSelect = document.getElementById('hash-select');
   const hashesList = document.getElementById('hashes-list');
   const originsList = document.getElementById('origins-list');
 
-  // 4. Populate the dropdown menus
+  // Populate the dropdown menus.
   function populateSelects() {
     resourceManager.getAllOrigins().forEach((origin) => {
       originSelect.add(new Option(origin, origin));
@@ -50,11 +49,11 @@ async function initializePopup() {
     });
   }
 
-  // 5. Update display functions
+  // Update display functions.
   function updateHashesDisplay() {
     const selectedOrigin = originSelect.value;
     const hashes = resourceManager.getHashesByOrigin(selectedOrigin);
-    hashesList.innerHTML = ''; // Clear previous list
+    hashesList.innerHTML = '';
 
     hashes.forEach((hash) => {
       const history = resourceManager.getAccessHistory(selectedOrigin, hash);
@@ -71,10 +70,22 @@ async function initializePopup() {
         const timesUl = document.createElement('ul');
         timesUl.className = 'access-times';
         history.forEach((tsString) => {
-          // Convert ISO string back to Date object for display
+          // Convert ISO string back to Date object for display.
           const timestamp = new Date(tsString);
           const timeLi = document.createElement('li');
-          timeLi.textContent = `Accessed on: ${timestamp.toLocaleString()}`;
+          timeLi.textContent = `Accessed on: ${timestamp.toLocaleString(
+            'en-US',
+            {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false,
+            },
+          )}`;
           timesUl.appendChild(timeLi);
         });
         li.appendChild(timesUl);
@@ -86,7 +97,7 @@ async function initializePopup() {
   function updateOriginsDisplay() {
     const selectedHash = hashSelect.value;
     const origins = resourceManager.getOriginsByHash(selectedHash);
-    originsList.innerHTML = ''; // Clear previous list
+    originsList.innerHTML = '';
     origins.forEach((origin) => {
       const li = document.createElement('li');
       li.textContent = origin;
@@ -94,11 +105,11 @@ async function initializePopup() {
     });
   }
 
-  // 6. Attach event listeners
+  // Attach event listeners.
   originSelect.addEventListener('change', updateHashesDisplay);
   hashSelect.addEventListener('change', updateOriginsDisplay);
 
-  // 7. Initial population
+  // Initial population.
   populateSelects();
   if (originSelect.options.length > 0) updateHashesDisplay();
   if (hashSelect.options.length > 0) updateOriginsDisplay();

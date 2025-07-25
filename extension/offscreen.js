@@ -1,3 +1,6 @@
+const cachePromise = caches.open('cos-storage');
+let cache;
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const { target, action, data } = message;
   (async () => {
@@ -5,11 +8,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (target !== 'offscreen-doc') {
       return;
     }
-
-    // Dispatch the message to an appropriate handler.
+    cache = await cachePromise;
     switch (action) {
       case 'getBlobURL':
-        const cache = await caches.open('cos-storage');
         const response = await cache.match(data.key);
         const blob = await response.blob();
         const blobURL = URL.createObjectURL(blob);
@@ -20,7 +21,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         break;
       default:
-        console.warn(`Unexpected message type received: '${message.type}'.`);
+        console.warn(`Unexpected message action received: '${action}'.`);
     }
   })();
   return true;

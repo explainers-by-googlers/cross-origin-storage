@@ -1,12 +1,35 @@
-(async () => {
-  await chrome.offscreen.createDocument({
-    url: 'offscreen.html',
-    reasons: ['BLOBS'],
-    justification: 'Create Blob URLs',
+let creating; // A global promise to avoid concurrency issues
+async function setupOffscreenDocument(path) {
+  // Check all windows controlled by the service worker to see if one
+  // of them is the offscreen document with the given path
+  const offscreenUrl = chrome.runtime.getURL(path);
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [offscreenUrl],
   });
+
+  if (existingContexts.length > 0) {
+    return;
+  }
+
+  // create offscreen document
+  if (creating) {
+    await creating;
+  } else {
+    creating = chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['BLOBS'],
+      justification: 'Create Blob URLs',
+    });
+    await creating;
+    creating = null;
+  }
+}
+// Create the offscreen document for Blob operations.
+(async () => {
+  await setupOffscreenDocument('offscreen.html');
 })();
 
-// NOTE: Paste the refactored ResourceManager class from step 1 here.
 class ResourceManager {
   constructor(historyLimit = 3) {
     this.historyLimit = historyLimit;
@@ -14,6 +37,7 @@ class ResourceManager {
     this.hashToOrigins = {};
     this.accessHistory = {};
   }
+
   recordAccess(origin, hash, timestamp = new Date()) {
     if (!this.originToHashes[origin]) {
       this.originToHashes[origin] = [];
@@ -36,18 +60,23 @@ class ResourceManager {
       this.accessHistory[key].length = this.historyLimit;
     }
   }
+
   getHashesByOrigin(origin) {
     return this.originToHashes[origin] || [];
   }
+
   getOriginsByHash(hash) {
     return this.hashToOrigins[hash] || [];
   }
+
   getAllOrigins() {
     return Object.keys(this.originToHashes).sort();
   }
+
   getAllHashes() {
     return Object.keys(this.hashToOrigins).sort();
   }
+
   getAccessHistory(origin, hash) {
     return this.accessHistory[`${origin}|${hash}`] || [];
   }
@@ -89,9 +118,7 @@ loadManagerFromStorage();
 const cachePromise = caches.open('cos-storage');
 let cache;
 
-// Listen for messages from other parts of the extension.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Immediately start an async task.
   (async () => {
     cache = await cachePromise;
     let responseData;
@@ -99,7 +126,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       switch (action) {
         case 'getResourceData': {
-          // The popup is requesting data to display.
           sendResponse({
             originToHashes: manager.originToHashes,
             hashToOrigins: manager.hashToOrigins,
@@ -115,13 +141,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (!handle) {
               responseData = { hashes, success };
               sendResponse({ data: responseData });
-              return; // Exit early
+              return;
             }
             success.push(handle);
-            // The hash object from the page has { algorithm, value }
+            // Log access statistics.
             manager.recordAccess(origin, hash.value);
           }
-          saveManagerToStorage(); // Persist changes
+          saveManagerToStorage();
           responseData = { hashes, success };
           break;
         }
@@ -160,12 +186,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           responseData = { error: `Unknown action: ${action}` };
           break;
       }
-      // Send the successful response at the end.
+
       if (responseData) {
         sendResponse({ data: responseData });
       }
     } catch (error) {
-      // Send an error response if something goes wrong.
       console.error(`Error processing action "${action}":`, error);
       sendResponse({ error: error.message });
     }
@@ -196,7 +221,7 @@ async function getFileData(hash) {
   if (!match) {
     return false;
   }
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     // Data comes as Blob out of Cache, but send as Blob URL.
     chrome.runtime.sendMessage(
       {
@@ -211,25 +236,12 @@ async function getFileData(hash) {
       },
     );
   });
-
-  /*
-  let response = (await chrome.storage.local.get(key))[key];
-  response = base64.decode(response);
-  return response;
-  */
 }
 
 async function getFileHandle(hash, create) {
   const key = generateCacheKey(hash);
-
   if (!create) {
     return !!(await cache.match(key));
   }
   return true;
-  /*
-  if (!create) {
-    return (await chrome.storage.local.getKeys()).includes(key);
-  }
-  return true;
-  */
 }
