@@ -9,30 +9,25 @@
       :root {
         color-scheme: dark light;
       }
-
       html {
         box-sizing: border-box;
       }
-
       *,
       *:before,
       *:after {
         box-sizing: inherit;
       }
-
       body {
         font-family: system-ui, sans-serif;
         margin: 1rem;
         background: light-dark(#ffffff, #121212);
         color: light-dark(#000000, #f0f0f0);
       }
-
       .container {
         display: flex;
         gap: 2em;
         flex-wrap: wrap;
       }
-
       .panel {
         flex: 1;
         min-width: 400px;
@@ -42,7 +37,6 @@
         border: solid 1px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.6));
         box-shadow: 0 4px 6px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.6));
       }
-
       .logo {
         display: inline;
         height: 2lh;
@@ -50,22 +44,18 @@
         vertical-align: text-bottom;
         margin-inline-end: 0.5rem;
       }
-
       h1 {
         color: light-dark(#1e1e1e, #fafafa);
         display: inline-block;
       }
-
       h2 {
         color: light-dark(#444, #ddd);
         border-bottom: 2px solid light-dark(#eef, #444);
         padding-bottom: 0.5em;
       }
-
       p {
         color: light-dark(#666, #bbb);
       }
-
       select {
         width: 100%;
         padding: 0.8em;
@@ -75,19 +65,17 @@
         background-color: light-dark(#fff, #2c2c2c);
         color: light-dark(#000, #f0f0f0);
       }
-
       ul {
         list-style-type: none;
         padding: 0;
       }
-
       .resource-item {
         background-color: light-dark(#e9efff, #2a3b55);
         padding: 1em;
         margin-bottom: 0.75em;
         border-radius: 6px;
+        overflow: hidden; /* Contains the floated button */
       }
-
       .resource-item .hash-value {
         font-family: ui-monospace, monospace;
         font-size: 0.9em;
@@ -96,13 +84,11 @@
         color: light-dark(#335d9d, #89b4fa);
         margin-bottom: 0.5em;
       }
-
       .resource-item .access-times {
         list-style-type: disc;
         margin-left: 20px;
         padding-left: 5px;
       }
-
       .resource-item .access-times li {
         font-family: sans-serif;
         font-size: 0.85em;
@@ -110,17 +96,53 @@
         padding: 0.2em 0;
         margin: 0;
       }
-
       #origins-list li {
         background-color: light-dark(#e9efff, #2a3b55);
         padding: 0.75em;
         margin-bottom: 0.5em;
         border-radius: 4px;
+        font-family: ui-monospace, monospace;
+        word-break: break-all;
+      }
+      button {
+        cursor: pointer;
+        padding: 0.6em 1.2em;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        font-weight: 500;
+        transition: background-color 0.2s;
+      }
+      .delete-btn {
+        background-color: light-dark(#ffebee, #5c2b29);
+        color: light-dark(#c62828, #ffcdd2);
+        border-color: light-dark(#e57373, #e53935);
+        font-size: 0.8em;
+        padding: 0.4em 0.8em;
+        float: right;
+        margin-left: 1em;
+      }
+      .delete-btn:hover {
+        background-color: light-dark(#ffcdd2, #e53935);
+      }
+      .actions-container {
+        margin-top: 2em;
+        text-align: center;
+      }
+      .danger-btn {
+        background-color: #d32f2f;
+        color: #ffffff;
+        width: 100%;
+        padding: 1em;
+        border: none;
+        font-size: 1em;
+      }
+      .danger-btn:hover {
+        background-color: #b71c1c;
       }
     </style>
   </head>
   <body>
-    <img class="logo" src="logo-cos.svg" alt="" width="512" height="512">
+    <img class="logo" src="logo-cos.svg" alt="" width="512" height="512" />
     <h1>Cross-Origin Storage</h1>
     <div class="container">
       <div class="panel">
@@ -138,6 +160,13 @@
         <ul id="origins-list"></ul>
       </div>
     </div>
+
+    <div class="actions-container">
+      <button id="delete-all-btn" class="danger-btn">
+        Delete All Resources
+      </button>
+    </div>
+
     <script type="module" src="popup.js"></script>
   </body>
 </html>

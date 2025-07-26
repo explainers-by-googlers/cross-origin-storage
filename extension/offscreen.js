@@ -20,6 +20,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           },
         });
         break;
+      case 'deleteResource':
+        await cache.delete(`https://cos.example.com/SHA-256_${data.hash}`);
+        sendResponse({
+          data: {
+            success: true,
+          },
+        });
+        break;
+      case 'deleteAllResources':
+        await caches.delete('cos-storage');
+        cache = await caches.open('cos-storage');
+        sendResponse({
+          data: {
+            success: true,
+          },
+        });
+        break;
       default:
         console.warn(`Unexpected message action received: '${action}'.`);
     }

@@ -1,4 +1,4 @@
-import ResourceManager from "./resource-manager.js";
+import ResourceManager from './resource-manager.js';
 
 let creating; // A global promise to avoid concurrency issues
 
@@ -46,7 +46,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     cache = await cachePromise;
     let responseData;
-    const { action, data } = message;
+    const { action, data, target } = message;
+    if (target && target === 'offscreen-doc') {
+      return;
+    }
     try {
       switch (action) {
         case 'requestFileHandles': {
@@ -147,7 +150,7 @@ async function getFileData(hash) {
           key,
         },
       },
-      async (response) => {
+      (response) => {
         resolve(response.data.blobURL);
       },
     );
