@@ -33,10 +33,12 @@ async function initializePopup() {
       deleteBtn.className = 'delete-btn';
       deleteBtn.title = `Delete this resource (${hash.substring(0, 8)}...)`;
       deleteBtn.addEventListener('click', async () => {
+        const originsUsingResource = resourceManager.getOriginsByHash(hash);
+        console.log(originsUsingResource);
         // Ask for confirmation before deleting
         if (
           confirm(
-            `Are you sure you want to delete the resource with hash:\n\n${hash}`,
+            `Are you sure you want to delete the resource with hash:\n${hash}\n\nIt's used by the following origins:\n• ${originsUsingResource.join('\n• ')}`,
           )
         ) {
           chrome.runtime.sendMessage(
