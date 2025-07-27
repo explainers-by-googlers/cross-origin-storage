@@ -5,6 +5,10 @@
 
   const pendingRequests = new Map();
 
+  // State variables to manage a single permission dialog and queue requests.
+  let isPermissionDialogActive = false;
+  let permissionRequestQueue = [];
+
   // Listen for responses from the bridge content script.
   window.addEventListener('message', (event) => {
     if (
@@ -187,6 +191,7 @@
   async function requestFileHandlesWithPermission(hashes, create = false) {
     const origin = location.origin;
 
+    // No permission needed, creation is always allowed.
     if (create) {
       const responseData = await talkToBridge('requestFileHandles', {
         hashes,
@@ -196,30 +201,57 @@
       return handleRequestFileHandlesResponse(responseData);
     }
 
-    return new Promise(async (resolve, reject) => {
-      const bridgeResponse = await talkToBridge('getPermission', { origin });
-      const { permission } = bridgeResponse;
-      if (permission === 'allow-session') {
-        const responseData = await talkToBridge('requestFileHandles', {
-          hashes,
-          create,
-          origin,
-        });
-        resolve(handleRequestFileHandlesResponse(responseData));
+    const bridgeResponse = await talkToBridge('getPermission', { origin });
+    const { permission } = bridgeResponse;
+
+    // Always allow.
+    if (permission === 'allow-session') {
+      const responseData = await talkToBridge('requestFileHandles', {
+        hashes,
+        create,
+        origin,
+      });
+      return handleRequestFileHandlesResponse(responseData);
+    }
+
+    // Never allow.
+    if (permission === 'never-allow') {
+      throw new DOMException(
+        `The user has denied permission...`,
+        'NotAllowedError',
+      );
+    }
+
+    // Return a new promise that will be resolved/rejected by the queuing system.
+    return new Promise((resolve, reject) => {
+      const requestPayload = { hashes, create, origin, resolve, reject };
+
+      // If a dialog is already active, queue this request and return.
+      if (isPermissionDialogActive) {
+        permissionRequestQueue.push(requestPayload);
         return;
       }
 
-      if (permission === 'never-allow') {
-        reject(
-          new DOMException(
-            `The user has denied permission...`,
-            'NotAllowedError',
-          ),
-        );
-        return;
-      }
+      // Otherwise, this is the first request. Show the dialog.
+      isPermissionDialogActive = true;
 
       const iframe = createPermissionDialogIframe(origin);
+
+      // Helper function to process a request (initial or queued).
+      const processRequest = async (req) => {
+        try {
+          const responseData = await talkToBridge('requestFileHandles', {
+            hashes: req.hashes,
+            create: req.create,
+            origin: req.origin,
+          });
+          const handles = await handleRequestFileHandlesResponse(responseData);
+          req.resolve(handles);
+        } catch (error) {
+          req.reject(error);
+        }
+      };
+
       iframe.onload = () => {
         const dialog = iframe.contentDocument.body.querySelector('dialog');
         dialog.returnValue = '';
@@ -229,28 +261,33 @@
           if (userChoice === '×') {
             userChoice = '';
           }
-          dialog.remove();
+
+          // Combine the initial request with any queued requests.
+          const allRequests = [requestPayload, ...permissionRequestQueue];
+
+          // Reset state for future requests.
+          permissionRequestQueue = [];
+          isPermissionDialogActive = false;
+
           if (userChoice === 'never-allow' || userChoice === 'allow-session') {
             await talkToBridge('storePermission', {
               origin,
               permission: userChoice,
             });
           }
+
           if (!userChoice || userChoice === 'never-allow') {
-            reject(
-              new DOMException(
-                `The user did not grant permission...`,
-                'NotAllowedError',
-              ),
+            const error = new DOMException(
+              `The user did not grant permission...`,
+              'NotAllowedError',
             );
+            // Reject all pending requests.
+            allRequests.forEach((req) => req.reject(error));
             return;
           }
-          const responseData = await talkToBridge('requestFileHandles', {
-            hashes,
-            create,
-            origin,
-          });
-          resolve(handleRequestFileHandlesResponse(responseData));
+
+          // User granted permission. Process all requests in parallel.
+          await Promise.all(allRequests.map(processRequest));
         });
       };
     });
