@@ -8,6 +8,7 @@
   // State variables to manage a single permission dialog and queue requests.
   let isPermissionDialogActive = false;
   let permissionRequestQueue = [];
+  let sessionPermission = null;
 
   // Listen for responses from the bridge content script.
   window.addEventListener('message', (event) => {
@@ -201,11 +202,28 @@
       return handleRequestFileHandlesResponse(responseData);
     }
 
+    if (
+      sessionPermission === 'allow-session' ||
+      sessionPermission === 'allow-once'
+    ) {
+      const responseData = await talkToBridge('requestFileHandles', {
+        hashes,
+        create,
+        origin,
+      });
+      return handleRequestFileHandlesResponse(responseData);
+    }
+    if (sessionPermission === 'never-allow') {
+      throw new DOMException(
+        `The user has denied permission...`,
+        'NotAllowedError',
+      );
+    }
+
     const bridgeResponse = await talkToBridge('getPermission', { origin });
     const { permission } = bridgeResponse;
-
-    // Always allow.
     if (permission === 'allow-session') {
+      sessionPermission = 'allow-session';
       const responseData = await talkToBridge('requestFileHandles', {
         hashes,
         create,
@@ -214,30 +232,26 @@
       return handleRequestFileHandlesResponse(responseData);
     }
 
-    // Never allow.
     if (permission === 'never-allow') {
+      sessionPermission = 'never-allow';
       throw new DOMException(
         `The user has denied permission...`,
         'NotAllowedError',
       );
     }
 
-    // Return a new promise that will be resolved/rejected by the queuing system.
+    // If no permission is set, proceed to prompt the user.
     return new Promise((resolve, reject) => {
       const requestPayload = { hashes, create, origin, resolve, reject };
 
-      // If a dialog is already active, queue this request and return.
       if (isPermissionDialogActive) {
         permissionRequestQueue.push(requestPayload);
         return;
       }
-
-      // Otherwise, this is the first request. Show the dialog.
       isPermissionDialogActive = true;
 
       const iframe = createPermissionDialogIframe(origin);
 
-      // Helper function to process a request (initial or queued).
       const processRequest = async (req) => {
         try {
           const responseData = await talkToBridge('requestFileHandles', {
@@ -254,21 +268,22 @@
 
       iframe.onload = () => {
         const dialog = iframe.contentDocument.body.querySelector('dialog');
-        dialog.returnValue = '';
         dialog.addEventListener('close', async () => {
           iframe.remove();
           let userChoice = dialog.returnValue;
-          if (userChoice === '×') {
-            userChoice = '';
-          }
+          if (userChoice === '×') userChoice = '';
 
-          // Combine the initial request with any queued requests.
           const allRequests = [requestPayload, ...permissionRequestQueue];
-
-          // Reset state for future requests.
           permissionRequestQueue = [];
           isPermissionDialogActive = false;
 
+          if (
+            ['allow-once', 'allow-session', 'never-allow'].includes(userChoice)
+          ) {
+            sessionPermission = userChoice;
+          }
+
+          // Only store persistent choices permanently.
           if (userChoice === 'never-allow' || userChoice === 'allow-session') {
             await talkToBridge('storePermission', {
               origin,
@@ -281,12 +296,10 @@
               `The user did not grant permission...`,
               'NotAllowedError',
             );
-            // Reject all pending requests.
             allRequests.forEach((req) => req.reject(error));
             return;
           }
 
-          // User granted permission. Process all requests in parallel.
           await Promise.all(allRequests.map(processRequest));
         });
       };
