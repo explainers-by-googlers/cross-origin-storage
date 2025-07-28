@@ -1,8 +1,5 @@
 import ResourceManager from './resource-manager.js';
 
-/**
- * Main function to initialize the popup view.
- */
 async function initializePopup() {
   const resourceManager = new ResourceManager();
 
@@ -12,6 +9,32 @@ async function initializePopup() {
   const hashesList = document.getElementById('hashes-list');
   const originsList = document.getElementById('origins-list');
   const deleteAllBtn = document.getElementById('delete-all-btn');
+  const confirmationDialog = document.getElementById('confirmation-dialog');
+  const confirmationMessage = document.getElementById('confirmation-message');
+  const dialogConfirmBtn = document.getElementById('dialog-confirm-btn');
+
+  /**
+   * Shows a custom confirmation dialog.
+   * @param {string} message The message to display in the dialog.
+   * @param {string} confirmText The text for the confirm button.
+   * @returns {Promise<boolean>} A promise that resolves to true if confirmed, false otherwise.
+   */
+  function showConfirmationDialog(message, confirmText = 'Confirm') {
+    return new Promise((resolve) => {
+      confirmationMessage.innerHTML = message;
+      dialogConfirmBtn.textContent = confirmText;
+
+      const closeListener = () => {
+        // Clean up the event listener to prevent memory leaks.
+        confirmationDialog.removeEventListener('close', closeListener);
+        // The returnValue is 'confirm' if the confirm button was clicked.
+        resolve(confirmationDialog.returnValue === 'confirm');
+      };
+
+      confirmationDialog.addEventListener('close', closeListener);
+      confirmationDialog.showModal();
+    });
+  }
 
   /**
    * Updates the list of hashes based on the selected origin.
@@ -34,13 +57,12 @@ async function initializePopup() {
       deleteBtn.title = `Delete this resource (${hash.substring(0, 8)}...)`;
       deleteBtn.addEventListener('click', async () => {
         const originsUsingResource = resourceManager.getOriginsByHash(hash);
-        console.log(originsUsingResource);
-        // Ask for confirmation before deleting
-        if (
-          confirm(
-            `Are you sure you want to delete the resource with hash:\n${hash}\n\nIt's used by the following origins:\n• ${originsUsingResource.join('\n• ')}`,
-          )
-        ) {
+        const message = `<h1>Are you sure you want to delete the resource with hash<br><code>${hash}</code>?</h1><p>It's used by the following origins:<ul><li>${originsUsingResource.join(
+          '</li><li>',
+        )}</li></ul>`;
+
+        const confirmed = await showConfirmationDialog(message, 'Delete');
+        if (confirmed) {
           chrome.runtime.sendMessage(
             {
               action: 'deleteResource',
@@ -51,7 +73,7 @@ async function initializePopup() {
             },
             async (response) => {
               if (!response.data.success) {
-                console.error('Deleting all resources failed.');
+                console.error('Deleting the resource failed.');
                 return;
               }
               await resourceManager.deleteResourcesByHash(hash);
@@ -175,11 +197,12 @@ async function initializePopup() {
       alert('There are no resources to remove.');
       return;
     }
-    if (
-      confirm(
-        'Are you sure you want to delete all resources?\n\nThis action cannot be undone.',
-      )
-    ) {
+
+    const message =
+      '<h1>Are you sure you want to delete all resources?</h1><p>This action cannot be undone.</p>';
+    const confirmed = await showConfirmationDialog(message, 'Delete All');
+
+    if (confirmed) {
       chrome.runtime.sendMessage(
         {
           action: 'deleteAllResources',

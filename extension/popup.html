@@ -22,6 +22,7 @@
         margin: 1rem;
         background: light-dark(#ffffff, #121212);
         color: light-dark(#000000, #f0f0f0);
+        min-width: 500px;
       }
       .container {
         display: flex;
@@ -138,6 +139,55 @@
       .danger-btn:hover {
         background-color: #b71c1c;
       }
+      dialog {
+        border: 1px solid light-dark(#ccc, #666);
+        border-radius: 8px;
+        padding: 1.5em;
+        background: light-dark(#ffffff, #1e1e1e);
+        color: light-dark(#000000, #f0f0f0);
+        box-shadow: 0 4px 6px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.6));
+        min-width: 300px;
+        max-width: 500px;
+      }
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.5);
+      }
+      dialog div {
+        margin-bottom: 1.5em;
+        color: light-dark(#666, #bbb);
+      }
+      dialog ul {
+        list-style-type: disc;
+        margin-left: 20px;
+        padding-left: 5px;
+      }
+      dialog h1 {
+        font-size: 1rem;
+        font-weight: bold;
+      }
+      dialog code {
+        font-size: 0.7rem;
+      }
+      dialog form {
+        display: flex;
+        flex-direction: column;
+      }
+      dialog footer {
+        display: flex;
+        gap: 1em;
+        justify-content: flex-end;
+        margin-top: 1em;
+      }
+      #dialog-confirm-btn {
+        background-color: #d32f2f;
+        color: #ffffff;
+        width: auto;
+        padding: 0.6em 1.2em;
+        font-size: 1em;
+      }
+      #dialog-confirm-btn:hover {
+        background-color: #b71c1c;
+      }
     </style>
   </head>
   <body>
@@ -165,6 +215,18 @@
         Delete All Resources
       </button>
     </div>
+
+    <dialog id="confirmation-dialog">
+      <form method="dialog">
+        <p id="confirmation-message"></p>
+        <footer>
+          <button type="submit" value="cancel">Cancel</button>
+          <button type="submit" value="confirm" id="dialog-confirm-btn">
+            Confirm
+          </button>
+        </footer>
+      </form>
+    </dialog>
 
     <script type="module" src="popup.js"></script>
   </body>
