@@ -38,7 +38,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         break;
       default:
-        console.warn(`Unexpected message action received: '${action}'.`);
+        console.warn('Unknown action:', action);
     }
   })();
   return true;

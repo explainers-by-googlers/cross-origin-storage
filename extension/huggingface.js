@@ -58,18 +58,26 @@ console.error = (...args) => {
   pre.append(span);
 };
 
+// Gets the SHA-256 hash for large resources as per
+// https://huggingface.co/docs/hub/en/storage-backends#xet.
+const getSHA256Hash = async (request) => {
+  if (/\/resolve\/main\/onnx\//.test(request)) {
+    request = request.replace(/\/resolve\//, '/raw/');
+    const text = await fetch(request).then((response) => response.text());
+    const hash = text.replace(/.*?\n^oid sha256:(\w+)\n.*?$/gm, '$1');
+    return hash;
+  }
+};
+
 env.useBrowserCache = false;
 env.useCustomCache = true;
 env.customCache = {
   match: async (request) => {
-    request = request
-      .replace('https://huggingface.co', '')
-      .replace(/^\/models/, '');
-    const hashValue = cachedFileHashes[request];
+    const hashValue =
+      cachedFileHashes[request] || (await getSHA256Hash(request));
     if (!hashValue) {
       return undefined;
     }
-
     const hash = { algorithm: 'SHA-256', value: hashValue };
     console.log('Trying to access file in cross-origin storage...', hash);
     try {
@@ -87,9 +95,6 @@ env.customCache = {
   put: async (request, response) => {
     const blob = await response.blob();
     const hash = await getBlobHash(blob);
-    request = request
-      .replace('https://huggingface.co', '')
-      .replace(/\/resolve\/main/, '');
     cachedFileHashes[request] = hash.value;
     localStorage.setItem(
       cachedFileHashesLocalStorageKey,

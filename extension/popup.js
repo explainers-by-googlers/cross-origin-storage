@@ -73,7 +73,7 @@ async function initializePopup() {
             },
             async (response) => {
               if (!response.data.success) {
-                console.error('Deleting the resource failed.');
+                console.error(`Deleting resource with hash ${hash} failed.`);
                 return;
               }
               await resourceManager.deleteResourcesByHash(hash);
