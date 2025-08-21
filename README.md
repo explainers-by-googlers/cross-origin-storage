@@ -6,6 +6,13 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 This proposal is an early design sketch by Chrome Developer Relations to describe the problem below and solicit feedback on the proposed solution. It has not been approved to ship in Chrome.
 
+> [!WARNING]
+> This proposal is paused. After a period of investigation, this proposal is no longer being actively developed or pursued.
+>
+> Our research indicates that cross-origin model sharing is not a primary adoption blocker for developers at this time. Our current strategy is to focus on solving more immediate and validated problems for the Web AI developer community.
+>
+> We may revisit this proposal in the future if we see a significant increase in client-side AI adoption combined with clear demand from developers who have aligned on a common set of models.
+
 ## Authors
 
 - [Thomas Steiner](mailto:tomac@google.com), Google Chrome
