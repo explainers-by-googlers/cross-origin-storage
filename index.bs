@@ -1,0 +1,296 @@
+<pre class='metadata'>
+Title: Cross-Origin Storage API
+Shortname: cross-origin-storage
+Level: 1
+Status: CG-DRAFT
+Group: WICG
+Repository: WICG/cross-origin-storage
+URL: https://wicg.github.io/cross-origin-storage/
+Editor: Thomas Steiner, Google LLC https://www.google.com/ , steiner.thomas@gmail.com
+!Tests: <a href=https://github.com/web-platform-tests/wpt/tree/master/cross-origin-storage>web-platform-tests cross-origin-storage/</a> (<a href=https://github.com/web-platform-tests/wpt/labels/cross-origin-storage>ongoing work</a>)
+Abstract: This specification defines a browser-managed, content-addressed storage for large immutable files that can be accessed (read) across origins with explicit user consent, and written once by any origin, to avoid redundant cross-site downloads while preserving security and privacy.
+</pre>
+
+<pre class='link-defaults'>
+spec:html; type:dfn; text:origin
+spec:html; type:dfn; text:user activation
+spec:html; type:dfn; text:transient activation
+spec:webidl; type:dfn; text:dictionary
+</pre>
+
+<style>
+.domintro dt { font-family: Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace; padding-top: .5em; padding-bottom: 1em; }
+.domintro dt a { color: inherit; border-bottom-style: none; }
+.domintro::before { content: 'For web developers (non-normative)'; text-transform: initial; }
+</style>
+
+Introduction {#intro}
+=====================
+
+*This section is non-normative.*
+
+Large client-side resources (for example AI model weights, SQLite databases, offline site archives, and WebAssembly modules) are frequently used by multiple sites. On the web today, each origin must fetch and store its own copy, leading to redundant downloads and duplicated disk usage.
+
+The Cross-Origin Storage (COS) API provides:
+
+* A **content-addressed**, browser-managed store of immutable **files keyed by cryptographic hash**.
+* Methods to **request read access** to files by hash, gated on **explicit user consent** and **[[HTML]] [=transient activation=]**.
+* Methods to **provision write-only handles** for installing new files into the store, without user activation.
+* A permission model designed to **prevent cross-site information leakage** while still enabling reuse of identical large files across sites.
+
+COS does **not** replace origin-scoped storage (OPFS, Cache API, IndexedDB), nor does it provide arbitrary cross-origin data access.
+
+# Model {#model}
+
+A user agent maintains a **Cross-Origin Store** (the *COS store*), a UA-managed repository mapping **hash keys** to **immutable file records**.
+
+A **hash key** consists of:
+
+* an {{HashAlgorithmIdentifier}} *algorithm*, and
+* a lowercase hex-encoded byte string *value* representing the digest of the file bytes.
+
+Files in the COS store are **immutable**: once a (algorithm, value) key is installed, the associated byte sequence never changes. Installing the same contents again is a no-op. Installing bytes that do not match the requested hash fails.
+
+Entries in the COS store are **not attributed to an origin**. Access to entries is controlled by the COS permission model (below). The UA may evict entries at any time, e.g., according to storage pressure heuristics.
+
+## Permissions {#permissions}
+
+Reading from COS is a **powerful capability** guarded by a user permission with the following properties:
+
+* The permission is requested **per invoking [=origin=]** and **per call** (i.e., no ambient read without a user gesture).
+* A permission prompt **must** clearly explain that the site is checking for files previously stored by other sites, and offer choices such as:
+  * *Allow while visiting this site* (grants through the current top-level page lifecycle),
+  * *Allow this time* (grants for the current call only),
+  * *Never allow* (persistent deny for the invoking origin).
+* Reading requires **[[HTML]] [=transient activation=]**.
+* When denied, calls reject with "NotAllowedError".
+* Write-only provisioning does **not** require user activation or a prompt.
+
+The UA **must not** reveal whether a particular hash exists in COS before the user grants access and a call is made with [=transient activation=]. Timing and side-channel differences must be minimized.
+
+# API {#api}
+
+## Web IDL {#idl}
+
+```webidl
+[Exposed=Window]
+interface CrossOriginStorage {
+  /**
+   * Request read handles for the given hashes.
+   * Requires transient activation and explicit user consent.
+   * Rejects with NotAllowedError if permission is denied.
+   * Rejects with NotFoundError if no requested entry exists.
+   */
+  Promise<sequence<FileSystemFileHandle>> requestFileHandles(
+      sequence<COSHash> hashes);
+
+  /**
+   * Provision write-only handles for installing new entries.
+   * No activation required. Each returned handle accepts bytes for the given hash
+   * and becomes readable only after successful commit.
+   */
+  Promise<sequence<FileSystemFileHandle>> requestWritableFileHandles(
+      sequence<COSHash> hashes);
+};
+
+dictionary COSHash {
+  required HashAlgorithmIdentifier algorithm;
+  required DOMString value; // lowercase hex string of the digest
+};
+
+partial interface Navigator {
+  [SameObject] readonly attribute CrossOriginStorage crossOriginStorage;
+};
+```
+
+### Developer convenience (non-normative)
+
+> **Examples**
+>
+> Requesting an existing file by hash (requires a click):
+>
+> ```js
+> button.onclick = async () => {
+>   const hash = { algorithm: 'SHA-256',
+>                  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4' };
+>   const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+>   const blob = await handle.getFile();
+>   // Use the blob (e.g., instantiate a model, open a DB, etc.).
+> };
+> ```
+>
+> Installing a file once for everyone:
+>
+> ```js
+> // May run without a gesture:
+> const [wh] = await navigator.crossOriginStorage.requestWritableFileHandles([hash]);
+> const w = await wh.createWritable();
+> await w.write(bytes); // Stream the bytes; UA will compute the digest
+> await w.close();      // Atomically installs if digest matches hash.value
+> ```
+
+## Infrastructure and algorithms {#infra}
+
+### Obtaining the CrossOriginStorage instance
+
+To get the {{Navigator/crossOriginStorage}} attribute, the UA **must** return a [=SameObject=] instance for the {{Window}}'s [=current realm=].
+
+### Processing a hash list {#process-hash-list}
+
+Given a sequence *hashes*, the UA **must**:
+
+1. For each *h* in *hashes*:
+   1. Validate that *h.algorithm* is a supported {{HashAlgorithmIdentifier}}; otherwise, throw a {{TypeError}}.
+   2. Validate that *h.value* matches the syntax of a lowercase hexadecimal digest of the correct length for *h.algorithm*; otherwise, throw a {{TypeError}}.
+
+### `requestFileHandles(hashes)` {#algo-read}
+
+When {{CrossOriginStorage/requestFileHandles()}} is invoked with a sequence *hashes*:
+
+1. If the [=relevant global object=] does not have [[HTML]] [=transient activation=], [=queue a task=] to [=reject=] the returned {{Promise}} with a "NotAllowedError" {{DOMException}} and abort these steps.
+2. Run the [#process-hash-list] validation for *hashes*.
+3. **Permission gate**:
+   1. Determine the invoking [=origin=] *origin*.
+   2. Consult COS permission state for *origin*.
+   3. If the UA would show a prompt, show a prompt with text indicating that the site will check for pre-existing files needed by the site and might use them without modification.
+   4. If denied, [=reject=] with "NotAllowedError" and abort.
+4. Let *found* be an empty list.
+5. For each *h* in *hashes*:
+   1. If the COS store contains an entry for *h*, append to *found* a [=read-only file handle=] constructed as follows:
+      1. Create a {{FileSystemFileHandle}} that:
+         * when {{FileSystemFileHandle/getFile()}} is called, returns a {{Blob}} over the entry’s immutable bytes;
+         * when {{FileSystemFileHandle/createWritable()}} is called, [=reject=]s with "NotAllowedError".
+6. If *found* is empty, [=reject=] with "NotFoundError" and abort.
+7. Otherwise, [=resolve=] with *found* preserving input order for found entries.
+
+### `requestWritableFileHandles(hashes)` {#algo-write}
+
+When {{CrossOriginStorage/requestWritableFileHandles()}} is invoked with a sequence *hashes*:
+
+1. Run the [#process-hash-list] validation for *hashes*.
+2. For each *h* in *hashes*, create a **provisioned write-only handle** as a {{FileSystemFileHandle}} with the following behavior:
+   1. {{FileSystemFileHandle/getFile()}} [=reject=]s with "NotAllowedError".
+   2. {{FileSystemFileHandle/createWritable()}} returns a {{FileSystemWritableFileStream}} that:
+      1. Accepts any sequence of bytes via writes.
+      2. On **close**:
+         1. Compute the digest of the written bytes using *h.algorithm*.
+         2. If the computed digest, encoded as lowercase hex, is **not equal** to *h.value*:
+            * fail the close with a "DataError" {{DOMException}}; the bytes are discarded and no COS entry is created or modified.
+         3. Otherwise, **atomically install** the bytes into the COS store under key *h*. If an entry already exists with the same key, the UA may reuse the existing storage.
+         4. After successful installation, the handle **transitions** to a normal, read-only {{FileSystemFileHandle}} for the installed entry; subsequent {{getFile()}} calls succeed and {{createWritable()}} rejects.
+3. Return the sequence of provisioned write-only handles, preserving input order.
+
+### Read-only vs. write-only handles {#handle-modes}
+
+A **read-only file handle** is a {{FileSystemFileHandle}} for which {{createWritable()}} always rejects with "NotAllowedError".
+
+A **provisioned write-only handle** initially rejects {{getFile()}} and only becomes readable after a successful install on stream close, per [#algo-write].
+
+## Quota, lifetime, and eviction {#quota}
+
+COS is UA-managed and **not counted against origin quotas**. The UA may evict entries at any time. UAs **should**:
+
+* Prefer evicting least-recently-used or largest entries under storage pressure.
+* Avoid using COS for small files (e.g., less than a UA-defined threshold) where origin-scoped storage is more appropriate.
+* Expose storage usage and controls in settings.
+
+# Security Considerations {#security}
+
+* **Information disclosure**: The presence of a file keyed by a known hash might reveal information if queries were observable. To mitigate:
+  * **Require [=transient activation=] and explicit consent** for reads.
+  * **Uniform error behavior** and **bounded timing** for negative cases.
+  * **No enumeration**: COS provides no listing or search APIs.
+* **Integrity**: Content-addressing ensures integrity; write installs verify that the bytes match the declared digest.
+* **Isolation**: COS entries are immutable and not origin-scoped; read access is only by hash and requires permission, preventing ambient cross-origin access.
+
+# Privacy Considerations {#privacy}
+
+* **Cross-site correlation**: COS aims to minimize cross-site reidentification risk:
+  * Sites cannot learn whether a COS entry exists without a gesture and permission.
+  * UAs should avoid persisting allow decisions broadly; session-scoped grants are recommended.
+* **Transparency and control**: UAs should provide management UI to view and delete COS entries and per-site permissions.
+
+# Accessibility Considerations {#a11y}
+
+Permission prompts and settings interfaces should follow platform accessibility guidelines and be fully operable via assistive technologies and keyboard.
+
+# Examples (non-normative) {#examples}
+
+## Multiple hashes with partial presence
+
+```js
+const hashes = [
+  { algorithm: 'SHA-256', value: 'aaaa…' },
+  { algorithm: 'SHA-256', value: 'bbbb…' },
+];
+button.onclick = async () => {
+  try {
+    const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
+    for (const h of handles) {
+      const blob = await h.getFile();
+      // consume blob
+    }
+  } catch (e) {
+    if (e.name === 'NotFoundError') {
+      // none of the requested entries exist; proceed to install via writable path
+    }
+  }
+};
+```
+
+## Installing and then reading
+
+```js
+const hash = { algorithm: 'SHA-256', value: hexDigest(bytes) };
+const [wh] = await navigator.crossOriginStorage.requestWritableFileHandles([hash]);
+const w = await wh.createWritable();
+await w.write(bytes);
+await w.close(); // installs and flips the handle to readable
+const file = await wh.getFile(); // now succeeds
+```
+
+# Algorithms and abstract operations {#abstract-ops}
+
+**Compute lowercase-hex digest**
+
+Given an algorithm *alg* and bytes *data*:
+
+1. Compute *digest* = *alg*( *data* ).
+2. Return the lowercase hex encoding of *digest*.
+
+**Install-or-reuse**
+
+Given *h* and bytes *data*:
+
+1. If COS has entry *h*, return success without changes.
+2. Otherwise, allocate storage for *data* and map *h* → *data* atomically.
+3. Return success.
+
+# Conformance {#conformance}
+
+User agents must implement the interfaces and algorithms defined herein. Any divergence should be documented and justified for interoperability review.
+
+# IDL Index {#idl-index}
+
+```webidl
+[Exposed=Window]
+interface CrossOriginStorage {
+  Promise<sequence<FileSystemFileHandle>> requestFileHandles(
+      sequence<COSHash> hashes);
+  Promise<sequence<FileSystemFileHandle>> requestWritableFileHandles(
+      sequence<COSHash> hashes);
+};
+
+dictionary COSHash {
+  required HashAlgorithmIdentifier algorithm;
+  required DOMString value;
+};
+
+partial interface Navigator {
+  [SameObject] readonly attribute CrossOriginStorage crossOriginStorage;
+};
+```
+
+# Change log (non-normative) {#changes}
+
+* Initial CG draft based on explainer and feedback from early discussions.
