@@ -10,7 +10,6 @@ This proposal is an early design sketch by Chrome Developer Relations to describ
 > **Evaluate this proposal**
 >
 > While this API is not yet natively implemented in browsers, you can experiment with the proposed surface today.
->
 > Install the [Cross-Origin Storage extension](https://chromewebstore.google.com/detail/cross-origin-storage/denpnpcgjgikjpoglpjefakmdcbmlgih) to inject the `navigator.crossOriginStorage` polyfill on all pages and test the complete flow.
 
 ## Authors
