@@ -6,12 +6,12 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 
 This proposal is an early design sketch by Chrome Developer Relations to describe the problem below and solicit feedback on the proposed solution. It has not been approved to ship in Chrome.
 
-> [!WARNING]
-> This proposal is paused. After a period of investigation, this proposal is no longer being actively developed or pursued.
+> [!TIP]
+> **Evaluate this proposal**
 >
-> Our research indicates that cross-origin model sharing is not a primary adoption blocker for developers at this time. Our current strategy is to focus on solving more immediate and validated problems for the Web AI developer community.
+> While this API is not yet natively implemented in browsers, you can experiment with the proposed surface today.
 >
-> We may revisit this proposal in the future if we see a significant increase in client-side AI adoption combined with clear demand from developers who have aligned on a common set of models.
+> Install the [Cross-Origin Storage extension](https://chromewebstore.google.com/detail/cross-origin-storage/denpnpcgjgikjpoglpjefakmdcbmlgih) to inject the `navigator.crossOriginStorage` polyfill on all pages and test the complete flow.
 
 ## Authors
 
