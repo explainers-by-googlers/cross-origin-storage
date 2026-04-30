@@ -2,13 +2,13 @@
 
 <img src="https://raw.githubusercontent.com/WICG/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo, consisting of a folder icon with a crossing person." width="100">
 
-This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins with optional user consent. Building on the **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large assets, such as AI models, WebAssembly (Wasm) modules, and highly popular JavaScript libraries like jQuery or React. Taking inspiration from **Cache Digests for HTTP/2**, the API identifies files by their hashes to ensure integrity.
+This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins. Building on the **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large assets, such as AI models, WebAssembly (Wasm) modules, and highly popular JavaScript libraries. Taking inspiration from **Cache Digests for HTTP/2**, the API identifies files by their hashes to ensure integrity.
 
 > [!TIP]
 > **Evaluate this proposal**
 >
 > While this API is not yet natively implemented in browsers, you can experiment with the proposed surface today.
-> Install the [Cross-Origin Storage extension](https://chromewebstore.google.com/detail/cross-origin-storage/denpnpcgjgikjpoglpjefakmdcbmlgih) to inject the `navigator.crossOriginStorage` polyfill on all pages and test the complete flow. See the [source code of the extension](https://github.com/web-ai-community/cross-origin-storage-extension) and [instructions](https://github.com/web-ai-community/cross-origin-storage-extension?tab=readme-ov-file#usage) for how to test it.
+> Install the [Cross-Origin Storage extension](https://chromewebstore.google.com/detail/cross-origin-storage/denpnpcgjgikjpoglpjefakmdcbmlgih) to inject the `navigator.crossOriginStorage` polyfill on all pages and test the complete flow. See the [source code of the extension](https://github.com/web-ai-community/cross-origin-storage-extension) and read the [instructions](https://github.com/web-ai-community/cross-origin-storage-extension?tab=readme-ov-file#usage) for how to test it.
 
 ## Authors
 
@@ -22,7 +22,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 - [PRs](https://github.com/WICG/cross-origin-storage/pulls)
 - Support this proposal: https://github.com/WICG/cross-origin-storage/labels/expression%20of%20support
 
-The **Cross-Origin Storage (COS)** API provides a secure mechanism for web applications to store and retrieve large files across different origins. This allows applications to share common assets—such as AI models, Wasm modules, and popular libraries like jQuery or React—without redundant downloads, while maintaining user control via optional consent. Files are identified by their cryptographic hashes to ensure data integrity. The API extends concepts like `FileSystemFileHandle` from the **File System Living Standard**, specifically tailored for cross-origin scenarios. The following example demonstrates the basic flow for retrieving a file:
+The **Cross-Origin Storage (COS)** API provides a secure mechanism for web applications to store and retrieve large files across different origins. This allows applications to share common assets—such as AI models, Wasm modules, and popular JavaScript libraries—without redundant downloads. Resources are identified by their cryptographic hashes to ensure data integrity. The API reuses concepts like `FileSystemFileHandle` from the **File System Living Standard**, specifically tailored for cross-origin scenarios. The following example demonstrates the basic flow for retrieving a file:
 
 ```js
 // The hash of the desired file.
@@ -30,57 +30,50 @@ const hash = {
   algorithm: 'SHA-256',
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
-let handle;
-// This may trigger a permission prompt. For example:
-// example.com wants to check if your browser already has files the site needs,
-// possibly saved from another site. If found, it will use the files without
-// changing them.
-// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
-  [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  // The file exists in Cross-Origin Storage.
+  const fileBlob = await handle.getFile();
+  // Do something with the blob.  
 } catch (err) {
   if (err.name === 'NotAllowedError') {
-    console.log('The user did not grant permission to access the file.');
+    console.log('The user agent did not grant permission to access the file.');
   } else if (err.name === 'NotFoundError') {
     console.log('The file was not found in Cross-Origin Storage.');
   }
   return;
 }
-// The file exists in Cross-Origin Storage.
-const fileBlob = await handle.getFile();
-// Do something with the blob.
 ```
 
 ## Risk awareness
 
 > [!CAUTION]
-> The authors acknowledge that storage is usually isolated by origin to safeguard user security and privacy. Storing large files like AI models separately for each origin, as required by new [use cases](#use-cases), presents a significant scalability and efficiency challenge. For instance, if both `example.com` and `example.org` each require the same 8&nbsp;GB AI model, this would result in 16&nbsp;GB of downloaded data and a total allocation of 16&nbsp;GB on the user's device. This proposal introduces mechanisms that uphold protection standards while addressing the inefficiencies of duplicated downloads and storage.
+> The authors acknowledge that storage is usually isolated by origin to safeguard user security and privacy. Storing large resources like AI models separately for each origin, as required by new [use cases](#use-cases), presents a significant scalability and efficiency challenge. For instance, if both `example.com` and `example.org` each require the same 8&nbsp;GB AI model, this would result in 16&nbsp;GB of downloaded data and a total allocation of 16&nbsp;GB on the user's device. This proposal introduces mechanisms that uphold protection standards while addressing the inefficiencies of duplicated downloads and storage.
 
 ## Goals
 
 COS aims to:
 
-- Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, Wasm modules, and highly popular JavaScript libraries like jQuery or React.
-- Ensure security and user control with optional consent before accessing or storing files.
+- Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, Wasm modules, and highly popular JavaScript libraries.
 - Guarantee data integrity and consistency for file identification (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)).
-- Make the web more sustainable and ethical by reducing the number of redundant huge downloads of files the user agent already has potentially stored locally.
+- Make the web more sustainable and ethical by reducing the number of redundant huge downloads of resources the user agent already has potentially stored locally.
 
 ## Non-goals
 
 COS does _not_ aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **Web Storage**.
-- Replace content delivery networks (CDNs). The optional prompting is expected to deter websites from using the COS API unless there's a clear benefit to cross-origin file access, such as potentially utilizing a cached version.
-- Allow cross-origin file access _without_ the possibility for the user agent to intervene and optionally prompt for consent.
+- Replace content delivery networks (CDNs).
+- Allow cross-origin file access _without_ the possibility for the user agent to intervene and possibly deny access.
 - Question the same-origin policy or make changes to it.
 
 ## User research
 
-Feedback from developers working with large AI models, Wasm modules, and highly popular JavaScript libraries has highlighted the need for an efficient way to store and retrieve such large files across web applications on different origins. These developers are looking for a standardized solution that allows files to be stored once and accessed by multiple applications, without needing to download and store the files redundantly. COS ensures this is possible while maintaining privacy and security via optional user consent.
+Feedback from developers working with large AI models, Wasm modules, and highly popular JavaScript libraries has highlighted the need for an efficient way to store and retrieve such large files across web applications on different origins. These developers are looking for a standardized solution that allows files to be stored once and accessed by multiple applications, without needing to download and store the files redundantly. COS ensures this is possible while maintaining privacy and security.
 
 ### User needs example: Hugging Face
 
-[Joshua Lochner](https://huggingface.co/Xenova) (aka. Xenova) from Hugging Face had the following to say in his [talk at the Chrome Web AI Summit](https://youtu.be/n18Lrbo8VU8?t=1040):
+[Joshua Lochner](https://huggingface.co/Xenova) (aka. Xenova) from Hugging Face had the following to say in his [talk at the 2024 Chrome Web AI Summit](https://youtu.be/n18Lrbo8VU8?t=1040):
 
 > _"One can imagine a browser-based web store for models similar to the Chrome Web Store for extensions. From the user's perspective, they could search for web-compatible models on the Hugging Face hub, install it with a single click, and then access it across multiple domains. Currently, Transformers.js is limited in this regard, since models are cached on a per site or per extension basis."_
 
@@ -106,7 +99,7 @@ In their [standards position](https://github.com/mozilla/standards-positions/iss
 
 ### Use case 1: Large AI models
 
-Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, models can be stored under their hashes and retrieved with user consent, minimizing repeated downloads and storage, ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) (1.35&nbsp;GB). Another example is Google's [Gemma 1.1 7B](https://huggingface.co/google/gemma-1.1-7b-it) model `gemma-1.1-7b-it` (8.60&nbsp;GB), which can be [run in the browser](https://research.google/blog/unlocking-7b-language-models-in-your-browser-a-deep-dive-with-google-ai-edges-mediapipe/). Yet another example is the [`Llama-3.1-70B-Instruct-q3f16_1-MLC`](https://huggingface.co/mlc-ai/Llama-3.1-70B-Instruct-q3f16_1-MLC/tree/main) model (33&nbsp;GB), which [likewise runs in the browser](https://chat.webllm.ai/) (choose the "Llama 3.1 70B Instruct" model in the picker).
+Developers working with large AI models can store these models once and access them across multiple web applications. By using the COS API, models can be stored and retrieved based on their hashes, minimizing repeated downloads and storage, ensuring file integrity. An example is Google's [Gemma 2](https://huggingface.co/google/gemma-2-2b/tree/main) model [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) (1.35&nbsp;GB). Another example is Google's [Gemma 1.1 7B](https://huggingface.co/google/gemma-1.1-7b-it) model `gemma-1.1-7b-it` (8.60&nbsp;GB), which can be [run in the browser](https://research.google/blog/unlocking-7b-language-models-in-your-browser-a-deep-dive-with-google-ai-edges-mediapipe/). Yet another example is the [`Llama-3.1-70B-Instruct-q3f16_1-MLC`](https://huggingface.co/mlc-ai/Llama-3.1-70B-Instruct-q3f16_1-MLC/tree/main) model (33&nbsp;GB), which [likewise runs in the browser](https://chat.webllm.ai/) (choose the "Llama 3.1 70B Instruct" model in the picker).
 
 ### Use case 2: Large Wasm modules
 
@@ -123,24 +116,23 @@ Web applications that utilize large Wasm modules can store these modules using C
 
 ### Use case 3: Highly popular JavaScript libraries and frameworks
 
-Traditionally, bundlers have combined vendor code and user code, leading to low cache hit rates. By bundling vendor code separately and in its entirety (for example, the complete React library) instead of using dead-code elimination, developers can ensure a higher cache hit rate. Storing such files once with the COS API allows multiple web apps to share the same highly popular libraries.
+Traditionally, bundlers have combined vendor code and user code, leading to low cache hit rates even _before_ the regular HTTP cache was isolated. By bundling vendor code separately and in its entirety (for example, the complete React library) instead of using dead-code elimination, developers can ensure a higher cache hit rate. Storing such files once with the COS API allows multiple web apps to share the same highly popular libraries.
 
 ### Use case 4: Game engines
 
-Web games built with game engines that have browser support like [Godot](https://godotengine.org/), [Unity](https://unity.com/), or [Construct&nbsp;3](https://www.construct.net/en) to name a few popular examples can store the core game engine code in COS and only load game-specific assets like textures and game logic from the network. Web gaming portals like [WebGamer](https://webgamer.io/) that host plenty of casual games with a short path to gameplay on different cross-origin iframes can benefit greatly from this.
+Web games built with game engines that have browser support like [Godot](https://godotengine.org/) or [Unity](https://unity.com/) can store the core game engine code in COS and only load game-specific assets like textures and game logic from the network. Web gaming portals like [WebGamer](https://webgamer.io/) that host plenty of casual games with a short path to gameplay on different cross-origin iframes can benefit greatly from this.
 
 ## Potential solution
 
 ### File Storage Process
 
-The **COS** API will be available through the `navigator.crossOriginStorage` interface. Files will be stored and retrieved using their hashes, ensuring that each file is uniquely identified.
+The **COS** API will be available through the `navigator.crossOriginStorage` interface. Files will be stored and retrieved based on their hashes, ensuring that each file is uniquely identified.
 
 #### Storing files
 
 1. Hash the contents of the files using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes.
-1. Each of the `FileSystemFileHandle` objects in the resulting sequence of `FileSystemFileHandle` objects can only be used for writing. Trying to read would fail with a `NotAllowed` `DOMException`.
-1. Store the files in the user agent.
+1. Write the files' data to the `FileSystemFileHandle` objects and store them in Cross-Origin Storage.
 
 ##### Example: Storing a single file
 
@@ -156,12 +148,7 @@ const hash = {
 };
 
 // First, check if the file is already in COS.
-try {
-  // This may trigger a permission prompt. For example:
-  // example.com wants to check if your browser already has files the site needs,
-  // possibly saved from another site. If found, it will use the files without
-  // changing them.
-  // [Allow while visiting the site] [Allow this time] [Never allow]
+try {  
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
   ]);
@@ -184,9 +171,6 @@ try {
           origins: ['https://example.com', 'https://example.org'],
         },
       );
-      // The resulting `FileSystemFileHandle` can only be used for writing.
-      // Trying to call `handle.getFile()` would fail with a `NotAllowed`
-      // `DOMException`.
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
@@ -195,14 +179,14 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user didn't grant access to the file.
-  console.log('The user did not grant access to the file.');
+  // 'NotAllowedError', the user agent didn't grant access to the file.
+  console.log('The user agent did not grant access to the file.');
 }
 ```
 
 ##### Example: Restricting resources to specific origins
 
-The `origins` field is useful for sharing resources between a set of related origins without making them globally available. **This is expected for proprietary resources or in cases where global COS cache hits are not anticipated.**
+The `origins` field is useful for sharing resources between a set of related origins without making them globally available. **This is expected for proprietary resources or in cases where global COS cache hits are not anticipated.** For example, if a company has two related sites, `write.example.com` and `calculate.example.com`, that both use the same AI model for proofreading, they can store the model in COS and restrict access to just these two origins. This way, the model is not globally available to all sites that use COS, but only to the two related sites that need it.
 
 ```js
 // The hash of an AI model for proofreading.
@@ -225,12 +209,53 @@ const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
 // a `NotFoundError` when requesting this hash, even if it's stored in COS.
 ```
 
+##### Example: Making a resource globally available
+
+By specifying `origins: '*'` when storing a file, the file becomes globally available to all origins that use COS. **This is expected for very common resources that many sites are likely to use, like popular AI models, Wasm modules, or JavaScript libraries.** This is an explicit opt-in to avoid developers accidentally making resources globally available, which could lead to cross-site leaks.
+
+```js
+// The hash of a very common AI model.
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+
+const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
+  create: true,
+  origins: '*',
+});
+
+// Write the file…
+
+// Now, any origin can request the same hash and it will be found.
+```
+
+##### Example: Making a resource available to Same-Site origins only
+
+By omitting the `origins` option altogether when storing a file, the file becomes available only to Same-Site origins that use COS. This is a good option for resources that are expected to be shared across multiple subdomains of the same site, but not across completely unrelated sites.
+
+```js
+// The hash of a company's proprietary AI model.
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+
+const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
+  create: true,  
+});
+
+// Write the file…
+
+// Now, any Same-Site origin  can request the same hash and it will be found.
+```
+
 ##### Resource visibility upgrades
 
 The visibility of a resource in COS can be upgraded but never downgraded:
 
-- **Restricted to global**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandles()` for the same hash with `create: true` and _omit_ the `origins` field. If the user agent verifies the hash matches, the resource is then marked as globally available. The new site *must still* write the full file using the returned `handle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
-- **Global to restricted**: If a resource is already globally available in COS, any attempt to store it again with a specific `origins` list is ignored. The resource remains globally available, and the user agent should log a warning to the console to inform the developer that the restriction was not applied.
+- **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandles()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site *must still* write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
+- **Permissive to more restricted**: If a resource is already permissively available in COS, any attempt to store it again with a more restrictive `origins` list is ignored. The resource remains globally available, and the user agent should log a warning to the console to inform the developer that the restriction was not applied.
 
 ##### Example: Storing multiple files
 
@@ -250,11 +275,6 @@ const hashes = [{
 
 // First, check if the files are already in COS.
 try {
-  // This may trigger a permission prompt. For example:
-  // example.com wants to check if your browser already has files the site needs,
-  // possibly saved from another site. If found, it will use the files without
-  // changing them.
-  // [Allow while visiting the site] [Allow this time] [Never allow]
   const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
   // The files exist in COS.
   for (const handle of handles) {
@@ -277,10 +297,7 @@ try {
           create: true,
         },
       );
-      handles.forEach((handle, i) => {
-        // The resulting `FileSystemFileHandle` can only be used for writing.
-        // Trying to call `handle.getFile()` would fail with a `NotAllowed`
-        // `DOMException`.
+      handles.forEach((handle, i) => {        
         const writableStream = await handle.createWritable();
         await writableStream.write(fileBlobs[i]);
         await writableStream.close();
@@ -290,15 +307,16 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user didn't grant access to the file.
-  console.log('The user did not grant access to the file.');
+  // 'NotAllowedError', the user agent didn't grant access to the file.
+  console.log('The user agent did not grant access to the file.');
 }
 ```
 
 #### Retrieving files
 
-1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes. This will optionally trigger a permission prompt if it's okay for the origin to check if the files are stored by the user agent.
-1. Retrieve the sequence of `FileSystemFileHandle` objects after the user agent has granted access (optionally after showing a prompt).
+1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes.
+1. Check if each resource exists in COS and make sure it can be shared without causing privacy issues.
+1. Retrieve the sequence of `FileSystemFileHandle` objects after the user agent has granted access.
 
 ##### Example: Retrieving a single file
 
