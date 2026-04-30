@@ -11,6 +11,7 @@ interface CrossOriginStorageRequestFileHandleHash {
  */
 interface CrossOriginStorageRequestFileHandleOptions {
   create?: boolean;
+  origins?: string[] | string;
 }
 
 /**
@@ -28,5 +29,12 @@ interface CrossOriginStorageManager {
  * Augment the standard Navigator interface.
  */
 interface Navigator {
+  readonly crossOriginStorage: CrossOriginStorageManager;
+}
+
+/**
+ * Augment the standard WorkerNavigator interface.
+ */
+interface WorkerNavigator {
   readonly crossOriginStorage: CrossOriginStorageManager;
 }

@@ -2,19 +2,21 @@
 
 ## 01. What information does this feature expose, and for what purposes?
 
-The COS API exposes the availability of files identified by their hash across different origins. The purpose is to enable efficient sharing of large files (for example, AI models, highly popular JavaScript libraries, Wasm modules) to reduce redundant downloads and storage. Exposing this information is optionally subject to user consent, depending on the user agent's policy.
+The COS API exposes the availability of files identified by their hash across different origins. The purpose is to enable efficient sharing of common files (for example, AI models, highly popular JavaScript libraries, Wasm modules) to reduce redundant downloads and storage.
 
 ## 02. Do features in your specification expose the minimum amount of information necessary to implement the intended functionality?
 
-Yes, possibly after user consent, the API exposes only the existence of a file with a known hash and provides read access to it. No additional metadata is exposed. Write access is always granted, just like any page can freely store arbitrary data until its storage quota is reached in other storage mechanisms like the bucket file system (origin private file system), IndexedDB, or the Cache API. The optional `origins` field allows developers to further minimize exposure by restricting resource access to a trusted set of origins. User agents that allow third-party cookies by default may consider exposing this API without a prompt.
+Yes, the API exposes only the existence of a file with a known hash and provides read access to it. By default, exposure is limited to Same-Site contexts. No additional metadata is exposed. Write access is always granted, just like any page can freely store arbitrary data until its storage quota is reached in other storage mechanisms like the bucket file system (origin private file system), IndexedDB, or the Cache API. The optional `origins` field allows developers to further minimize exposure by restricting resource access to a trusted set of origins. Global sharing of resources is strictly an opt-in operation. User agents that disallow third-party cookies by default are expected to not expose the COS API either.
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
-Possibly. If a COS file is only used on a couple of websites, a site can discover that the user visited those sites by checking for the file's presence. The attacker site would need to probe hashes of resources it's interested in, which the user agent may optionally allow the user to approve by granting permission to do so. One such attack could be checking for the presence of highly popular JavaScript libraries, deriving that the user visits sites using specific frameworks. The `origins` field specifically addresses this by allowing resources to be hidden from any origin not explicitly listed by the storer, reducing the global fingerprinting surface. In user agents that allow third-party cookies, this information may already be exposed.
+Possibly. If a COS file is only used on a couple of websites, a site can discover that the user visited those sites by checking for the file's presence. The attacker site would need to probe hashes of resources it's interested in, which the user agent may optionally start lying about. One such attack could be checking for the presence of a specific niche JavaScript library only used on certain sites. The `origins` field specifically addresses this by allowing resources to be hidden from any origin not explicitly listed by the storer, reducing the attack surface.
+
+As a further mitigation, user agents are expected to implement an availability gating mechanism. Resources on an allowlist of well-known, widely-used assets (for example, popular AI model weights from recognized model hubs) are unconditionally eligible for cross-origin disclosure. For all other resources, user agents should only confirm a file's presence once it has been observed on a minimum number of distinct origins, ensuring that resources unique to a small number of sites are not disclosed. When a resource does not meet this threshold, the user agent returns a `NotFoundError` `DOMException` regardless of whether the file is present in COS, making the COS storage state indistinguishable from absence.
 
 ## 04. How do the features in your specification deal with sensitive information?
 
-Files can only be accessed with optional user consent or user agent approval. The API does not allow arbitrary file discovery or sharing of sensitive user data without permission or user agent consent.
+The API does not allow arbitrary file discovery.
 
 ## 05. Does data exposed by your specification carry related but distinct information that may not be obvious to users?
 
@@ -22,7 +24,7 @@ No.
 
 ## 06. Do the features in your specification introduce state that persists across browsing sessions?
 
-Yes. Files stored in COS persist across sessions. However, their access is gated by optional user consent or user agent approval, and user agents can manage eviction policies to maintain control over this state.
+Yes. Files stored in COS persist across sessions. User agents can manage eviction policies to maintain control over this state and offer manual management options.
 
 ## 07. Do the features in your specification expose information about the underlying platform to origins?
 
@@ -54,11 +56,13 @@ None.
 
 ## 14. How does this specification distinguish between behavior in first-party and third-party contexts?
 
-Optional user consent or user agent approval is required for cross-origin access. User agents that allow third-party cookies may consider exposing this API without a prompt.
+By default, the COS API is only available in Same-Site contexts. This means that a site can only access files in COS that were stored by itself or by other sites in the same site. The optional `origins` field controls access by restricting it to specific trusted origins or expanding it to all origins, providing an additional layer of control over third-party access. Global sharing of resources is strictly an opt-in operation, and user agents that disallow third-party cookies by default are expected to not expose the COS API at all.
+
+Additionally, the availability gating mechanism ensures that even cross-origin reads for globally available resources are subject to a popularity threshold: a resource that is unique to, or concentrated among, only a few origins will not be disclosed to third-party requestors, further reducing the risk of cross-site state inference in third-party contexts.
 
 ## 15. How do the features in this specification work in the context of a browser’s Private Browsing or Incognito mode?
 
-Files previously stored in COS are not accessible in Private Browsing or Incognito mode. User agents may allow COS to work during an Incognito session, but the data would not be retained. Alternatively, user agents may disable COS entirely.
+Files previously stored in COS are not accessible in Private Browsing or Incognito mode. User agents may allow COS to work during an Incognito session, but the data would not be retained. Alternatively, user agents may disable COS entirely or always lie about the availability of files.
 
 ## 16. Does this specification have both "Security Considerations" and "Privacy Considerations" sections?
 
@@ -66,7 +70,7 @@ Yes. The specification includes detailed sections addressing [security considera
 
 ## 17. Do features in your specification enable origins to downgrade default security protections?
 
-Yes, upon optional user consent or user agent approval.
+Yes, as an explicit opt-in operation, with encouraged browser console warnings.
 
 ## 18. What happens when a document that uses your feature is kept alive in BFCache?
 
@@ -86,4 +90,4 @@ No.
 
 ## 22. What should this questionnaire have asked?
 
-It could include a question about whether the API promotes transparency in user-facing permission prompts, enhancing user understanding of the implications of granting access.
+N/A

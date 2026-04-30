@@ -34,7 +34,7 @@ try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
-  // Do something with the blob.  
+  // Do something with the blob.
 } catch (err) {
   if (err.name === 'NotAllowedError') {
     console.log('The user agent did not grant permission to access the file.');
@@ -148,7 +148,7 @@ const hash = {
 };
 
 // First, check if the file is already in COS.
-try {  
+try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
   ]);
@@ -242,7 +242,7 @@ const hash = {
 };
 
 const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
-  create: true,  
+  create: true,
 });
 
 // Write the file…
@@ -297,7 +297,7 @@ try {
           create: true,
         },
       );
-      handles.forEach((handle, i) => {        
+      handles.forEach((handle, i) => {
         const writableStream = await handle.createWritable();
         await writableStream.write(fileBlobs[i]);
         await writableStream.close();
@@ -317,6 +317,9 @@ try {
 1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes.
 1. Check if each resource exists in COS and make sure it can be shared without causing privacy issues.
 1. Retrieve the sequence of `FileSystemFileHandle` objects after the user agent has granted access.
+
+> [!NOTE]
+> A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#availability-gating)). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
 
 ##### Example: Retrieving a single file
 
@@ -348,7 +351,7 @@ try {
     return;
   }
   // 'NotAllowedError', the user agent did not grant access to the file.
-  console.log('The user agent did not grant access to the file.'); 
+  console.log('The user agent did not grant access to the file.');
 }
 ```
 
@@ -434,7 +437,7 @@ try {
           create: true,
           origins: '*', // Make the file globally available.
         },
-      );      
+      );
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
@@ -590,7 +593,17 @@ As a general rule, we expect this API to only be available when third-party cook
 
 If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource isn't globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
 
+Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
+
 We expect user agents to implement safeguards against such attacks, for example, by limiting the number of probes, or by starting to lie if a known-evil site is probing. Each call to `requestFileHandles()` can be considered a probe, independent of the number of files requested, and user agents can limit the number of probes per site or even block probes from known-evil sites. Counting calls with multiple requested files as one single probe is fine, as the API doesn't reveal which file was (not) found, but just fails with a `NotFoundError` `DOMException`. Therefore, the attacker would still need to make multiple calls to probe for multiple files, which is more easily detectable and blockable by user agents.
+
+#### Availability gating
+
+User agents are expected to implement an **availability gating** mechanism that may suppress the presence of a file in COS even when the file is physically stored there. `requestFileHandles()` must return a `NotFoundError` `DOMException` when the user agent determines that revealing the file's presence would constitute a privacy risk, regardless of whether the file is actually present.
+
+User agents should maintain an **allowlist** of well-known resources—such as AI model weights published by recognized model hubs—that are unconditionally eligible for cross-origin availability disclosure. For resources not on the allowlist, user agents should only confirm a file's presence if it has met a **popularity threshold** and been encountered on a minimum number of distinct origins, ensuring that no file unique to a small set of sites can be used as a cross-site identifier. Resources that do not meet the popularity threshold are treated as absent: the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
+
+Developers must NOT rely on a `NotFoundError` as definitive proof that a file is absent from COS. A `NotFoundError` MAY indicate that the user agent has withheld confirmation of the file's presence for privacy reasons.
 
 #### Cross-site leaks
 
@@ -654,7 +667,7 @@ dictionary CrossOriginStorageRequestFileHandleHash {
 
 dictionary CrossOriginStorageRequestFileHandleOptions {
   optional boolean create = false;
-  optional sequence<USVString> origins;
+  optional (USVString or sequence<USVString>) origins;
 }
 ```
 
