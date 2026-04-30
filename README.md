@@ -48,15 +48,15 @@ try {
 ## Risk awareness
 
 > [!CAUTION]
-> The authors acknowledge that storage is usually isolated by origin to safeguard user security and privacy. Storing large resources like AI models separately for each origin, as required by new [use cases](#use-cases), presents a significant scalability and efficiency challenge. For instance, if both `example.com` and `example.org` each require the same 8&nbsp;GB AI model, this would result in 16&nbsp;GB of downloaded data and a total allocation of 16&nbsp;GB on the user's device. This proposal introduces mechanisms that uphold protection standards while addressing the inefficiencies of duplicated downloads and storage.
+> The authors acknowledge that storage is usually isolated by origin to safeguard user security and privacy. Storing large resources such as AI models separately for each origin, as required by new [use cases](#use-cases), presents a significant scalability and efficiency challenge. For instance, if both `example.com` and `example.org` each require the same 8&nbsp;GB AI model, this would result in 16&nbsp;GB of downloaded data and a total allocation of 16&nbsp;GB on the user's device. This proposal introduces mechanisms that uphold protection standards while addressing the inefficiencies of duplicated downloads and storage.
 
 ## Goals
 
 COS aims to:
 
-- Provide a cross-origin storage mechanism for web applications to store and retrieve large files like AI models, Wasm modules, and highly popular JavaScript libraries.
+- Provide a cross-origin storage mechanism for web applications to store and retrieve large files such as AI models, Wasm modules, and highly popular JavaScript libraries.
 - Guarantee data integrity and consistency for file identification (see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)).
-- Make the web more sustainable and ethical by reducing the number of redundant huge downloads of resources the user agent already has potentially stored locally.
+- Make the web more sustainable and ethical by reducing redundant downloads of large resources the user agent may already have stored locally.
 
 ## Non-goals
 
@@ -64,8 +64,8 @@ COS does _not_ aim to:
 
 - Replace existing storage solutions such as the **Origin Private File System**, the **Cache API**, **IndexedDB**, or **Web Storage**.
 - Replace content delivery networks (CDNs).
-- Allow cross-origin file access _without_ the possibility for the user agent to intervene and possibly deny access.
-- Question the same-origin policy or make changes to it.
+- Allow cross-origin file access _without_ the possibility for the user agent to intervene.
+- Modify or supersede the same-origin policy.
 
 ## User research
 
@@ -120,7 +120,7 @@ Traditionally, bundlers have combined vendor code and user code, leading to low 
 
 ### Use case 4: Game engines
 
-Web games built with game engines that have browser support like [Godot](https://godotengine.org/) or [Unity](https://unity.com/) can store the core game engine code in COS and only load game-specific assets like textures and game logic from the network. Web gaming portals like [WebGamer](https://webgamer.io/) that host plenty of casual games with a short path to gameplay on different cross-origin iframes can benefit greatly from this.
+Web games built with game engines that have browser support such as [Godot](https://godotengine.org/) or [Unity](https://unity.com/) can store the core game engine code in COS and only load game-specific assets such as textures and game logic from the network. Web gaming portals such as [WebGamer](https://webgamer.io/) that host plenty of casual games with a short path to gameplay on different cross-origin iframes can benefit greatly from this.
 
 ## Potential solution
 
@@ -186,7 +186,7 @@ try {
 
 ##### Example: Restricting resources to specific origins
 
-The `origins` field is useful for sharing resources between a set of related origins without making them globally available. **This is expected for proprietary resources or in cases where global COS cache hits are not anticipated.** For example, if a company has two related sites, `write.example.com` and `calculate.example.com`, that both use the same AI model for proofreading, they can store the model in COS and restrict access to just these two origins. This way, the model is not globally available to all sites that use COS, but only to the two related sites that need it.
+The `origins` field is useful for sharing resources between a set of related origins without making them globally available. **This option is recommended for proprietary resources or resources for which global COS cache hits are not anticipated.** For example, if a company has two related sites, `write.example.com` and `calculate.example.com`, that both use the same AI model for proofreading, they can store the model in COS and restrict access to just these two origins. This way, the model is not globally available to all sites that use COS, but only to the two related sites that need it.
 
 ```js
 // The hash of an AI model for proofreading.
@@ -211,7 +211,7 @@ const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
 
 ##### Example: Making a resource globally available
 
-By specifying `origins: '*'` when storing a file, the file becomes globally available to all origins that use COS. **This is expected for very common resources that many sites are likely to use, like popular AI models, Wasm modules, or JavaScript libraries.** This is an explicit opt-in to avoid developers accidentally making resources globally available, which could lead to cross-site leaks.
+By specifying `origins: '*'` when storing a file, the file becomes globally available to all origins that use COS. **This option is appropriate for widely used resources that many sites are likely to share, such as popular AI models, Wasm modules, or JavaScript libraries.** This is an explicit opt-in to avoid developers accidentally making resources globally available, which could lead to cross-site leaks.
 
 ```js
 // The hash of a very common AI model.
@@ -286,7 +286,7 @@ try {
 } catch (err) {
   // If the files weren't in COS, load them from the network and store them in
   // COS. The method throws a `NotFoundError` `DOMException` if _any_ of the
-  // files isn't found.
+  // files is not found.
   if (err.name === 'NotFoundError') {
     try {
       // Load the files from the network.
@@ -455,7 +455,7 @@ try {
 
 ##### Site B: Retrieving the same model
 
-On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same popular model from COS.
+On Site B, entirely unrelated to Site A, a different web application retrieves the same popular model from COS.
 
 ```js
 // The hash of the desired file.
@@ -494,7 +494,7 @@ try {
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
 
-The used hashing algorithm is encoded in each hash object's `algorithm` field of the `hashes` array as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future.
+The hashing algorithm used is encoded in each hash object's `algorithm` field of the `hashes` array as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future.
 
 ```js
 const hashes = [
@@ -512,7 +512,7 @@ In the context of [evaluating carbon emissions in digital data usage](https://we
 - **Network transmission:** 0.013&nbsp;kWh/GB
 - **User devices:** 0.081&nbsp;kWh/GB
 
-While this document doesn't aim to critically assess the precision of these estimates, it's an established principle that minimizing redundant data downloads and storage is inherently beneficial for sustainability. The [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/) specifically highlight that the Web [_"is an environmentally sustainable platform"_](https://w3ctag.github.io/ethical-web-principles/#sustainable) and suggest _"lowering carbon emissions by minimizing data storage and processing requirements"_ as measures to achieve this. Consequently, one of the key objectives of the COS API is to enhance Web sustainability by reducing redundant large file downloads when such files are possibly already stored locally on the user's device.
+While this document does not aim to critically assess the precision of these estimates, it is an established principle that minimizing redundant data downloads and storage is inherently beneficial for sustainability. The [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/) specifically highlight that the Web [_"is an environmentally sustainable platform"_](https://w3ctag.github.io/ethical-web-principles/#sustainable) and suggest _"lowering carbon emissions by minimizing data storage and processing requirements"_ as measures to achieve this. Consequently, one of the key objectives of the COS API is to enhance Web sustainability by reducing redundant large file downloads when such files are possibly already stored locally on the user's device.
 
 > [!IMPORTANT]
 > In the context of AI, its implications for sustainability efforts are undeniable. It's essential to adhere to [Web Sustainability Guidelines](https://w3c.github.io/sustainableweb-wsg/) when integrating AI solutions. Prior to implementing AI, it's recommended to [assess and research visitor needs](https://w3c.github.io/sustainableweb-wsg/#assess-and-research-visitor-needs) to ensure that AI is a justifiable and effective solution that truly improves the experience. For example, by increasing user privacy of video calls by applying AI-based background blurring.
@@ -521,47 +521,47 @@ While this document doesn't aim to critically assess the precision of these esti
 
 ### Concurrency
 
-What should happen if two tabs depend on the same file, check COS, see the file is not in COS, and start downloading? Should this be handled more efficiently? How often does this happen in practice? In the worst case, the file gets downloaded twice, but would then still only be stored once in COS. Our current thinking is to not deal with this special case based on the tolerable worst case.
+What should happen if two tabs depend on the same file, check COS, see the file is not in COS, and start downloading? Should this be handled more efficiently? How often does this happen in practice? In the worst case, the file gets downloaded twice, but would then still only be stored once in COS. This proposal does not address this case. In the worst case, the file is downloaded twice but stored only once in COS, which is considered an acceptable outcome.
 
 ### Partial COS matches
 
-If the developer wants to check if two files A and B, with the hashes hash_A and hash_B are stored in COS, but only one of the two is stored, the API will still fail with a `NotFoundError` `DOMException` without revealing the partial match. Should it? Our current thinking is that it complicates error handling, especially since the expected use cases commonly require all files to be present for the app to function, for example, the tokenizer, configurations, weights, and graph with an AI model. Additionally, it's preferable to not reveal partial matches for privacy reasons, as this would allow (very limited) enumeration of COS contents.
+If the developer wants to check if two files A and B, with the hashes hash_A and hash_B are stored in COS, but only one of the two is stored, the API will still fail with a `NotFoundError` `DOMException` without revealing the partial match. The current position is that revealing partial matches would complicate error handling, particularly since the expected use cases commonly require all files to be present simultaneously—for example, the tokenizer, configuration files, weights, and graph for an AI model. Partial-match disclosure is also undesirable from a privacy perspective, as it would enable limited enumeration of COS contents.
 
 As an alternative, the developer can always check for each file separately if it is stored in COS. This way, the developer can handle partial matches as they see fit, for example, by only downloading the missing files from the network.
 
 ### Minimum file size
 
-Should there be a required minimum file size for a file to be eligible for COS? Most likely not, since it would be trivial to inflate the file size of non-qualifying files by adding space characters or comments.
+Should there be a required minimum file size for a file to be eligible for COS? No minimum file size is proposed. It would be trivial to inflate a file's size to meet any such threshold, for example by appending padding bytes or comments.
 
 ### Handling of eviction
 
 Under critical storage pressure, user agents could offer a dialog that invites the user to manually free up storage. The user agent could also delete files automatically based on, for example, a least recently used approach.
 
-User agents are further envisioned to offer user agent settings UI for the user to see what files are stored in COS and what origins have (least) recently used each file. The user can then choose to delete files from COS using this UI.
+User agents are further expected to provide settings UI through which users can inspect which files are stored in COS and which origins have most or least recently accessed each file. Users may then choose to delete files from COS through this UI.
 
 When the user clears site data, all usage information associated with the origin should be removed from files in COS. If a file in COS, after the removal of usage information, is deemed unused, the user agent may delete it from COS.
 
 ### Manual COS management
 
-If a user already has manually downloaded a file like a large AI model, should the user agent offer a way to let the user put the file in COS? This could just be an affordance provided by the user agent.
+If a user already has manually downloaded a file such as a large AI model, should the user agent offer a way to let the user put the file in COS? This could be an affordance provided by the user agent.
 
 ## Considered alternatives
 
 ### Adding a description for each file apart from the hash
 
-To make manual COS management easier, one could imagine allowing developers to store a description together with the resource. Apps could reference to the same file identified by a unique hash using different descriptions. For example, an English site could refer to the [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) AI model as "Gemma AI model from Google", whereas another Spanish site could refer to it as "modelo de IA grande de Google". Instead, we envision user agents to enrich COS management UI based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the user agent settings UI.
+To facilitate manual COS management, one approach would be to allow developers to store a human-readable description alongside the resource. Apps could reference to the same file identified by a unique hash using different descriptions. For example, an English site could refer to the [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) AI model as "Gemma AI model from Google", whereas another Spanish site could refer to it as "modelo de IA grande de Google". Instead, we envision user agents to enrich COS management UI based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the user agent settings UI.
 
 ### Storing files without hashing
 
 Storing files by their names rather than using hashes would risk name collisions, especially in a cross-origin environment. The use of hashes guarantees unique identification of each file, ensuring that the contents are consistently recognized and retrieved. Storing files based on their URLs would work if apps reference the same URLs, for example, on the same CDN, but wouldn't work if apps reference the same file stored at different locations.
 
-### Manually accessing files from harddisk
+### Manually accessing files from a local disk
 
 Different origins can manually open the same file on disk, either using the File System Access API's `showOpenFilePicker()` method or using the classic `<input type="file">` approach. This requires the file to be stored once, and access to the file can then be shared as explained in [Cache AI models in the browser](https://developer.chrome.com/docs/ai/cache-models#special_case_use_a_model_on_a_hard_disk). While this works, it's manual and error-prone, as it requires the user to know what file to choose from their hard drive in the file picker.
 
 ### Integrating cross-origin storage in the `fetch()` API
 
-On the server, cross-origin isolation isn't really a problem. At the same time, server runtimes like Node.js, Bun, or Deno implement `fetch()` as well. To avoid fragmentation and to keep the present `fetch()` API simple, it probably doesn't make sense to add COS to `fetch()`. Since `fetch()` is URL-based, this would also not solve the case where the same file is stored at different locations.
+On the server, cross-origin isolation is not really a problem. At the same time, server runtimes like Node.js, Bun, or Deno implement `fetch()` as well. To avoid fragmentation and to keep the present `fetch()` API simple, it does not make sense to add COS to `fetch()`. Since `fetch()` is URL-based, this would also not solve the case where the same file is stored at different locations.
 
 ### Integrating cross-origin storage in the Cache API
 
@@ -569,7 +569,7 @@ The Cache API is fundamentally modeled around the concepts of `Request` or URL s
 
 ### Solving the problem only for AI models
 
-AI models are admittedly the biggest motivation for working on COS, so one alternative would be to solve the problem exclusively for AI models. A question that arises in the context is how it would be enforced that files actually be AI models? Given this question, this approach doesn't seem like a great fit, and, maybe more importantly, the non-AI [use cases](#use-cases) are well worth solving, too.
+AI models are admittedly the biggest motivation for working on COS, so one alternative would be to solve the problem exclusively for AI models. A question that arises in the context is how it would be enforced that files actually be AI models? Given this question, this approach does not seem like a good fit, and the non-AI [use cases](#use-cases) are well worth addressing, too.
 
 Additionally, common AI inference solutions like [Transformers.js](https://github.com/huggingface/transformers.js) rely on [WebAssembly in the underlying ONNX Runtime](https://onnxruntime.ai/docs/build/web.html#build-instructions), which is true independent of the backend, WebGPU or Wasm. The same applies to [MediaPipe](https://github.com/google-ai-edge/mediapipe), which requires Wasm files as so-called [`WasmFileset`](https://ai.google.dev/edge/api/mediapipe/js/tasks-text.filesetresolver) objects for its various MediaPipe Tasks APIs.
 
@@ -579,23 +579,23 @@ See the complete [questionnaire](security-privacy-questionnaire.md) for details.
 
 ### Security considerations
 
-Access is scoped to individual files, [each identified by their hash](#hashing). Developers can't arbitrarily access any random files or obtain the complete list of resources in COS, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contents, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself, as COS guarantees that each file's contents matches its hash. For enhanced protection, user agents can check file hashes against virus databases like [VirusTotal](https://www.virustotal.com/gui/home/search), and integrate with in-browser security features like [Safe Browsing](https://safebrowsing.google.com/) even before storing a file.
+Access is scoped to individual files, [each identified by their hash](#hashing). Developers cannot arbitrarily access any random files or obtain the complete list of resources in COS, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contents, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself, as COS guarantees that each file's contents matches its hash. For enhanced protection, user agents can check file hashes against virus databases like [VirusTotal](https://www.virustotal.com/gui/home/search), and integrate with in-browser security features like [Safe Browsing](https://safebrowsing.google.com/) even before storing a file.
 
-User agents are envisioned to offer [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
+User agents are expected to provide [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
 
-We envision user agents to enrich settings UI based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the settings UI.
+User agents are expected to enrich settings UI based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the settings UI.
 
 ### Privacy considerations
 
-As a general rule, we expect this API to only be available when third-party cookies are enabled.
+User agents are expected to make this API available only in contexts where third-party cookies are enabled.
 
 #### Cross-site probing
 
-If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource isn't globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
+If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource is not globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
 
 Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
 
-We expect user agents to implement safeguards against such attacks, for example, by limiting the number of probes, or by starting to lie if a known-evil site is probing. Each call to `requestFileHandles()` can be considered a probe, independent of the number of files requested, and user agents can limit the number of probes per site or even block probes from known-evil sites. Counting calls with multiple requested files as one single probe is fine, as the API doesn't reveal which file was (not) found, but just fails with a `NotFoundError` `DOMException`. Therefore, the attacker would still need to make multiple calls to probe for multiple files, which is more easily detectable and blockable by user agents.
+User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandles()` can be considered a probe, independent of the number of files requested, and user agents can limit the number of probes per site or even block probes from sites known to be malicious. Counting calls with multiple requested files as one single probe is acceptable, as the API does not reveal which file was (not) found, but just fails with a `NotFoundError` `DOMException`. Therefore, the attacker would still need to make multiple calls to probe for multiple files, which is more easily detectable and more easily blocked by user agents.
 
 #### Availability gating
 
@@ -615,13 +615,13 @@ Sites are prevented from flooding the cache in an attempt to evict other sites' 
 
 #### Fingerprinting detection
 
-User agents are also expected to use (on-device) machine learning to identify possible fingerprinting attempts. For example, if a site crafts unique hashes for each user (which hints at fingerprinting), user agents can detect this and block the COS probing attempt. Popular browsers like Chrome have [successfully applied this technique](https://blog.google/products/chrome/building-a-more-helpful-browser-with-machine-learning/#:~:text=More%20peace%20of%20mind%2C%20less%20annoying%20prompts) for a long time to silence notification spam.
+User agents are also expected to use (on-device) machine learning to identify possible fingerprinting attempts. For example, if a site crafts unique hashes for each user (which hints at fingerprinting), user agents can detect this and block the COS probing attempt. Some user agents have [successfully applied this technique](https://blog.google/products/chrome/building-a-more-helpful-browser-with-machine-learning/#:~:text=More%20peace%20of%20mind%2C%20less%20annoying%20prompts) to silence notification spam.
 
-The knowledge an attacker can gain about a user depends heavily on the popularity of the resources stored in COS. If a user has a very popular resource stored, like a common AI model, a large Wasm module, or a popular JavaScript library, the attacker can only learn that the user visited one of the many sites that use this resource, which is not very useful information. If a user has a very uncommon or even unique resource stored, the attacker can learn that the user visited one of the few sites (or the only site) that use this resource, which is more useful information. However, we expect that user agents will implement safeguards against such attacks, as described above.
+The knowledge an attacker can gain about a user depends heavily on the popularity of the resources stored in COS. If a user has a very popular resource stored, such as a common AI model, a large Wasm module, or a popular JavaScript library, the attacker can only learn that the user visited one of the many sites that use this resource, which is not very useful information. If a user has a very uncommon or even unique resource stored, the attacker can learn that the user visited one of the few sites (or the only site) that use this resource, which is more useful information. However, user agents are expected to implement safeguards against such attacks, as described above.
 
 ## Stakeholder feedback / opposition
 
-- **Web Developers**: [Positive feedback](#user-research) for enabling sharing large files without repeated downloads and storage, particularly in the context of huge AI models, large Wasm modules, and highly popular JavaScript libraries.
+- **Web Developers**: [Expressed support](#user-research) for enabling sharing of large files without redundant downloads and storage, particularly large AI models, large Wasm modules, and highly popular JavaScript libraries.
 
 ## References
 
@@ -723,7 +723,7 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> How does this API help with popular JavaScript libraries like jQuery or React?
   </summary>
   <p>
-    <strong>Answer:</strong> Bundlers used to mash vendor code and user code together, causing low cache hit rates. By bundling vendor code separately and completely (e.g., all of React) instead of dead code eliminating, we can ensure a higher cache hit rate. While JavaScript libraries used to be very fragmented, modern bundling strategies (where vendor code is bundled separately and completely) make them great candidates for COS to ensure high cache hit rates and improved performance across different applications.
+    <strong>Answer:</strong> Bundlers have historically combined vendor and application code, causing low cache hit rates. By bundling vendor code separately and completely (e.g., all of React) instead of applying dead-code elimination, a higher cache hit rate can be achieved. While JavaScript libraries used to be very fragmented, modern bundling strategies (where vendor code is bundled separately and completely) make them well-suited for COS to ensure high cache hit rates and improved performance across different applications.
   </p>
 </details>
 
@@ -732,7 +732,7 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> What other API is this API shaped after?
   </summary>
   <p>
-    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter in `getFileHandle()`, in COS, there's the <code>hashes</code> array that fulfills the equivalent function of uniquely identifying a set of files in COS. If <code>options.create</code> isn't set or is set to <code>false</code>, the user agent will return handles for the files identified by the hashes value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return handles that can be written to. Optionally, when <code>options.create</code> is <code>true</code>, developers can also provide a list of <code>origins</code> to restrict who can later read the resource, or make the resource globally available.
+    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter in `getFileHandle()`, in COS, there is the <code>hashes</code> array that fulfills the equivalent function of uniquely identifying a set of files in COS. If <code>options.create</code> is not set or is set to <code>false</code>, the user agent will return handles for the files identified by the hashes value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return handles that can be written to. Optionally, when <code>options.create</code> is <code>true</code>, developers can also provide a list of <code>origins</code> to restrict who can later read the resource, or make the resource globally available.
   </p>
 </details>
 

@@ -6,11 +6,11 @@ The COS API exposes the availability of files identified by their hash across di
 
 ## 02. Do features in your specification expose the minimum amount of information necessary to implement the intended functionality?
 
-Yes, the API exposes only the existence of a file with a known hash and provides read access to it. By default, exposure is limited to Same-Site contexts. No additional metadata is exposed. Write access is always granted, just like any page can freely store arbitrary data until its storage quota is reached in other storage mechanisms like the bucket file system (origin private file system), IndexedDB, or the Cache API. The optional `origins` field allows developers to further minimize exposure by restricting resource access to a trusted set of origins. Global sharing of resources is strictly an opt-in operation. User agents that disallow third-party cookies by default are expected to not expose the COS API either.
+Yes, the API exposes only the existence of a file with a known hash and provides read access to it. By default, exposure is limited to Same-Site contexts. No additional metadata is exposed. Write access is always granted, analogously to how pages may freely store data until their quota is exhausted in mechanisms such as the Origin Private File System, IndexedDB, or the Cache API. The optional `origins` field allows developers to further minimize exposure by restricting resource access to a trusted set of origins. Global sharing of resources is strictly an opt-in operation. User agents that disallow third-party cookies by default are expected not to expose the COS API.
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
-Possibly. If a COS file is only used on a couple of websites, a site can discover that the user visited those sites by checking for the file's presence. The attacker site would need to probe hashes of resources it's interested in, which the user agent may optionally start lying about. One such attack could be checking for the presence of a specific niche JavaScript library only used on certain sites. The `origins` field specifically addresses this by allowing resources to be hidden from any origin not explicitly listed by the storer, reducing the attack surface.
+Possibly. If a COS file is only used on a couple of websites, a site can discover that the user visited those sites by checking for the file's presence. The attacker site would need to probe hashes of resources it's interested in, for which the user agent may return a false negative. One such attack could be checking for the presence of a specific niche JavaScript library only used on certain sites. The `origins` field specifically addresses this by allowing resources to be hidden from any origin not explicitly listed by the storer, reducing the attack surface.
 
 As a further mitigation, user agents are expected to implement an availability gating mechanism. Resources on an allowlist of well-known, widely-used assets (for example, popular AI model weights from recognized model hubs) are unconditionally eligible for cross-origin disclosure. For all other resources, user agents should only confirm a file's presence once it has been observed on a minimum number of distinct origins, ensuring that resources unique to a small number of sites are not disclosed. When a resource does not meet this threshold, the user agent returns a `NotFoundError` `DOMException` regardless of whether the file is present in COS, making the COS storage state indistinguishable from absence.
 
@@ -24,7 +24,7 @@ No.
 
 ## 06. Do the features in your specification introduce state that persists across browsing sessions?
 
-Yes. Files stored in COS persist across sessions. User agents can manage eviction policies to maintain control over this state and offer manual management options.
+Yes. Files stored in COS persist across sessions. User agents may manage eviction policies to maintain control over this state and offer manual management options.
 
 ## 07. Do the features in your specification expose information about the underlying platform to origins?
 
@@ -56,7 +56,7 @@ None.
 
 ## 14. How does this specification distinguish between behavior in first-party and third-party contexts?
 
-By default, the COS API is only available in Same-Site contexts. This means that a site can only access files in COS that were stored by itself or by other sites in the same site. The optional `origins` field controls access by restricting it to specific trusted origins or expanding it to all origins, providing an additional layer of control over third-party access. Global sharing of resources is strictly an opt-in operation, and user agents that disallow third-party cookies by default are expected to not expose the COS API at all.
+By default, the COS API is only available in Same-Site contexts. This means that a site can only access files in COS that were stored by itself or by other same-site origins. The optional `origins` field controls access by restricting it to specific trusted origins or expanding it to all origins, providing an additional layer of control over third-party access. Global sharing of resources is strictly an opt-in operation, and user agents that disallow third-party cookies by default are expected not to expose the COS API at all.
 
 Additionally, the availability gating mechanism ensures that even cross-origin reads for globally available resources are subject to a popularity threshold: a resource that is unique to, or concentrated among, only a few origins will not be disclosed to third-party requestors, further reducing the risk of cross-site state inference in third-party contexts.
 
@@ -70,7 +70,7 @@ Yes. The specification includes detailed sections addressing [security considera
 
 ## 17. Do features in your specification enable origins to downgrade default security protections?
 
-Yes, as an explicit opt-in operation, with encouraged browser console warnings.
+Yes. This is an explicit opt-in operation; user agents are encouraged to surface a console warning when a resource is stored with reduced visibility restrictions.
 
 ## 18. What happens when a document that uses your feature is kept alive in BFCache?
 
