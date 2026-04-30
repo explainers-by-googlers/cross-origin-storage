@@ -179,7 +179,7 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user agent didn't grant access to the file.
+  // 'NotAllowedError', the user agent did not grant access to the file.
   console.log('The user agent did not grant access to the file.');
 }
 ```
@@ -307,7 +307,7 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user agent didn't grant access to the file.
+  // 'NotAllowedError', the user agent did not grant access to the file.
   console.log('The user agent did not grant access to the file.');
 }
 ```
@@ -331,11 +331,6 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 
-// This may trigger a permission prompt. For example:
-// example.com wants to check if your browser already has files the site needs,
-// possibly saved from another site. If found, it will use the files without
-// changing them.
-// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
@@ -343,18 +338,17 @@ try {
   // The file exists in COS.
   const fileBlob = await handle.getFile();
   console.log('Retrieved file', fileBlob);
-  // Return the file as a Blob.
-  console.log(fileBlob);
+  // Do something with the blob.
 } catch (err) {
   if (err.name === 'NotFoundError') {
     // Load the file from the network.
     const fileBlob = await loadFileFromNetwork();
     // Return the file as a Blob.
-    console.log(fileBlob);
+    console.log('Obtained file from network', fileBlob);
     return;
   }
-  // 'NotAllowedError', the user didn't grant access to the file.
-  console.log('The user did not grant access to the file.');
+  // 'NotAllowedError', the user agent did not grant access to the file.
+  console.log('The user agent did not grant access to the file.'); 
 }
 ```
 
@@ -377,35 +371,30 @@ const hashes = [
   },
 ];
 
-// This may trigger a permission prompt. For example:
-// example.com wants to check if your browser already has files the site needs,
-// possibly saved from another site. If found, it will use the files without
-// changing them.
-// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
   // The files exist in COS.
   for (const handle of handles) {
     const fileBlob = await handle.getFile();
-    // Return the file as a Blob.
+    // Do something with the blob.
     console.log('Retrieved file', fileBlob);
   }
 } catch (err) {
   if (err.name === 'NotFoundError') {
     // Load the files from the network.
     const fileBlobs = await loadFilesFromNetwork();
-    // Return the files as a Blob.
-    console.log(fileBlobs);
+    // Do something with the blobs.
+    console.log('Obtained files from network', fileBlobs);
     return;
   }
-  // 'NotAllowedError', the user didn't grant access to the files.
-  console.log('The user did not grant access to the files.');
+  // 'NotAllowedError', the user agent did not grant access to the files.
+  console.log('The user agent did not grant access to the files.');
 }
 ```
 
 #### Storing and retrieving a file across unrelated sites
 
-To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same large language model. The first site stores the model in COS, while the second site retrieves it.
+To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same common large language model. The first site stores the model in COS and makes it globally available, while the second site retrieves it.
 
 ##### Site A: Storing a large language model
 
@@ -418,11 +407,6 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 
-// This may trigger a permission prompt. For example:
-// site-a.example.com wants to check if your browser already has files the site
-// needs, possibly saved from another site. If found, it will use the files
-// without changing them.
-// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
@@ -448,11 +432,9 @@ try {
         [hash],
         {
           create: true,
+          origins: '*', // Make the file globally available.
         },
-      );
-      // The resulting `FileSystemFileHandle` can only be used for writing.
-      // Trying to call `handle.getFile()` would fail with a `NotAllowed`
-      // `DOMException`.
+      );      
       const writableStream = await handle.createWritable();
       await writableStream.write(fileBlob);
       await writableStream.close();
@@ -463,14 +445,14 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user didn't grant access to the file.
-  console.log('The user did not grant access to the file.');
+  // 'NotAllowedError', the user agent did not grant access to the file.
+  console.log('The user agent did not grant access to the file.');
 }
 ```
 
 ##### Site B: Retrieving the same model
 
-On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same model from COS.
+On Site B, entirely unrelated to Site A, a different web application happens to retrieve the same popular model from COS.
 
 ```js
 // The hash of the desired file.
@@ -479,11 +461,6 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 
-// This may trigger a permission prompt. For example:
-// site-b.example.com wants to check if your browser already has files the site
-// needs, possibly saved from another site. If found, it will use the files
-// without changing them.
-// [Allow while visiting the site] [Allow this time] [Never allow]
 try {
   const [handle] = await navigator.crossOriginStorage.requestFileHandles([
     hash,
@@ -497,50 +474,18 @@ try {
     console.error(err.name, err.message);
     return;
   }
-  // 'NotAllowedError', the user didn't grant access to the file.
-  console.log('The user did not grant access to the file.');
+  // 'NotAllowedError', the user agent did not grant access to the file.
+  console.log('The user agent did not grant access to the file.');
 }
 ```
 
 ##### Key points
 
 - **Unrelated sites:** The two sites belong to different origins and do not share any context, ensuring the example demonstrates cross-origin capabilities.
+- **Strictly opt-in:** Site A explicitly opts in to make the file globally available by setting `origins: '*'` when storing the file. This ensures that the file is not accidentally made available to all sites.
 - **Cross-origin sharing:** Despite the different origins, the files are securely identified by their hashes, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
 
 ## Detailed design discussion
-
-### Optional user consent and permissions
-
-If implemented, the optional permission prompt must clearly convey that the user agent is granting access to shared files. The goal is to strike a balance between providing sufficient technical details and maintaining user-friendly simplicity.
-
-> [!NOTE]
-> User agents are expected to decide whether to show a permission prompt based on their own policies. For example, user agents that allow third-party cookies by default or that have a special relationship with certain origins may consider exposing this API without a prompt.
-
-> [!IMPORTANT]
-> We envision user agents to enrich permission prompts based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
-
-An **access permission** will optionally be shown every time the `navigator.crossOriginStorage.requestFileHandles(hashes)` method is called _without_ the `create` option set to `true`, which is used to check for the existence of files and to obtain handles for retrieval.
-
-Each of the `FileSystemFileHandle` objects in the resulting sequence of `FileSystemFileHandle` objects that the developer obtains when `create` is set to `true` can only be used for writing. Trying to call `FileSystemFileHandle.getFile()` would fail with a `NotAllowed` `DOMException`.
-
-Following an initial optional permission, user agents can decide to allow access on every following visit, or to explicitly ask upon each access attempt. If an origin itself has stored the file before, the user agent can decide to not show a prompt if the same origin requests access to the file again.
-
-If the user grants permission for subsequent visits, a change in the order of the hashes in the `hashes` array doesn't matter when accessing the same set of files. It's also allowed to request reading access to just a subset of previously accessed files without triggering another permission prompt.
-
-If the user has disallowed access to COS by clicking **Block** or **Never allow** or similar in the permission prompt, the developer can always fall back to traditional ways of obtaining files over the network, like `fetch()` or `XMLHttpRequest`, or possibly cached versions of the files in the Cache API or IndexedDB. The permission can be reset to the initial state using the user agent's site settings UI.
-
-If the user agent knows that the file exists, it can customize the permission prompt to differentiate the existence check and the access prompt.
-
-> [!IMPORTANT]
-> The permission could mention other recent origins that have accessed the same files, but this may be misinterpreted by the user as information the current site may learn, which is not the case. Instead, the vision is that user agents would make information about origins that have (recently) accessed files stored in COS available in special user agent settings UI, as outlined in [Handling of eviction](#handling-of-eviction).
-
-### Privacy
-
-Since the files are retrieved only with optional user permission, there's no way for files stored in COS to become supercookies without raising the user agent's suspicion upon excessive reading attempts. Privacy-sensitive user agents can decide to prompt upon every retrieval operation, others can decide to only prompt once, and auto-allow from thereon, or not prompt at all. User agents can decide to not prompt if the present origin has stored the file before, or if third-party cookies are allowed.
-
-If a file is only used on a couple of websites, a site can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which another site might exploit this knowledge of. The attacker site would need to probe hashes of resources it's interested in, which the user would potentially need to approve by granting permission to do so. The optional `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource isn't globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
-
-User agents are also expected to use (on-device) machine learning to identify possible fingerprinting attempts. For example, if a site crafts unique hashes for each user (which hints at fingerprinting), user agents can detect this and block the COS prompt. Popular browsers like Chrome have [successfully applied this technique](https://blog.google/products/chrome/building-a-more-helpful-browser-with-machine-learning/#:~:text=More%20peace%20of%20mind%2C%20less%20annoying%20prompts) for a long time to silence notification spam.
 
 ### Hashing
 
@@ -579,9 +524,11 @@ What should happen if two tabs depend on the same file, check COS, see the file 
 
 If the developer wants to check if two files A and B, with the hashes hash_A and hash_B are stored in COS, but only one of the two is stored, the API will still fail with a `NotFoundError` `DOMException` without revealing the partial match. Should it? Our current thinking is that it complicates error handling, especially since the expected use cases commonly require all files to be present for the app to function, for example, the tokenizer, configurations, weights, and graph with an AI model. Additionally, it's preferable to not reveal partial matches for privacy reasons, as this would allow (very limited) enumeration of COS contents.
 
+As an alternative, the developer can always check for each file separately if it is stored in COS. This way, the developer can handle partial matches as they see fit, for example, by only downloading the missing files from the network.
+
 ### Minimum file size
 
-Should there be a required minimum file size for a file to be eligible for COS? Most likely not, since it would be trivial to inflate the file size of non-qualifying files by adding space characters or comments. The assumption is that the optional prompting, should a user agent implement it, would be scary enough for websites to only use COS for files where it really makes sense to have them available cross-origin, that is, where they could profit themselves from using a potentially already cached version rather than downloading their own version from the network.
+Should there be a required minimum file size for a file to be eligible for COS? Most likely not, since it would be trivial to inflate the file size of non-qualifying files by adding space characters or comments.
 
 ### Handling of eviction
 
@@ -599,9 +546,7 @@ If a user already has manually downloaded a file like a large AI model, should t
 
 ### Adding a description for each file apart from the hash
 
-Apps could reference to the same file identified by a unique hash using different descriptions. For example, an English site could refer to the [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) AI model as "Gemma AI model from Google", whereas another Spanish site could refer to it as "modelo de IA grande de Google". This information could in theory even be surfaced in the permission prompt. In practice, though, we fear attacks where sites set descriptions like "Click 'Accept' to prove that you are not a bot", which should never make it into a permission prompt. Further, the description could also be inaccurate or deceptive.
-
-Instead, we envision user agents to enrich permission prompts based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
+To make manual COS management easier, one could imagine allowing developers to store a description together with the resource. Apps could reference to the same file identified by a unique hash using different descriptions. For example, an English site could refer to the [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) AI model as "Gemma AI model from Google", whereas another Spanish site could refer to it as "modelo de IA grande de Google". Instead, we envision user agents to enrich COS management UI based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the user agent settings UI.
 
 ### Storing files without hashing
 
@@ -631,23 +576,35 @@ See the complete [questionnaire](security-privacy-questionnaire.md) for details.
 
 ### Security considerations
 
-The API works with [optional user consent](#optional-user-consent-and-permissions) before any reading cross-origin file access operation, and permission prompts, if shown, clearly inform users of the requesting site's intent, providing options to allow or deny access. There's no implicit cross-origin information leakage as files in COS are inaccessible without user agent approval (which may involve a prompt), ensuring no site can infer the presence or absence of specific files across origins without user interaction or user agent consent. User agents can customize permission prompts to minimize confusion while providing transparency. For example, user agents may decide that origins that stored files previously may access them without prompting, provided user agents deem it safe. User agents that allow third-party cookies may likewise consider exposing this API without a prompt.
-
-Access is scoped to individual files, [each identified by their hash](#hashing). Developers can't arbitrarily access any random files, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contents, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself, as COS guarantees that each file's contents matches its hash. For enhanced protection, user agents can check file hashes against virus databases like [VirusTotal](https://www.virustotal.com/gui/home/search), and integrate with in-browser security features like [Safe Browsing](https://safebrowsing.google.com/) even before storing a file.
-
-File handles provided by the API can [only perform specific operations based on their context](#optional-user-consent-and-permissions) (for example, writing, but not reading, during creation). Misuse of file handles is mitigated by these constraints.
+Access is scoped to individual files, [each identified by their hash](#hashing). Developers can't arbitrarily access any random files or obtain the complete list of resources in COS, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contents, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself, as COS guarantees that each file's contents matches its hash. For enhanced protection, user agents can check file hashes against virus databases like [VirusTotal](https://www.virustotal.com/gui/home/search), and integrate with in-browser security features like [Safe Browsing](https://safebrowsing.google.com/) even before storing a file.
 
 User agents are envisioned to offer [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
 
-We envision user agents to enrich permission prompts based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the permission prompt and user agent settings UI.
+We envision user agents to enrich settings UI based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the settings UI.
 
 ### Privacy considerations
 
-Prompts can [differentiate between file existence checks and access requests](#optional-user-consent-and-permissions), reducing the risk of misuse or user misunderstanding. Recent origin access to a file is only visible to users via envisioned user agent settings UI, not to other origins.
+As a general rule, we expect this API to only be available when third-party cookies are enabled.
 
-COS [use cases](#use-cases) are limited on purpose to mitigate abuse. The API is designed for large files, discouraging use for smaller assets like JavaScript libraries. Its permission model inherently discourages overuse due to user interruption.
+#### Cross-site probing
 
-Files in COS may be evicted under critical storage pressure, maintaining system performance and preventing abuse of storage space.
+If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource isn't globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
+
+We expect user agents to implement safeguards against such attacks, for example, by limiting the number of probes, or by starting to lie if a known-evil site is probing. Each call to `requestFileHandles()` can be considered a probe, independent of the number of files requested, and user agents can limit the number of probes per site or even block probes from known-evil sites. Counting calls with multiple requested files as one single probe is fine, as the API doesn't reveal which file was (not) found, but just fails with a `NotFoundError` `DOMException`. Therefore, the attacker would still need to make multiple calls to probe for multiple files, which is more easily detectable and blockable by user agents.
+
+#### Cross-site leaks
+
+User agents are also expected to implement safeguards against developers trying to store potentially state-revealing resources in COS through console warnings. For example, if the user agent detects that a site is trying to store a resource with a hash that is unique or uncommon, it can warn the developer that this might be a privacy risk.
+
+### Cache flooding
+
+Sites are prevented from flooding the cache in an attempt to evict other sites' resources. Each site can only store a limited amount of data in COS, and if a site tries to exceed this limit, the user agent can block the attempt and log a warning to the console.
+
+#### Fingerprinting detection
+
+User agents are also expected to use (on-device) machine learning to identify possible fingerprinting attempts. For example, if a site crafts unique hashes for each user (which hints at fingerprinting), user agents can detect this and block the COS probing attempt. Popular browsers like Chrome have [successfully applied this technique](https://blog.google/products/chrome/building-a-more-helpful-browser-with-machine-learning/#:~:text=More%20peace%20of%20mind%2C%20less%20annoying%20prompts) for a long time to silence notification spam.
+
+The knowledge an attacker can gain about a user depends heavily on the popularity of the resources stored in COS. If a user has a very popular resource stored, like a common AI model, a large Wasm module, or a popular JavaScript library, the attacker can only learn that the user visited one of the many sites that use this resource, which is not very useful information. If a user has a very uncommon or even unique resource stored, the attacker can learn that the user visited one of the few sites (or the only site) that use this resource, which is more useful information. However, we expect that user agents will implement safeguards against such attacks, as described above.
 
 ## Stakeholder feedback / opposition
 
@@ -683,7 +640,7 @@ interface mixin NavigatorCrossOriginStorage {
 };
 Navigator includes NavigatorCrossOriginStorage;
 
-[Exposed=(Window), SecureContext]
+[Exposed=(Window,Worker), SecureContext]
 interface CrossOriginStorageManager {
   Promise<sequence<FileSystemFileHandle>> requestFileHandles(
       sequence<CrossOriginStorageRequestFileHandleHash> hashes,
@@ -762,7 +719,7 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> What other API is this API shaped after?
   </summary>
   <p>
-    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). COS optionally requires permission for reading and returns handles to multiple files, so its function is called <code>CrossOriginStorageManager.requestFileHandles(hashes, options)</code>. Instead of the <code>name</code> parameter, in COS, there's the <code>hashes</code> array that fulfills the equivalent function of uniquely identifying a set of files in COS. If <code>options.create</code> isn't set or is set to <code>false</code>, the user agent will, possibly upon user consent, return handles for the files identified by the hashes value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return handles that can be written to, but never read from. Optionally, when <code>options.create</code> is <code>true</code>, developers can also provide a list of <code>origins</code> to restrict who can later read the resource. This design means it's safe to not necessarily (but still optionally) require a permission prompt even for writing, and to also optionally require a permission prompt for reading or existence checks across origins.
+    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter in `getFileHandle()`, in COS, there's the <code>hashes</code> array that fulfills the equivalent function of uniquely identifying a set of files in COS. If <code>options.create</code> isn't set or is set to <code>false</code>, the user agent will return handles for the files identified by the hashes value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return handles that can be written to. Optionally, when <code>options.create</code> is <code>true</code>, developers can also provide a list of <code>origins</code> to restrict who can later read the resource, or make the resource globally available.
   </p>
 </details>
 
@@ -780,10 +737,6 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> Can workers access Cross-Origin Storage?
   </summary>
   <p>
-    <strong>Answer:</strong> Workers cannot directly access Cross-Origin Storage because of the optional permission prompts. For now, worker access is not gepursued, especially since documents can access files in COS on the main thread and transfer the blobs to a worker as needed.
+    <strong>Answer:</strong> Yes, the COS API is available in workers, and the same principles apply. For example, a worker can call `navigator.crossOriginStorage.requestFileHandles()` to request access to files in COS, and if granted access, it can read from or write to those files using the returned `FileSystemFileHandle` objects. This allows workers to also benefit from shared resources in COS, such as large AI models or Wasm modules, without needing to download them separately.
 </p>
 </details>
-
-### Appendix&nbsp;D: Optional permission prompt example
-
-We expect most user agents to implement this API without permission prompts, but provide examples ([example 1](/permission-1.png), [example 2](/permission-2.png), [example 3](/cos-permission.png)) for how such a prompt could look like. All permission strings in this explainer are purely for illustrative purposes. User agents are expected to customize them.
