@@ -5,10 +5,15 @@
 This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins. Building on the **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large assets, such as AI models, WebAssembly (Wasm) modules, and highly popular JavaScript libraries. Taking inspiration from **Cache Digests for HTTP/2**, the API identifies files by their hashes to ensure integrity.
 
 > [!TIP]
-> **Evaluate this proposal**
+> **Try the proposed API with an extension**
 >
 > While this API is not yet natively implemented in browsers, you can experiment with the proposed surface today.
 > Install the [Cross-Origin Storage extension](https://chromewebstore.google.com/detail/cross-origin-storage/denpnpcgjgikjpoglpjefakmdcbmlgih) to inject the `navigator.crossOriginStorage` polyfill on all pages and test the complete flow. See the [source code of the extension](https://github.com/web-ai-community/cross-origin-storage-extension) and read the [instructions](https://github.com/web-ai-community/cross-origin-storage-extension?tab=readme-ov-file#usage) for how to test it.
+
+> [!TIP]
+> **Test with your Vite project**
+>
+> If you are building with Vite, you can experiment with COS integration using the experimental [vite-plugin-cross-origin-storage](https://github.com/tomayac/vite-plugin-cross-origin-storage) plugin. Install it with `npm install vite-plugin-cross-origin-storage --save-dev` and add it to your `vite.config.ts`. The plugin automatically rewrites static imports to load vendor chunks and other assets from COS, stores newly fetched assets in COS for future use, and falls back gracefully to standard network requests when COS is unavailable or the asset is not yet cached.
 
 ## Authors
 
@@ -31,7 +36,9 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash]);
+  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
+    hash,
+  ]);
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
@@ -254,7 +261,7 @@ const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
 
 The visibility of a resource in COS can be upgraded but never downgraded:
 
-- **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandles()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site *must still* write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
+- **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandles()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site _must still_ write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
 - **Permissive to more restricted**: If a resource is already permissively available in COS, any attempt to store it again with a more restrictive `origins` list is ignored. The resource remains globally available, and the user agent should log a warning to the console to inform the developer that the restriction was not applied.
 
 ##### Example: Storing multiple files
