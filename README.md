@@ -139,7 +139,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 
 1. Hash the contents of the files using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes.
-1. Write the files' data to the `FileSystemFileHandle` objects and store them in Cross-Origin Storage.
+1. Write the files' data to the `FileSystemFileHandle` objects and store them in Cross-Origin Storage. When `writableStream.write(data)` is called, the user agent **must** verify that the hash of `data` matches the hash declared in the corresponding entry of the `hashes` array, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent **must** throw a `NotAllowedError` `DOMException` and **must not** store the data in COS.
 
 ##### Example: Storing a single file
 
