@@ -15,6 +15,7 @@ body:
         - label: 'SQLite databases'
         - label: 'Offline storage archives'
         - label: 'Wasm modules'
+        - label: 'Fonts'
         - label: 'Other'
     validations:
       required: true
