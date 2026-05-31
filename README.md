@@ -501,7 +501,7 @@ try {
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
 
-The hashing algorithm used is encoded in each hash object's `algorithm` field of the `hashes` array as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future.
+The hashing algorithm used is encoded in each hash object's `algorithm` field of the `hashes` array as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future. The hash string must be a valid lowercase hexadecimal string of length 64 (for SHA-256).
 
 ```js
 const hashes = [
@@ -668,7 +668,7 @@ interface CrossOriginStorageManager {
 };
 
 dictionary CrossOriginStorageRequestFileHandleHash {
-  DOMString value;
+  DOMString value; // Must be a valid lowercase hexadecimal string of length 64 (for SHA-256).
   DOMString algorithm;
 }
 
