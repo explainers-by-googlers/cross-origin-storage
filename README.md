@@ -36,9 +36,7 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
-    hash,
-  ]);
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
   // The file exists in Cross-Origin Storage.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
@@ -138,8 +136,8 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 #### Storing files
 
 1. Hash the contents of the files using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
-1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes.
-1. Write the files' data to the `FileSystemFileHandle` objects and store them in Cross-Origin Storage. When `writableStream.write(data)` is called, the user agent must verify that the hash of `data` matches the hash declared in the corresponding entry of the `hashes` array, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must throw a `NotAllowedError` `DOMException` and must not store the data in COS.
+1. Request a `FileSystemFileHandle` object for the file, specifying the file's hash.
+1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. When `writableStream.write(data)` is called, the user agent must verify that the hash of `data` matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must throw a `NotAllowedError` `DOMException` and must not store the data in COS.
 
 > [!NOTE]
 > If `hash.value` is not a valid lowercase hexadecimal string of length 64, or `hash.algorithm` is not a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), the user agent must throw a `TypeError`.
@@ -159,9 +157,7 @@ const hash = {
 
 // First, check if the file is already in COS.
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
-    hash,
-  ]);
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
   // Do something with the blob.
@@ -173,8 +169,8 @@ try {
     // Load the file from the network.
     const fileBlob = await loadFileFromNetwork();
     try {
-      const [handle] = await navigator.crossOriginStorage.requestFileHandles(
-        [hash],
+      const handle = await navigator.crossOriginStorage.requestFileHandle(
+        hash,
         {
           create: true,
           // Optional: Only allow these origins to read the file.
@@ -207,7 +203,7 @@ const hash = {
 
 // Site `write.example.com` stores the model and restricts it to itself and
 // `calculate.example.com`.
-const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
+const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
   create: true,
   origins: ['https://calculate.example.com', 'https://write.example.com'],
 });
@@ -230,7 +226,7 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 
-const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
+const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
   create: true,
   origins: '*',
 });
@@ -251,7 +247,7 @@ const hash = {
   value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
 };
 
-const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
+const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
   create: true,
 });
 
@@ -264,10 +260,12 @@ const [handle] = await navigator.crossOriginStorage.requestFileHandles([hash], {
 
 The visibility of a resource in COS can be upgraded but never downgraded:
 
-- **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandles()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site _must still_ write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
+- **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandle()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site _must still_ write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
 - **Permissive to more restricted**: If a resource is already permissively available in COS, any attempt to store it again with a more restrictive `origins` list is ignored. The resource remains globally available, and the user agent should log a warning to the console to inform the developer that the restriction was not applied.
 
 ##### Example: Storing multiple files
+
+To store or retrieve multiple files, call `requestFileHandle()` once per file and combine with `Promise.all()` for concurrent requests:
 
 ```js
 /**
@@ -285,7 +283,11 @@ const hashes = [{
 
 // First, check if the files are already in COS.
 try {
-  const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  const handles = await Promise.all(
+    hashes.map((hash) =>
+      navigator.crossOriginStorage.requestFileHandle(hash)
+    )
+  );
   // The files exist in COS.
   for (const handle of handles) {
     const fileBlob = await handle.getFile();
@@ -301,11 +303,11 @@ try {
     try {
       // Load the files from the network.
       const fileBlobs = await loadFilesFromNetwork();
-      const handles = await navigator.crossOriginStorage.requestFileHandles(
-        hashes,
-        {
-          create: true,
-        },
+      const handles = await Promise.all(
+        hashes.map((hash) =>
+          navigator.crossOriginStorage.requestFileHandle(hash, { create: true })
+        )
+      );
       );
       handles.forEach((handle, i) => {
         const writableStream = await handle.createWritable();
@@ -324,9 +326,9 @@ try {
 
 #### Retrieving files
 
-1. Request a sequence of `FileSystemFileHandle` objects for the files, specifying the files' hashes.
-1. Check if each resource exists in COS and make sure it can be shared without causing privacy issues.
-1. Retrieve the sequence of `FileSystemFileHandle` objects after the user agent has granted access.
+1. Request a `FileSystemFileHandle` object for the file, specifying the file's hash.
+1. Check if the resource exists in COS and make sure it can be shared without causing privacy issues.
+1. Retrieve the `FileSystemFileHandle` object after the user agent has granted access.
 
 > [!NOTE]
 > A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#availability-gating)). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
@@ -345,9 +347,7 @@ const hash = {
 };
 
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
-    hash,
-  ]);
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
   // The file exists in COS.
   const fileBlob = await handle.getFile();
   console.log('Retrieved file', fileBlob);
@@ -385,7 +385,11 @@ const hashes = [
 ];
 
 try {
-  const handles = await navigator.crossOriginStorage.requestFileHandles(hashes);
+  const handles = await Promise.all(
+    hashes.map((hash) =>
+      navigator.crossOriginStorage.requestFileHandle(hash)
+    )
+  );
   // The files exist in COS.
   for (const handle of handles) {
     const fileBlob = await handle.getFile();
@@ -421,9 +425,7 @@ const hash = {
 };
 
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
-    hash,
-  ]);
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
 
   // Use the file and return.
   // …
@@ -441,8 +443,8 @@ try {
       return;
     }
     try {
-      const [handle] = await navigator.crossOriginStorage.requestFileHandles(
-        [hash],
+      const handle = await navigator.crossOriginStorage.requestFileHandle(
+        hash,
         {
           create: true,
           origins: '*', // Make the file globally available.
@@ -475,9 +477,7 @@ const hash = {
 };
 
 try {
-  const [handle] = await navigator.crossOriginStorage.requestFileHandles([
-    hash,
-  ]);
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
   const fileBlob = await handle.getFile();
   console.log('File retrieved', fileBlob);
   // Use the fileBlob as needed.
@@ -504,15 +504,13 @@ try {
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
 
-The hashing algorithm used is encoded in each hash object's `algorithm` field of the `hashes` array as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future. The hash string must be a valid lowercase hexadecimal string of length 64 (for SHA-256). The `algorithm` field must be a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), e.g. `"SHA-256"`.
+The hashing algorithm used is encoded in the hash object's `algorithm` field as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future. The hash string must be a valid lowercase hexadecimal string of length 64 (for SHA-256). The `algorithm` field must be a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), e.g. `"SHA-256"`.
 
 ```js
-const hashes = [
-  {
-    algorithm: 'SHA-256',
-    value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-  },
-];
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
 ```
 
 ### Web sustainability
@@ -605,11 +603,11 @@ If a file is only used on certain kinds of websites, an attacker can discover th
 
 Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
 
-User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandles()` can be considered a probe, independent of the number of files requested, and user agents can limit the number of probes per site or even block probes from sites known to be malicious. Counting calls with multiple requested files as one single probe is acceptable, as the API does not reveal which file was (not) found, but just fails with a `NotFoundError` `DOMException`. Therefore, the attacker would still need to make multiple calls to probe for multiple files, which is more easily detectable and more easily blocked by user agents.
+User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandle()` can be considered a probe, and user agents can limit the number of probes per site or even block probes from sites known to be malicious.
 
 #### Availability gating
 
-User agents are expected to implement an **availability gating** mechanism that may suppress the presence of a file in COS even when the file is physically stored there. `requestFileHandles()` must return a `NotFoundError` `DOMException` when the user agent determines that revealing the file's presence would constitute a privacy risk, regardless of whether the file is actually present.
+User agents are expected to implement an **availability gating** mechanism that may suppress the presence of a file in COS even when the file is physically stored there. `requestFileHandle()` must return a `NotFoundError` `DOMException` when the user agent determines that revealing the file's presence would constitute a privacy risk, regardless of whether the file is actually present.
 
 User agents should maintain an **allowlist** of well-known resources—such as AI model weights published by recognized model hubs—that are unconditionally eligible for cross-origin availability disclosure. For resources not on the allowlist, user agents should only confirm a file's presence if it has met a **popularity threshold** and been encountered on a minimum number of distinct origins, ensuring that no file unique to a small set of sites can be used as a cross-site identifier. Resources that do not meet the popularity threshold are treated as absent: the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
 
@@ -665,8 +663,8 @@ Navigator includes NavigatorCrossOriginStorage;
 
 [Exposed=(Window,Worker), SecureContext]
 interface CrossOriginStorageManager {
-  Promise<sequence<FileSystemFileHandle>> requestFileHandles(
-      sequence<CrossOriginStorageRequestFileHandleHash> hashes,
+  Promise<FileSystemFileHandle> requestFileHandle(
+      CrossOriginStorageRequestFileHandleHash hash,
       CrossOriginStorageRequestFileHandleOptions options = {});
 };
 
@@ -762,4 +760,16 @@ getBlobHash(fileBlob).then((hash) => {
   <p>
     <strong>Answer:</strong> Yes, the COS API is available in workers, and the same principles apply. For example, a worker can call `navigator.crossOriginStorage.requestFileHandle()` to request access to a file in COS, and if granted access, it can read from or write to that file using the returned `FileSystemFileHandle` object. This allows workers to also benefit from shared resources in COS, such as large AI models or Wasm modules, without needing to download them separately.
 </p>
+</details>
+
+<details>
+  <summary>
+    <strong>Question:</strong> Why does the API use <code>requestFileHandle()</code> (singular) rather than <code>requestFileHandles()</code> (plural)?
+  </summary>
+  <p>
+    <strong>Answer:</strong> Early drafts of the API exposed <code>requestFileHandles(hashes, options)</code>, which accepted an array of hashes and returned an array of <code>FileSystemFileHandle</code> objects. A <a href="https://github.com/WICG/cross-origin-storage/issues/61">survey of every known real-world implementation</a> — across Hugging Face Transformers.js, wllama, Flutter, Apache TVM, MLC WebLLM, Emscripten, and others — found that <strong>every single call site passed a single-element array and immediately destructured the result to a single handle</strong>. No implementation ever passed more than one hash in a single call.
+  </p>
+  <p>
+    The plural form was therefore pure ergonomic friction: callers had to wrap a value in an array only to unwrap it again (<code>const [handle] = await ...requestFileHandles([hash])</code>). The singular form <code>requestFileHandle(hash, options)</code> — modeled directly on the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>FileSystemDirectoryHandle.getFileHandle()</code></a> — makes the common case clean and readable. For the rare case where multiple files are needed concurrently, the idiomatic JavaScript pattern <code>Promise.all(hashes.map(hash =&gt; navigator.crossOriginStorage.requestFileHandle(hash)))</code> gives better per-file error granularity than a batched call would anyway.
+  </p>
 </details>
