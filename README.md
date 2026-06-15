@@ -288,7 +288,7 @@ try {
       navigator.crossOriginStorage.requestFileHandle(hash)
     )
   );
-  // The files exist in COS.
+  // All files found in COS.
   for (const handle of handles) {
     const fileBlob = await handle.getFile();
     // Do something with the blob.
@@ -296,24 +296,20 @@ try {
   }
   return;
 } catch (err) {
-  // If the files weren't in COS, load them from the network and store them in
-  // COS. The method throws a `NotFoundError` `DOMException` if _any_ of the
-  // files is not found.
+  // One or more files weren't in COS — load them from the network and store them.
   if (err.name === 'NotFoundError') {
     try {
-      // Load the files from the network.
       const fileBlobs = await loadFilesFromNetwork();
       const handles = await Promise.all(
         hashes.map((hash) =>
           navigator.crossOriginStorage.requestFileHandle(hash, { create: true })
         )
       );
-      );
-      handles.forEach((handle, i) => {
-        const writableStream = await handle.createWritable();
+      for (let i = 0; i < handles.length; i++) {
+        const writableStream = await handles[i].createWritable();
         await writableStream.write(fileBlobs[i]);
         await writableStream.close();
-      });
+      }
     } catch (err) {
       // The `write()` failed.
     }
@@ -390,7 +386,7 @@ try {
       navigator.crossOriginStorage.requestFileHandle(hash)
     )
   );
-  // The files exist in COS.
+  // All files found in COS.
   for (const handle of handles) {
     const fileBlob = await handle.getFile();
     // Do something with the blob.
