@@ -533,9 +533,17 @@ What should happen if two tabs depend on the same file, check COS, see the file 
 
 ### Partial COS matches
 
-If the developer wants to check if two files A and B, with the hashes hash_A and hash_B are stored in COS, but only one of the two is stored, the API will still fail with a `NotFoundError` `DOMException` without revealing the partial match. The current position is that revealing partial matches would complicate error handling, particularly since the expected use cases commonly require all files to be present simultaneously—for example, the tokenizer, configuration files, weights, and graph for an AI model. Partial-match disclosure is also undesirable from a privacy perspective, as it would enable limited enumeration of COS contents.
+Because `requestFileHandle()` operates on one file at a time, there is no concept of a partial batch result. Each call either resolves with a handle or throws a `NotFoundError` `DOMException` for that specific file. This makes it straightforward for developers to check which files are present and which are missing, and to handle each case independently—for example, by only fetching the missing files from the network.
 
-As an alternative, the developer can always check for each file separately if it is stored in COS. This way, the developer can handle partial matches as they see fit, for example, by only downloading the missing files from the network.
+```js
+const results = await Promise.allSettled(
+  hashes.map((hash) => navigator.crossOriginStorage.requestFileHandle(hash))
+);
+const missing = hashes.filter((_, i) => results[i].status === 'rejected');
+// Fetch only the missing files from the network.
+```
+
+Note that a `NotFoundError` does not necessarily mean the file is absent from COS. User agents may return `NotFoundError` for privacy reasons (see [Availability gating](#availability-gating)), making the response indistinguishable from genuine absence.
 
 ### Minimum file size
 
