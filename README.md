@@ -253,7 +253,7 @@ const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
 
 // Write the file…
 
-// Now, any Same-Site origin  can request the same hash and it will be found.
+// Now, any Same-Site origin can request the same hash and it will be found.
 ```
 
 ##### Resource visibility upgrades
@@ -273,13 +273,16 @@ To store or retrieve multiple files, call `requestFileHandle()` once per file an
  */
 
 // The hashes of the desired files.
-const hashes = [{
-  algorithm: 'SHA-256',
-  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-}, {
-  algorithm: 'SHA-256',
-  value: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
-}];
+const hashes = [
+  {
+    algorithm: 'SHA-256',
+    value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+  },
+  {
+    algorithm: 'SHA-256',
+    value: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+  },
+];
 
 // First, check if the files are already in COS.
 try {
@@ -296,7 +299,7 @@ try {
   }
   return;
 } catch (err) {
-  // One or more files weren't in COS — load them from the network and store them.
+  // At least one file wasn't found — fetch all from the network and store them.
   if (err.name === 'NotFoundError') {
     try {
       const fileBlobs = await loadFilesFromNetwork();
@@ -525,7 +528,7 @@ While this document does not aim to critically assess the precision of these est
 
 ### Concurrency
 
-What should happen if two tabs depend on the same file, check COS, see the file is not in COS, and start downloading? Should this be handled more efficiently? How often does this happen in practice? In the worst case, the file gets downloaded twice, but would then still only be stored once in COS. This proposal does not address this case. In the worst case, the file is downloaded twice but stored only once in COS, which is considered an acceptable outcome.
+What should happen if two tabs depend on the same file, check COS, see the file is not in COS, and start downloading? Should this be handled more efficiently? How often does this happen in practice? This proposal does not address this case. In the worst case, the file is downloaded twice but stored only once in COS, which is considered an acceptable outcome.
 
 ### Partial COS matches
 
@@ -762,7 +765,7 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> Can workers access Cross-Origin Storage?
   </summary>
   <p>
-    <strong>Answer:</strong> Yes, the COS API is available in workers, and the same principles apply. For example, a worker can call `navigator.crossOriginStorage.requestFileHandle()` to request access to a file in COS, and if granted access, it can read from or write to that file using the returned `FileSystemFileHandle` object. This allows workers to also benefit from shared resources in COS, such as large AI models or Wasm modules, without needing to download them separately.
+    <strong>Answer:</strong> Yes, the COS API is available in workers, and the same principles apply. For example, a worker can call <code>navigator.crossOriginStorage.requestFileHandle()</code> to request access to a file in COS, and if granted access, it can read from or write to that file using the returned <code>FileSystemFileHandle</code> object. This allows workers to also benefit from shared resources in COS, such as large AI models or Wasm modules, without needing to download them separately.
 </p>
 </details>
 
