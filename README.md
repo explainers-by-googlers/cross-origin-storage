@@ -742,7 +742,7 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> What other API is this API shaped after?
   </summary>
   <p>
-    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter in `getFileHandle()`, in COS, there is the <code>hashes</code> array that fulfills the equivalent function of uniquely identifying a set of files in COS. If <code>options.create</code> is not set or is set to <code>false</code>, the user agent will return handles for the files identified by the hashes value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return handles that can be written to. Optionally, when <code>options.create</code> is <code>true</code>, developers can also provide a list of <code>origins</code> to restrict who can later read the resource, or make the resource globally available.
+    <strong>Answer:</strong> The COS API is shaped after the File System Standard's <a href="https://fs.spec.whatwg.org/#api-filesystemdirectoryhandle-getfilehandle"><code>getFileHandle()</code></a> function (<code>FileSystemDirectoryHandle.getFileHandle(name, options)</code> which returns a <code>FileSystemFileHandle</code>). Instead of the <code>name</code> parameter in <code>getFileHandle()</code>, in COS, there is the <code>hash</code> object that fulfills the equivalent function of uniquely identifying a file in COS. If <code>options.create</code> is not set or is set to <code>false</code>, the user agent will return a handle for the file identified by the hash value. If and only if <code>options.create</code> is set to <code>true</code>, the user agent will return a handle that can be written to. Optionally, when <code>options.create</code> is <code>true</code>, developers can also provide a list of <code>origins</code> to restrict who can later read the resource, or make the resource globally available.
   </p>
 </details>
 
@@ -760,6 +760,6 @@ getBlobHash(fileBlob).then((hash) => {
     <strong>Question:</strong> Can workers access Cross-Origin Storage?
   </summary>
   <p>
-    <strong>Answer:</strong> Yes, the COS API is available in workers, and the same principles apply. For example, a worker can call `navigator.crossOriginStorage.requestFileHandles()` to request access to files in COS, and if granted access, it can read from or write to those files using the returned `FileSystemFileHandle` objects. This allows workers to also benefit from shared resources in COS, such as large AI models or Wasm modules, without needing to download them separately.
+    <strong>Answer:</strong> Yes, the COS API is available in workers, and the same principles apply. For example, a worker can call `navigator.crossOriginStorage.requestFileHandle()` to request access to a file in COS, and if granted access, it can read from or write to that file using the returned `FileSystemFileHandle` object. This allows workers to also benefit from shared resources in COS, such as large AI models or Wasm modules, without needing to download them separately.
 </p>
 </details>
