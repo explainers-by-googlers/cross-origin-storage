@@ -135,7 +135,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 
 #### Storing files
 
-1. Hash the contents of the files using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
+1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 1. Request a `FileSystemFileHandle` object for the file, specifying the file's hash.
 1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. When `writableStream.write(data)` is called, the user agent must verify that the hash of `data` matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must throw a `NotAllowedError` `DOMException` and must not store the data in COS.
 
@@ -366,6 +366,8 @@ try {
 
 ##### Example: Retrieving multiple files
 
+As with storing, use `Promise.all()` to retrieve multiple files concurrently:
+
 ```js
 /**
  * Example usage to retrieve multiple files.
@@ -512,6 +514,10 @@ const hash = {
 };
 ```
 
+### Handling multiple files
+
+`requestFileHandle()` operates on one file at a time. For concurrent requests across multiple files and per-file error handling, see the [FAQ on why the API is singular](#why-does-the-api-use-requestfilehandle-singular-rather-than-requestfilehandles-plural).
+
 ### Web sustainability
 
 In the context of [evaluating carbon emissions in digital data usage](https://websitesustainability.com/cache/files/research23.pdf), current methodologies predominantly utilize a [kilowatt-hour (kWh) per gigabyte (GB) framework](https://sustainablewebdesign.org/estimating-digital-emissions/) to estimate the operational energy intensity of data transmission and storage. This approach provides the following energy consumption benchmarks:
@@ -529,20 +535,6 @@ While this document does not aim to critically assess the precision of these est
 ### Concurrency
 
 What should happen if two tabs depend on the same file, check COS, see the file is not in COS, and start downloading? Should this be handled more efficiently? How often does this happen in practice? This proposal does not address this case. In the worst case, the file is downloaded twice but stored only once in COS, which is considered an acceptable outcome.
-
-### Partial COS matches
-
-Because `requestFileHandle()` operates on one file at a time, there is no concept of a partial batch result. Each call either resolves with a handle or throws a `NotFoundError` `DOMException` for that specific file. This makes it straightforward for developers to check which files are present and which are missing, and to handle each case independently—for example, by only fetching the missing files from the network.
-
-```js
-const results = await Promise.allSettled(
-  hashes.map((hash) => navigator.crossOriginStorage.requestFileHandle(hash))
-);
-const missing = hashes.filter((_, i) => results[i].status === 'rejected');
-// Fetch only the missing files from the network.
-```
-
-Note that a `NotFoundError` does not necessarily mean the file is absent from COS. User agents may return `NotFoundError` for privacy reasons (see [Availability gating](#availability-gating)), making the response indistinguishable from genuine absence.
 
 ### Minimum file size
 
