@@ -127,6 +127,10 @@ Traditionally, bundlers have combined vendor code and user code, leading to low 
 
 Web games built with game engines that have browser support such as [Godot](https://godotengine.org/) or [Unity](https://unity.com/) can store the core game engine code in COS and only load game-specific assets such as textures and game logic from the network. Web gaming portals such as [WebGamer](https://webgamer.io/) that host plenty of casual games with a short path to gameplay on different cross-origin iframes can benefit greatly from this.
 
+### Use case 5: Large web fonts
+
+Web fonts—especially large icon fonts, emoji fonts, and fonts with extensive Unicode coverage—are downloaded across an enormous number of pages daily. Popular fonts served by services like [Google Fonts](https://fonts.google.com/) (for example, [Noto Color Emoji](https://fonts.google.com/noto/specimen/Noto+Color+Emoji) or [Material Symbols](https://fonts.google.com/icons)) are requested by thousands of different sites. If these fonts were stored once in COS, any site using the same font could retrieve it locally instead of downloading it from a CDN on every visit, benefiting both performance and sustainability.
+
 ## Potential solution
 
 ### File Storage Process
@@ -499,6 +503,54 @@ try {
 - **Strictly opt-in:** Site A explicitly opts in to make the file globally available by setting `origins: '*'` when storing the file. This ensures that the file is not accidentally made available to all sites.
 - **Cross-origin sharing:** Despite the different origins, the files are securely identified by their hashes, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
 
+### Declarative CSS integration
+
+In addition to the imperative JavaScript API, COS can be accessed declaratively from CSS via a new [`<request-url-modifier>`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier) called `cross-origin-storage()`, proposed to the CSS Working Group in [w3c/csswg-drafts#14056](https://github.com/w3c/csswg-drafts/issues/14056). This is especially valuable for resources referenced in CSS—such as large web fonts—where the imperative JavaScript API is not easily applicable.
+
+The modifier is used alongside the existing [`integrity()`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier-integrity-modifier) modifier. The hash from `integrity()` identifies the file in COS, and `cross-origin-storage()` specifies which origins may retrieve it—mirroring the `origins` option in the JavaScript API.
+
+```
+cross-origin-storage() = cross-origin-storage( [ '*' | <string># ] )
+```
+
+#### Example: Globally available font
+
+By passing `*`, the font is made available to any origin that requests the same hash via COS:
+
+```css
+@font-face {
+  font-family: "Popular Emoji Font";
+  src: url(
+    "https://example.com/popular-emoji.woff2"
+    integrity("sha256-xyz789...")
+    cross-origin-storage(*)
+  );
+}
+```
+
+#### Example: Font restricted to specific origins
+
+Passing a list of origins limits COS retrieval to only those origins. All other origins still fetch the font from the network URL:
+
+```css
+@font-face {
+  font-family: "ACME Inc Corporate Font";
+  src: url(
+    "acme-inc-corporate.woff2"
+    integrity("sha256-abc123...")
+    cross-origin-storage("https://acme-inc.example.com", "https://acme-cdn.example.com", "https://acme-inc-marketing-site.example.com")
+  );
+}
+```
+
+#### Processing flow
+
+1. If a resource matching the `integrity()` hash is found in COS and the requesting origin is allowed, it is served from COS.
+2. Otherwise, the resource is fetched from the network URL. If the fetched content matches the `integrity()` hash and the origin restrictions permit it, the browser stores it in COS for future use. If the hash does not match, the browser refuses to use the resource (per existing `integrity()` behavior) and does not store it in COS.
+
+> [!NOTE]
+> `cross-origin-storage()` is unrelated to the CSS [`cross-origin()`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier-cross-origin-modifier) modifier despite the similar name. The `cross-origin()` modifier controls the CORS request mode, which is an orthogonal concern.
+
 ## Detailed design discussion
 
 ### Hashing
@@ -634,6 +686,7 @@ The knowledge an attacker can gain about a user depends heavily on the popularit
 
 - [File System Living Standard](https://fs.spec.whatwg.org/)
 - [Web Cryptography API](https://w3c.github.io/webcrypto/)
+- [CSS Values and Units Module Level 5](https://drafts.csswg.org/css-values-5/)
 - [Cache Digests for HTTP/2](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cache-digest)
 - [Web Sustainability Guidelines (WSG)](https://w3c.github.io/sustainableweb-wsg/)
 - [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/)
