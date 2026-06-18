@@ -14,6 +14,8 @@ Possibly. If a COS file is only used on a couple of websites, a site can discove
 
 As a further mitigation, user agents are expected to implement an availability gating mechanism. Resources on an allowlist of well-known, widely-used assets (for example, popular AI model weights from recognized model hubs) are unconditionally eligible for cross-origin disclosure. For all other resources, user agents should only confirm a file's presence once it has been observed on a minimum number of distinct origins, ensuring that resources unique to a small number of sites are not disclosed. When a resource does not meet this threshold, the user agent returns a `NotFoundError` `DOMException` regardless of whether the file is present in COS, making the COS storage state indistinguishable from absence.
 
+User agents may additionally apply **GREASE'ing** ([Generate Random Extensions And Sustain Extensibility](https://tools.ietf.org/html/draft-ietf-tls-grease)): occasionally returning a `NotFoundError` `DOMException` even when a file passes the availability gating check, introducing noise that makes probing unreliable. This technique is used similarly in [UA Client Hints](https://wicg.github.io/ua-client-hints/#grease). User agents must not GREASE responses for very large files (such as gigabyte-scale AI model weights) where a spurious false negative would force the caller to perform a full re-download, imposing a significant bandwidth cost on the user.
+
 ## 04. How do the features in your specification deal with sensitive information?
 
 The API does not allow arbitrary file discovery.
@@ -62,7 +64,7 @@ Additionally, the availability gating mechanism ensures that even cross-origin r
 
 ## 15. How do the features in this specification work in the context of a browser’s Private Browsing or Incognito mode?
 
-Files previously stored in COS are not accessible in Private Browsing or Incognito mode. User agents may allow COS to work during an Incognito session, but the data would not be retained. Alternatively, user agents may disable COS entirely or always lie about the availability of files.
+Files previously stored in COS are not accessible in Private Browsing or Incognito mode. User agents may allow COS to work during an Incognito session, but the data would not be retained. Alternatively, user agents may disable COS entirely or apply GREASE'ing to always return false negatives about the availability of files.
 
 ## 16. Does this specification have both "Security Considerations" and "Privacy Considerations" sections?
 

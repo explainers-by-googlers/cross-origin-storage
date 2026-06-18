@@ -664,6 +664,12 @@ User agents should maintain an **allowlist** of well-known resources—such as A
 
 Developers must NOT rely on a `NotFoundError` as definitive proof that a file is absent from COS. A `NotFoundError` MAY indicate that the user agent has withheld confirmation of the file's presence for privacy reasons.
 
+#### GREASE'ing
+
+As an additional privacy mitigation, user agents may employ **GREASE'ing** ([Generate Random Extensions And Sustain Extensibility](https://tools.ietf.org/html/draft-ietf-tls-grease)): occasionally returning a `NotFoundError` `DOMException` even when a file is present in COS. This introduces noise that makes it harder for sites to distinguish a true absence from a privacy-motivated false negative. A similar technique is applied in [UA Client Hints](https://wicg.github.io/ua-client-hints/#grease).
+
+However, user agents must exercise size-proportionate judgment when applying GREASE'ing. For small files, where a fallback to a network fetch is inexpensive, occasional false negatives are a reasonable privacy trade-off. For very large files—such as gigabyte-scale AI model weights—a false negative would force the caller to perform a full re-download, imposing a significant and observable bandwidth and latency cost on the user. User agents must NOT GREASE responses for files whose size makes a spurious re-download clearly disproportionate to the privacy benefit.
+
 #### Cross-site leaks
 
 User agents are also expected to implement safeguards against developers trying to store potentially state-revealing resources in COS through console warnings. For example, if the user agent detects that a site is trying to store a resource with a hash that is unique or uncommon, it can warn the developer that this might be a privacy risk.
