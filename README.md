@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/WICG/cross-origin-storage/refs/heads/main/logo-cos.svg" alt="Cross-Origin Storage (COS) logo, consisting of a folder icon with a crossing person." width="100">
 
-This proposal outlines the design of the **Cross-Origin Storage (COS)** API, which allows web applications to store and retrieve files across different origins. Building on the **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large assets, such as AI models, WebAssembly (Wasm) modules, and highly popular JavaScript libraries. Taking inspiration from **Cache Digests for HTTP/2**, the API identifies files by their hashes to ensure integrity.
+This proposal outlines the design of the **Cross-Origin Storage (COS)** API, a **content-addressable cache** that allows web applications to store and retrieve files across different origins. Building on the **File System Living Standard** defined by the WHATWG, the COS API facilitates secure cross-origin file storage and retrieval for large assets, such as AI models, WebAssembly (Wasm) modules, and highly popular JavaScript libraries. Taking inspiration from **Cache Digests for HTTP/2**, the API identifies files by their content hashes rather than by URL, making it a true content-addressable storage system.
 
 > [!TIP]
 > **Try the proposed API with an extension**
@@ -27,7 +27,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, whi
 - [PRs](https://github.com/WICG/cross-origin-storage/pulls)
 - Support this proposal: https://github.com/WICG/cross-origin-storage/labels/expression%20of%20support
 
-The **Cross-Origin Storage (COS)** API provides a secure mechanism for web applications to store and retrieve large files across different origins. This allows applications to share common assets—such as AI models, Wasm modules, and popular JavaScript libraries—without redundant downloads. Resources are identified by their cryptographic hashes to ensure data integrity. The API reuses concepts like `FileSystemFileHandle` from the **File System Living Standard**, specifically tailored for cross-origin scenarios. The following example demonstrates the basic flow for retrieving a file:
+The **Cross-Origin Storage (COS)** API provides a secure, **content-addressable cache** for web applications to store and retrieve large files across different origins. This allows applications to share common assets—such as AI models, Wasm modules, and popular JavaScript libraries—without redundant downloads. Resources are identified by their cryptographic hashes rather than by URL, which is what makes the cache content-addressable: the same bytes at two different URLs are a single cache entry, and the hash guarantees integrity. The API reuses concepts like `FileSystemFileHandle` from the **File System Living Standard**, specifically tailored for cross-origin scenarios. The following example demonstrates the basic flow for retrieving a file:
 
 ```js
 // The hash of the desired file.
@@ -660,7 +660,7 @@ User agents are expected to implement safeguards against such attacks, for examp
 
 User agents are expected to implement an **availability gating** mechanism that may suppress the presence of a file in COS even when the file is physically stored there. `requestFileHandle()` must return a `NotFoundError` `DOMException` when the user agent determines that revealing the file's presence would constitute a privacy risk, regardless of whether the file is actually present.
 
-User agents should maintain an **allowlist** of well-known resources—such as AI model weights published by recognized model hubs—that are unconditionally eligible for cross-origin availability disclosure. For resources not on the allowlist, user agents should only confirm a file's presence if it has met a **popularity threshold** and been encountered on a minimum number of distinct origins, ensuring that no file unique to a small set of sites can be used as a cross-site identifier. Resources that do not meet the popularity threshold are treated as absent: the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
+User agents should maintain an **allowlist** of well-known resources—such as AI model weights published by recognized model hubs—that are unconditionally eligible for cross-origin availability disclosure. For resources not on the allowlist, user agents should only confirm a file's presence if it has met a **popularity threshold** and been encountered on a minimum number of distinct origins (a form of **k-anonymity** where _k_ is that minimum origin count), ensuring that no file unique to a small set of sites can be used as a cross-site identifier. Resources that do not meet the popularity threshold are treated as absent: the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
 
 Developers must NOT rely on a `NotFoundError` as definitive proof that a file is absent from COS. A `NotFoundError` MAY indicate that the user agent has withheld confirmation of the file's presence for privacy reasons.
 
