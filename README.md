@@ -568,7 +568,7 @@ Omitting `crossoriginstorage` entirely while keeping `integrity` preserves today
 
 #### Declarative JavaScript integration
 
-[Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it.
+[Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it. The `crossOriginStorage` import attribute is proposed to TC39 in [tomayac/crossoriginstorage-import-attribute](https://github.com/tomayac/crossoriginstorage-import-attribute).
 
 ##### Example: Same-site only module
 
