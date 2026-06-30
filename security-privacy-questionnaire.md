@@ -42,7 +42,7 @@ No.
 
 ## 10. Do features in this specification enable new script execution/loading mechanisms?
 
-No.
+No. The declarative HTML (`crossoriginstorage` attribute on `<link>`/`<script>`) and JavaScript (`crossOriginStorage` import attribute) integrations do not introduce a new script execution or loading mechanism. They reuse the existing `<link>`, `<script>`, and module-import loading paths, with COS only acting as an alternate source for content that must already match a developer-declared `integrity` hash before it is used.
 
 ## 11. Do features in this specification allow an origin to access other devices?
 

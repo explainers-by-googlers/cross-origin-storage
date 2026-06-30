@@ -503,17 +503,159 @@ try {
 - **Strictly opt-in:** Site A explicitly opts in to make the file globally available by setting `origins: '*'` when storing the file. This ensures that the file is not accidentally made available to all sites.
 - **Cross-origin sharing:** Despite the different origins, the files are securely identified by their hashes, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
 
-### Declarative CSS integration
+### Declarative integrations
+
+The imperative JavaScript API in the previous section covers the general case, but several use cases, namely markup-driven resource loading, module imports, and CSS-referenced assets like web fonts, are more naturally expressed declaratively. COS is designed to be reachable from HTML, JavaScript's import attributes, and CSS; all consistently keyed off the same `origins`-style value space used by `requestFileHandle()`: omitted for Same-Site only, a list of origin strings for a specific set of origins, or `*` for global availability.
+
+#### Declarative HTML integration
+
+`<link>` and `<script>` elements that already carry [`integrity`](https://w3c.github.io/webappsec-subresource-integrity/#integrity-element) can opt in to COS with a new `crossoriginstorage` attribute. As in the JavaScript and CSS forms, the `integrity` hash identifies the file in COS, and `crossoriginstorage` specifies which origins may retrieve it.
+
+##### Example: Same-site only stylesheet and script
+
+A valueless `crossoriginstorage` attribute opts the resource into COS for same-site access only, mirroring the behavior of omitting `origins` in the imperative API:
+
+```html
+<link
+  rel="stylesheet"
+  href="same-site-css-framework.css"
+  integrity="sha256-abc123..."
+  crossoriginstorage
+/>
+
+<script
+  src="same-site-js-framework.js"
+  integrity="sha256-def456..."
+  crossoriginstorage
+></script>
+```
+
+##### Example: Globally available stylesheet and script
+
+By passing `*`, the resource is made available to any origin that requests the same hash via COS:
+
+```html
+<link
+  rel="stylesheet"
+  href="popular-css-framework.css"
+  integrity="sha256-abc123..."
+  crossoriginstorage="*"
+/>
+
+<script
+  src="popular-js-framework.js"
+  integrity="sha256-def456..."
+  crossoriginstorage="*"
+></script>
+```
+
+##### Example: Script restricted to specific origins
+
+To restrict a resource to specific origins instead of making it globally available, `crossoriginstorage` takes a space-separated list of origins, mirroring the `origins` array in the JavaScript API:
+
+```html
+<script
+  src="acme-inc-corporate.js"
+  integrity="sha256-def456..."
+  crossoriginstorage="https://acme-inc.example.com https://acme-cdn.example.com"
+></script>
+```
+
+Omitting `crossoriginstorage` entirely while keeping `integrity` preserves today's behavior: the resource is fetched and verified, but never consulted against or stored in COS.
+
+> [!NOTE]
+> `crossoriginstorage` is unrelated to the existing [`crossorigin`](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#cors-settings-attributes) attribute despite the similar name. The `crossorigin` attribute controls the CORS request mode for the element's fetch, which is an orthogonal concern.
+
+#### Declarative JavaScript integration
+
+[Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it.
+
+##### Example: Same-site only module
+
+An empty array for `crossOriginStorage` opts the module into COS for same-site access only, mirroring the behavior of omitting `origins` in the imperative API:
+
+```js
+import data from "same-site-resource.ext" with {
+  type: "type",
+  integrity: "sha256-abc123...",
+  crossOriginStorage: [],
+};
+```
+
+The same attribute works with dynamic `import()`:
+
+```js
+const module = await import("same-site-resource.ext", {
+  with: {
+    type: "type",
+    integrity: "sha256-abc123...",
+    crossOriginStorage: [],
+  },
+});
+```
+
+##### Example: Globally available module
+
+By passing `"*"`, the module is made available to any origin that requests the same hash via COS:
+
+```js
+import data from "popular-resource.ext" with {
+  type: "type",
+  integrity: "sha256-abc123...",
+  crossOriginStorage: "*",
+};
+```
+
+The same attributes work with dynamic `import()`:
+
+```js
+const module = await import("popular-resource.ext", {
+  with: {
+    type: "type",
+    integrity: "sha256-abc123...",
+    crossOriginStorage: "*",
+  },
+});
+```
+
+##### Example: Module restricted to specific origins
+
+To restrict the resource to specific origins, `crossOriginStorage` takes an array of origin strings instead of `"*"`, mirroring the `origins` option in the imperative API:
+
+```js
+import data from "acme-inc-corporate.ext" with {
+  type: "type",
+  integrity: "sha256-def456...",
+  crossOriginStorage: ["https://acme-inc.example.com", "https://acme-cdn.example.com"],
+};
+```
+
+#### Declarative CSS integration
 
 In addition to the imperative JavaScript API, COS can be accessed declaratively from CSS via a new [`<request-url-modifier>`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier) called `cross-origin-storage()`, proposed to the CSS Working Group in [w3c/csswg-drafts#14056](https://github.com/w3c/csswg-drafts/issues/14056). This is especially valuable for resources referenced in CSS—such as large web fonts—where the imperative JavaScript API is not easily applicable.
 
 The modifier is used alongside the existing [`integrity()`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier-integrity-modifier) modifier. The hash from `integrity()` identifies the file in COS, and `cross-origin-storage()` specifies which origins may retrieve it—mirroring the `origins` option in the JavaScript API.
 
 ```
-cross-origin-storage() = cross-origin-storage( [ '*' | <string># ] )
+cross-origin-storage() = cross-origin-storage( [ '*' | <string># ]? )
 ```
 
-#### Example: Globally available font
+##### Example: Same-site only font
+
+Calling `cross-origin-storage()` with no arguments opts the font into COS for same-site access only, mirroring the behavior of omitting `origins` in the imperative API:
+
+```css
+@font-face {
+  font-family: "Same-Site Corporate Font";
+  src: url(
+    "same-site-corporate.woff2"
+    integrity("sha256-abc123...")
+    cross-origin-storage()
+  );
+}
+```
+
+##### Example: Globally available font
 
 By passing `*`, the font is made available to any origin that requests the same hash via COS:
 
@@ -528,7 +670,7 @@ By passing `*`, the font is made available to any origin that requests the same 
 }
 ```
 
-#### Example: Font restricted to specific origins
+##### Example: Font restricted to specific origins
 
 Passing a list of origins limits COS retrieval to only those origins. All other origins still fetch the font from the network URL:
 
@@ -543,13 +685,20 @@ Passing a list of origins limits COS retrieval to only those origins. All other 
 }
 ```
 
-#### Processing flow
-
-1. If a resource matching the `integrity()` hash is found in COS and the requesting origin is allowed, it is served from COS.
-2. Otherwise, the resource is fetched from the network URL. If the fetched content matches the `integrity()` hash and the origin restrictions permit it, the browser stores it in COS for future use. If the hash does not match, the browser refuses to use the resource (per existing `integrity()` behavior) and does not store it in COS.
-
 > [!NOTE]
 > `cross-origin-storage()` is unrelated to the CSS [`cross-origin()`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier-cross-origin-modifier) modifier despite the similar name. The `cross-origin()` modifier controls the CORS request mode, which is an orthogonal concern.
+
+#### Processing flow common to all declarative integrations
+
+The HTML, JavaScript, and CSS forms above share the same underlying model as the imperative API: a resource is identified by its integrity hash, and a COS lookup is attempted before falling back to the network.
+
+1. The user agent checks COS for a file matching the `integrity` hash. If found and the requesting origin is allowed per the declared `origins`-style value, the resource is served from COS, and no network request is made.
+2. Otherwise, the resource is fetched from the declared URL as usual. If the fetched content matches the `integrity` hash and the declared origins permit it, the user agent stores it in COS for future use by this or other origins. If the hash does not match, the resource is rejected per existing `integrity` behavior and is not stored in COS.
+
+Because all three forms piggyback on `integrity`, they inherit its existing failure semantics: a hash mismatch is always treated as a fetch failure, independent of whether COS is involved.
+
+> [!NOTE]
+> The hash format differs between the declarative and imperative forms, intentionally so. The `integrity` attribute and `integrity()` CSS modifier follow the [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/) convention and express hashes as base64url-encoded strings (e.g., `sha256-abc123…`). The imperative `requestFileHandle()` API uses lowercase hexadecimal strings (e.g., `8f434346…`), which matches the format used by AI model hubs such as [Hugging Face](https://huggingface.co/) when publishing model checksums. The user agent normalizes both representations internally; they identify the same underlying bytes.
 
 ## Detailed design discussion
 
@@ -692,6 +841,8 @@ The knowledge an attacker can gain about a user depends heavily on the popularit
 
 - [File System Living Standard](https://fs.spec.whatwg.org/)
 - [Web Cryptography API](https://w3c.github.io/webcrypto/)
+- [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/)
+- [Import Attributes](https://github.com/tc39/proposal-import-attributes)
 - [CSS Values and Units Module Level 5](https://drafts.csswg.org/css-values-5/)
 - [Cache Digests for HTTP/2](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cache-digest)
 - [Web Sustainability Guidelines (WSG)](https://w3c.github.io/sustainableweb-wsg/)
