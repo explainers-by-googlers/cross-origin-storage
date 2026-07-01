@@ -573,6 +573,10 @@ Omitting `crossoriginstorage` entirely while keeping `integrity` preserves today
 #### Declarative JavaScript integration
 
 [Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it.
+
+> [!NOTE]
+> The `with { … }` syntax is defined by TC39, but `crossOriginStorage` is a **host-defined attribute key** — like `integrity`, it requires no TC39 involvement and will be defined in the HTML Standard.
+
 ##### Example: Same-site only module
 
 An empty array for `crossOriginStorage` opts the module into COS for same-site access only, mirroring the behavior of omitting `origins` in the imperative API:
@@ -701,7 +705,7 @@ The HTML, JavaScript, and CSS forms above share the same underlying model as the
 Because all three forms piggyback on `integrity`, they inherit its existing failure semantics: a hash mismatch is always treated as a fetch failure, independent of whether COS is involved.
 
 > [!NOTE]
-> The hash format differs between the declarative and imperative forms, intentionally so. The `integrity` attribute and `integrity()` CSS modifier follow the [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/) convention and express hashes as base64url-encoded strings (e.g., `sha256-abc123…`). The imperative `requestFileHandle()` API uses lowercase hexadecimal strings (e.g., `8f434346…`), which matches the format used by AI model hubs such as [Hugging Face](https://huggingface.co/) when publishing model checksums. The user agent normalizes both representations internally; they identify the same underlying bytes.
+> The hash format differs between the declarative and imperative forms, intentionally so. The `integrity` attribute and `integrity()` CSS modifier follow the [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/) convention and express hashes as base64-encoded strings (e.g., `sha256-abc123…`). The imperative `requestFileHandle()` API uses lowercase hexadecimal strings (e.g., `8f434346…`), which matches the format used by AI model hubs such as [Hugging Face](https://huggingface.co/) when publishing model checksums. The user agent normalizes both representations internally; they identify the same underlying bytes.
 
 ## Detailed design discussion
 
@@ -722,6 +726,18 @@ const hash = {
 
 `requestFileHandle()` operates on one file at a time. For concurrent requests across multiple files and per-file error handling, see the [FAQ on why the API is singular](#why-does-the-api-use-requestfilehandle-singular-rather-than-requestfilehandles-plural).
 
+### Concurrent writes
+
+If two tabs both check COS for the same file, find it absent, and begin downloading, the user agent may receive two concurrent writes for the same hash. The user agent stores the file once; the duplicate download is accepted as an edge-case cost. This proposal does not prescribe coordination between tabs for this scenario.
+
+### Eviction
+
+Under critical storage pressure, user agents could offer a dialog that invites the user to manually free up storage. The user agent could also delete files automatically based on, for example, a least recently used approach.
+
+User agents are further expected to provide settings UI through which users can inspect which files are stored in COS and which origins have most or least recently accessed each file. Users may then choose to delete files from COS through this UI. This UI could also offer an affordance to let users add manually downloaded files—such as large AI models already on disk—to COS directly.
+
+When the user clears site data, all usage information associated with the origin should be removed from files in COS. If a file in COS, after the removal of usage information, is deemed unused, the user agent may delete it from COS.
+
 ### Web sustainability
 
 In the context of [evaluating carbon emissions in digital data usage](https://websitesustainability.com/cache/files/research23.pdf), current methodologies predominantly utilize a [kilowatt-hour (kWh) per gigabyte (GB) framework](https://sustainablewebdesign.org/estimating-digital-emissions/) to estimate the operational energy intensity of data transmission and storage. This approach provides the following energy consumption benchmarks:
@@ -734,28 +750,6 @@ While this document does not aim to critically assess the precision of these est
 > [!IMPORTANT]
 > In the context of AI, its implications for sustainability efforts are undeniable. It's essential to adhere to [Web Sustainability Guidelines](https://w3c.github.io/sustainableweb-wsg/) when integrating AI solutions. Prior to implementing AI, it's recommended to [assess and research visitor needs](https://w3c.github.io/sustainableweb-wsg/#assess-and-research-visitor-needs) to ensure that AI is a justifiable and effective solution that truly improves the experience. For example, by increasing user privacy of video calls by applying AI-based background blurring.
 
-## Open questions
-
-### Concurrency
-
-What should happen if two tabs depend on the same file, check COS, see the file is not in COS, and start downloading? Should this be handled more efficiently? How often does this happen in practice? This proposal does not address this case. In the worst case, the file is downloaded twice but stored only once in COS, which is considered an acceptable outcome.
-
-### Minimum file size
-
-Should there be a required minimum file size for a file to be eligible for COS? No minimum file size is proposed. It would be trivial to inflate a file's size to meet any such threshold, for example by appending padding bytes or comments.
-
-### Handling of eviction
-
-Under critical storage pressure, user agents could offer a dialog that invites the user to manually free up storage. The user agent could also delete files automatically based on, for example, a least recently used approach.
-
-User agents are further expected to provide settings UI through which users can inspect which files are stored in COS and which origins have most or least recently accessed each file. Users may then choose to delete files from COS through this UI.
-
-When the user clears site data, all usage information associated with the origin should be removed from files in COS. If a file in COS, after the removal of usage information, is deemed unused, the user agent may delete it from COS.
-
-### Manual COS management
-
-If a user already has manually downloaded a file such as a large AI model, should the user agent offer a way to let the user put the file in COS? This could be an affordance provided by the user agent.
-
 ## Considered alternatives
 
 ### Adding a description for each file apart from the hash
@@ -765,6 +759,10 @@ To facilitate manual COS management, one approach would be to allow developers t
 ### Storing files without hashing
 
 Storing files by their names rather than using hashes would risk name collisions, especially in a cross-origin environment. The use of hashes guarantees unique identification of each file, ensuring that the contents are consistently recognized and retrieved. Storing files based on their URLs would work if apps reference the same URLs, for example, on the same CDN, but wouldn't work if apps reference the same file stored at different locations.
+
+### Requiring a minimum file size
+
+One approach would be to require a minimum file size for a resource to be eligible for COS. No minimum file size is proposed. It would be trivial to inflate a file's size to meet any such threshold, for example by appending padding bytes or comments.
 
 ### Manually accessing files from a local disk
 
@@ -798,7 +796,7 @@ User agents are expected to enrich settings UI based on the file hashes. For exa
 
 ### Privacy considerations
 
-User agents are expected to make this API available only in contexts where third-party cookies are enabled.
+In browsers that still support third-party cookies, user agents are expected to make this API available only in contexts where third-party cookies are enabled.
 
 #### Cross-site probing
 
@@ -884,7 +882,7 @@ interface CrossOriginStorageManager {
 };
 
 dictionary CrossOriginStorageRequestFileHandleHash {
-  DOMString value; // Must be a valid lowercase hexadecimal string of length 64 (for SHA-256).
+  DOMString value; // Must be a valid lowercase hexadecimal string; length varies by algorithm (e.g., 64 characters for SHA-256).
   DOMString algorithm; // Must be a valid HashAlgorithmIdentifier (https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), e.g. "SHA-256".
 }
 

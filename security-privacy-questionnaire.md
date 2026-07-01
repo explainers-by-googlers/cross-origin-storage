@@ -6,7 +6,7 @@ The COS API exposes the availability of files identified by their hash across di
 
 ## 02. Do features in your specification expose the minimum amount of information necessary to implement the intended functionality?
 
-Yes, the API exposes only the existence of a file with a known hash and provides read access to it. By default, exposure is limited to Same-Site contexts. No additional metadata is exposed. Write access is always granted, analogously to how pages may freely store data until their quota is exhausted in mechanisms such as the Origin Private File System, IndexedDB, or the Cache API. The optional `origins` field allows developers to further minimize exposure by restricting resource access to a trusted set of origins. Global sharing of resources is strictly an opt-in operation. User agents that disallow third-party cookies by default are expected not to expose the COS API.
+Yes, the API exposes only the existence of a file with a known hash and provides read access to it. By default, exposure is limited to Same-Site contexts. No additional metadata is exposed. Write access is always granted, analogously to how pages may freely store data until their quota is exhausted in mechanisms such as the Origin Private File System, IndexedDB, or the Cache API. The optional `origins` field allows developers to further minimize exposure by restricting resource access to a trusted set of origins. Global sharing of resources is strictly an opt-in operation. In browsers that still support third-party cookies, user agents are expected to make this API available only in contexts where third-party cookies are enabled.
 
 ## 03. Do the features in your specification expose personal information, personally-identifiable information (PII), or information derived from either?
 
@@ -58,7 +58,7 @@ None.
 
 ## 14. How does this specification distinguish between behavior in first-party and third-party contexts?
 
-By default, the COS API is only available in Same-Site contexts. This means that a site can only access files in COS that were stored by itself or by other same-site origins. The optional `origins` field controls access by restricting it to specific trusted origins or expanding it to all origins, providing an additional layer of control over third-party access. Global sharing of resources is strictly an opt-in operation, and user agents that disallow third-party cookies by default are expected not to expose the COS API at all.
+By default, the COS API is only available in Same-Site contexts. This means that a site can only access files in COS that were stored by itself or by other same-site origins. The optional `origins` field controls access by restricting it to specific trusted origins or expanding it to all origins, providing an additional layer of control over third-party access. Global sharing of resources is strictly an opt-in operation, and in browsers that still support third-party cookies, the API is expected to be available only in contexts where third-party cookies are enabled.
 
 Additionally, the availability gating mechanism ensures that even cross-origin reads for globally available resources are subject to a popularity threshold: a resource that is unique to, or concentrated among, only a few origins will not be disclosed to third-party requestors, further reducing the risk of cross-site state inference in third-party contexts.
 
