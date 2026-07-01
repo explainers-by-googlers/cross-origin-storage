@@ -42,7 +42,8 @@ try {
   // Do something with the blob.
 } catch (err) {
   if (err.name === 'NotAllowedError') {
-    console.log('The user agent did not grant permission to access the file.');
+    // Permissions Policy blocks COS in this context.
+    console.log('Cross-Origin Storage is blocked by Permissions Policy.');
   } else if (err.name === 'NotFoundError') {
     console.log('The file was not found in Cross-Origin Storage.');
   }
@@ -141,10 +142,13 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 
 1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
 1. Request a `FileSystemFileHandle` object for the file, specifying the file's hash.
-1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. When `writableStream.write(data)` is called, the user agent must verify that the hash of `data` matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must throw a `NotAllowedError` `DOMException` and must not store the data in COS.
+1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. When `writableStream.write(data)` is called, the user agent must verify that the hash of `data` matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must throw a `DataError` `DOMException` and must not store the data in COS.
 
 > [!NOTE]
 > If `hash.value` is not a valid lowercase hexadecimal string of length 64, or `hash.algorithm` is not a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), the user agent must throw a `TypeError`.
+
+> [!NOTE]
+> If the [Permissions Policy](https://www.w3.org/TR/permissions-policy/) for the current context does not allow Cross-Origin Storage, the user agent must throw a `NotAllowedError` `DOMException` before attempting any write.
 
 ##### Example: Storing a single file
 
@@ -189,8 +193,8 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user agent did not grant access to the file.
-  console.log('The user agent did not grant access to the file.');
+  // 'NotAllowedError': Permissions Policy blocks COS in this context.
+  console.log('Cross-Origin Storage is blocked by Permissions Policy.');
 }
 ```
 
@@ -322,8 +326,8 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user agent did not grant access to the file.
-  console.log('The user agent did not grant access to the file.');
+  // 'NotAllowedError': Permissions Policy blocks COS in this context.
+  console.log('Cross-Origin Storage is blocked by Permissions Policy.');
 }
 ```
 
@@ -363,8 +367,8 @@ try {
     console.log('Obtained file from network', fileBlob);
     return;
   }
-  // 'NotAllowedError', the user agent did not grant access to the file.
-  console.log('The user agent did not grant access to the file.');
+  // 'NotAllowedError': Permissions Policy blocks COS in this context.
+  console.log('Cross-Origin Storage is blocked by Permissions Policy.');
 }
 ```
 
@@ -409,8 +413,8 @@ try {
     console.log('Obtained files from network', fileBlobs);
     return;
   }
-  // 'NotAllowedError', the user agent did not grant access to the files.
-  console.log('The user agent did not grant access to the files.');
+  // 'NotAllowedError': Permissions Policy blocks COS in this context.
+  console.log('Cross-Origin Storage is blocked by Permissions Policy.');
 }
 ```
 
@@ -465,8 +469,8 @@ try {
     }
     return;
   }
-  // 'NotAllowedError', the user agent did not grant access to the file.
-  console.log('The user agent did not grant access to the file.');
+  // 'NotAllowedError': Permissions Policy blocks COS in this context.
+  console.log('Cross-Origin Storage is blocked by Permissions Policy.');
 }
 ```
 
@@ -492,8 +496,8 @@ try {
     console.error(err.name, err.message);
     return;
   }
-  // 'NotAllowedError', the user agent did not grant access to the file.
-  console.log('The user agent did not grant access to the file.');
+  // 'NotAllowedError': Permissions Policy blocks COS in this context.
+  console.log('Cross-Origin Storage is blocked by Permissions Policy.');
 }
 ```
 
@@ -568,8 +572,7 @@ Omitting `crossoriginstorage` entirely while keeping `integrity` preserves today
 
 #### Declarative JavaScript integration
 
-[Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it. The `crossOriginStorage` import attribute is proposed to TC39 in [tomayac/crossoriginstorage-import-attribute](https://github.com/tomayac/crossoriginstorage-import-attribute).
-
+[Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it.
 ##### Example: Same-site only module
 
 An empty array for `crossOriginStorage` opts the module into COS for same-site access only, mirroring the behavior of omitting `origins` in the imperative API:
@@ -807,9 +810,12 @@ User agents are expected to implement safeguards against such attacks, for examp
 
 #### Availability gating
 
-User agents are expected to implement an **availability gating** mechanism that may suppress the presence of a file in COS even when the file is physically stored there. `requestFileHandle()` must return a `NotFoundError` `DOMException` when the user agent determines that revealing the file's presence would constitute a privacy risk, regardless of whether the file is actually present.
+User agents are expected to implement an **availability gating** mechanism that controls whether the presence of a file in COS is disclosed to the requesting origin. The dividing line is whether the hash is on the **Public Hash List (PHL)**, a shared, vendor-neutral allowlist that all browser vendors are expected to respect:
 
-User agents should maintain an **allowlist** of well-known resources—such as AI model weights published by recognized model hubs—that are unconditionally eligible for cross-origin availability disclosure. For resources not on the allowlist, user agents should only confirm a file's presence if it has met a **popularity threshold** and been encountered on a minimum number of distinct origins (a form of **k-anonymity** where _k_ is that minimum origin count), ensuring that no file unique to a small set of sites can be used as a cross-site identifier. Resources that do not meet the popularity threshold are treated as absent: the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
+- **On the PHL:** The user agent may answer truthfully, returning a handle if the file is present, or a `NotFoundError` `DOMException` if it is absent. ([GREASE'ing](#greasing) may still introduce occasional false negatives even for PHL-listed resources.)
+- **Not on the PHL:** The user agent must always return a `NotFoundError` `DOMException`, regardless of whether the file is physically present in COS. The response must be identical whether the file is absent or present, so that cache state cannot be inferred by observing the response or its timing.
+
+The PHL covers well-known resources, such as popular open-source libraries, widely used Wasm modules, web fonts served by major font CDNs, and AI model weights published by recognized model hubs, that are unconditionally eligible for cross-origin availability disclosure because their ubiquity makes cache presence uninformative about any individual user. A hash not on the PHL may still be disclosed if it has met a **popularity threshold** and been encountered on a minimum number of distinct origins (a form of **k-anonymity** where _k_ is that minimum origin count). Hashes that clear neither bar are treated as permanently absent at the API surface: the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
 
 Developers must NOT rely on a `NotFoundError` as definitive proof that a file is absent from COS. A `NotFoundError` MAY indicate that the user agent has withheld confirmation of the file's presence for privacy reasons.
 
