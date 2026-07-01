@@ -788,7 +788,11 @@ See the complete [questionnaire](security-privacy-questionnaire.md) for details.
 
 ### Security considerations
 
+#### Resource integrity check through hashes 
+
 Access is scoped to individual files, [each identified by their hash](#hashing). Developers cannot arbitrarily access any random files or obtain the complete list of resources in COS, ensuring limited and precise access control. Files are uniquely identified by their cryptographic hashes (for example, SHA-256), ensuring data integrity. Hashes prevent tampering with the file contents, that is, a site can be sure it gets the same contents from COS as if it had downloaded the file itself, as COS guarantees that each file's contents matches its hash. For enhanced protection, user agents can check file hashes against virus databases like [VirusTotal](https://www.virustotal.com/gui/home/search), and integrate with in-browser security features like [Safe Browsing](https://safebrowsing.google.com/) even before storing a file.
+
+#### User controls
 
 User agents are expected to provide [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
 
@@ -822,10 +826,6 @@ Developers must NOT rely on a `NotFoundError` as definitive proof that a file is
 As an additional privacy mitigation, user agents may employ **GREASE'ing** ([Generate Random Extensions And Sustain Extensibility](https://tools.ietf.org/html/draft-ietf-tls-grease)): occasionally returning a `NotFoundError` `DOMException` even when a file is present in COS. This introduces noise that makes it harder for sites to distinguish a true absence from a privacy-motivated false negative. A similar technique is applied in [UA Client Hints](https://wicg.github.io/ua-client-hints/#grease).
 
 However, user agents must exercise size-proportionate judgment when applying GREASE'ing. For small files, where a fallback to a network fetch is inexpensive, occasional false negatives are a reasonable privacy trade-off. For very large files—such as gigabyte-scale AI model weights—a false negative would force the caller to perform a full re-download, imposing a significant and observable bandwidth and latency cost on the user. User agents must NOT GREASE responses for files whose size makes a spurious re-download clearly disproportionate to the privacy benefit.
-
-#### Cross-site leaks
-
-User agents are also expected to implement safeguards against developers trying to store potentially state-revealing resources in COS through console warnings. For example, if the user agent detects that a site is trying to store a resource with a hash that is unique or uncommon, it can warn the developer that this might be a privacy risk.
 
 ### Cache flooding
 
