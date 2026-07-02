@@ -1,40 +1,38 @@
-/**
- * Represents the dictionary for hash algorithm and value.
- */
-interface CrossOriginStorageRequestFileHandleHash {
-  value: string;
-  algorithm: string;
-}
+export {};
 
-/**
- * Represents the options for requesting a file handle.
- */
-interface CrossOriginStorageRequestFileHandleOptions {
-  create?: boolean;
-  origins?: string[] | string;
-}
+declare global {
+    /**
+     * Represents the dictionary for hash algorithm and value.
+     */
+    interface CrossOriginStorageRequestFileHandleHash {
+        value: string;
+        algorithm: string;
+    }
 
-/**
- * The CrossOriginStorageManager interface.
- * [SecureContext]
- */
-interface CrossOriginStorageManager {
-  requestFileHandle(
-    hash: CrossOriginStorageRequestFileHandleHash,
-    options?: CrossOriginStorageRequestFileHandleOptions,
-  ): Promise<FileSystemFileHandle>;
-}
+    /**
+     * Represents the options for requesting a file handle.
+     */
+    interface CrossOriginStorageRequestFileHandleOptions {
+        create?: boolean | undefined;
+        origins?: string[] | string | undefined;
+    }
 
-/**
- * Augment the standard Navigator interface.
- */
-interface Navigator {
-  readonly crossOriginStorage: CrossOriginStorageManager;
-}
+    /**
+     * The CrossOriginStorageManager interface.
+     * [SecureContext]
+     */
+    interface CrossOriginStorageManager {
+        requestFileHandle(
+            hash: CrossOriginStorageRequestFileHandleHash,
+            options?: CrossOriginStorageRequestFileHandleOptions,
+        ): Promise<FileSystemFileHandle>;
+    }
 
-/**
- * Augment the standard WorkerNavigator interface.
- */
-interface WorkerNavigator {
-  readonly crossOriginStorage: CrossOriginStorageManager;
+    interface Navigator {
+        readonly crossOriginStorage: CrossOriginStorageManager;
+    }
+
+    interface WorkerNavigator {
+        readonly crossOriginStorage: CrossOriginStorageManager;
+    }
 }
