@@ -847,6 +847,7 @@ The following tables summarize the response a user agent must return for every c
 
 | On PHL? | In COS? | Written with | Requesting origin | GREASEd? | Response |
 | -- | -- | -- | -- | -- | -- |
+| — | Created, not yet written | — | — | — | `NotAllowedError` |
 | Yes | Yes | `*` | Any | No | Success |
 | Yes | Yes | `*` | Any | Yes | `NotFoundError` |
 | Yes | Yes | Same-site or list | In scope | No | Success |
