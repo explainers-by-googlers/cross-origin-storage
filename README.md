@@ -339,7 +339,7 @@ The visibility of a resource in COS can be upgraded but never downgraded:
 1. Retrieve the `FileSystemFileHandle` object after the user agent has granted access.
 
 > [!NOTE]
-> A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#resource-visibility)). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
+> A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#availability-gating)). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
 
 ##### Example: Retrieving a single file
 
@@ -795,7 +795,7 @@ Access is scoped to individual files, [each identified by their hash](#hashing).
 
 #### User controls
 
-User agents are expected to provide [settings UI for managing COS files](#handling-of-eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
+User agents are expected to provide [settings UI for managing COS files](#eviction), showing stored files and their associated origins. Users can manually evict files or clear all COS data, maintaining control over their storage.
 
 User agents are expected to enrich settings UI based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the settings UI.
 
@@ -811,11 +811,11 @@ In browsers that still support third-party cookies, user agents are expected to 
 
 If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource is not globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
 
-Beyond the `origins` field, user agents apply [availability gating](#resource-visibility) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
+Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
 
 User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandle()` can be considered a probe, and user agents can limit the number of probes per site or even block probes from sites known to be malicious.
 
-#### Resource visibility
+#### Availability gating
 
 Two independent mechanisms control whether a `requestFileHandle()` call returns a file handle or a `NotFoundError`:
 
@@ -853,8 +853,8 @@ The following tables summarize the response a user agent must return for every c
 | Yes | Yes | Same-site or list | In scope | Yes | `NotFoundError` |
 | Yes | Yes | Same-site or list | Out of scope | — | `NotFoundError` |
 | Yes | No | — | — | — | `NotFoundError` |
-| No | Yes | Any | Any | — | `NotFoundError` |
 | No | Yes | Any | Original storer | — | Success |
+| No | Yes | Any | Any other origin | — | `NotFoundError` |
 | No | No | — | — | — | `NotFoundError` |
 
 ##### Write path
