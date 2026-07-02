@@ -264,13 +264,6 @@ const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
 // Now, any Same-Site origin can request the same hash and it will be found.
 ```
 
-##### Resource visibility upgrades
-
-The visibility of a resource in COS can be upgraded but never downgraded:
-
-- **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandle()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site _must still_ write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
-- **Permissive to more restricted**: If a resource is already permissively available in COS, any attempt to store it again with a more restrictive `origins` list is ignored. The resource remains globally available, and the user agent should log a warning to the console to inform the developer that the restriction was not applied.
-
 ##### Example: Storing multiple files
 
 To store or retrieve multiple files, call `requestFileHandle()` once per file and combine with `Promise.all()` for concurrent requests:
@@ -331,6 +324,14 @@ try {
 }
 ```
 
+#### Resource visibility upgrades
+
+The visibility of a resource in COS can be upgraded but never downgraded:
+
+- **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandle()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site _must still_ write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
+- **Permissive to more restricted**: If a resource is already permissively available in COS, any attempt to store it again with a more restrictive `origins` list is ignored. The resource remains globally available, and the user agent should log a warning to the console to inform the developer that the restriction was not applied.
+- **Original storer access**: An origin that stores a resource in COS can always read it back via `requestFileHandle()`, regardless of the `origins` value set at write time or whether the hash is on the PHL. This mirrors the Cache API's model where an origin always has access to what it stored.
+
 #### Retrieving files
 
 1. Request a `FileSystemFileHandle` object for the file, specifying the file's hash.
@@ -338,7 +339,7 @@ try {
 1. Retrieve the `FileSystemFileHandle` object after the user agent has granted access.
 
 > [!NOTE]
-> A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#availability-gating)). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
+> A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#resource-visibility)). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
 
 ##### Example: Retrieving a single file
 
@@ -798,6 +799,10 @@ User agents are expected to provide [settings UI for managing COS files](#handli
 
 User agents are expected to enrich settings UI based on the file hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the settings UI.
 
+#### Cache flooding
+
+Sites are prevented from flooding the cache in an attempt to evict other sites' resources. Each site can only store a limited amount of data in COS, and if a site tries to exceed this limit, the user agent can block the attempt and log a warning to the console.
+
 ### Privacy considerations
 
 In browsers that still support third-party cookies, user agents are expected to make this API available only in contexts where third-party cookies are enabled.
@@ -806,13 +811,20 @@ In browsers that still support third-party cookies, user agents are expected to 
 
 If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource is not globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
 
-Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
+Beyond the `origins` field, user agents apply [availability gating](#resource-visibility) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
 
 User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandle()` can be considered a probe, and user agents can limit the number of probes per site or even block probes from sites known to be malicious.
 
-#### Availability gating
+#### Resource visibility
 
-User agents are expected to implement an **availability gating** mechanism that controls whether the presence of a file in COS is disclosed to the requesting origin. The dividing line is whether the hash is on the **Public Hash List (PHL)**, a shared, vendor-neutral allowlist that all browser vendors are expected to respect:
+Two independent mechanisms control whether a `requestFileHandle()` call returns a file handle or a `NotFoundError`:
+
+- **Access control** (`origins`-based): which origins may obtain a file handle. This is determined by the `origins` field set at write time. An origin that is not in scope receives `NotFoundError`, even if the resource is physically present in COS.
+- **Availability gating** (PHL-based): whether the user agent discloses that the resource exists in COS at all. This is determined by whether the hash is on the **Public Hash List (PHL)**, a shared, vendor-neutral allowlist that all browser vendors are expected to respect. A resource not on the PHL receives `NotFoundError` from all cross-origin requesters, even if the requesting origin would otherwise be in scope.
+
+Both conditions must be satisfied for a read to succeed. These two mechanisms are orthogonal. In particular, the PHL and `origins: '*'` are not the same thing: a resource stored with `origins: '*'` but not on the PHL is not cross-origin accessible — the user agent returns `NotFoundError` to all origins except the original storer, because availability gating still applies. Conversely, a PHL resource stored with a specific `origins` list is only accessible to in-scope origins, because access control is still enforced on top of the gating bypass the PHL provides.
+
+**Availability gating in detail.** User agents implement availability gating using the PHL:
 
 - **On the PHL:** The user agent may answer truthfully, returning a handle if the file is present, or a `NotFoundError` `DOMException` if it is absent. ([GREASE'ing](#greasing) may still introduce occasional false negatives even for PHL-listed resources.)
 - **Not on the PHL:** The user agent must always return a `NotFoundError` `DOMException`, regardless of whether the file is physically present in COS. The response must be identical whether the file is absent or present, so that cache state cannot be inferred by observing the response or its timing.
@@ -827,9 +839,39 @@ As an additional privacy mitigation, user agents may employ **GREASE'ing** ([Gen
 
 However, user agents must exercise size-proportionate judgment when applying GREASE'ing. For small files, where a fallback to a network fetch is inexpensive, occasional false negatives are a reasonable privacy trade-off. For very large files—such as gigabyte-scale AI model weights—a false negative would force the caller to perform a full re-download, imposing a significant and observable bandwidth and latency cost on the user. User agents must NOT GREASE responses for files whose size makes a spurious re-download clearly disproportionate to the privacy benefit.
 
-### Cache flooding
+#### API response reference
 
-Sites are prevented from flooding the cache in an attempt to evict other sites' resources. Each site can only store a limited amount of data in COS, and if a site tries to exceed this limit, the user agent can block the attempt and log a warning to the console.
+The following tables summarize the response a user agent must return for every combination of inputs. All non-success read-path outcomes return `NotFoundError` — the caller cannot distinguish between a genuine cache miss and a gated or access-controlled resource.
+
+##### Read path
+
+| On PHL? | In COS? | Written with | Requesting origin | GREASEd? | Response |
+| -- | -- | -- | -- | -- | -- |
+| Yes | Yes | `*` | Any | No | Success |
+| Yes | Yes | `*` | Any | Yes | `NotFoundError` |
+| Yes | Yes | Same-site or list | In scope | No | Success |
+| Yes | Yes | Same-site or list | In scope | Yes | `NotFoundError` |
+| Yes | Yes | Same-site or list | Out of scope | — | `NotFoundError` |
+| Yes | No | — | — | — | `NotFoundError` |
+| No | Yes | Any | Any | — | `NotFoundError` |
+| No | Yes | Any | Original storer | — | Success |
+| No | No | — | — | — | `NotFoundError` |
+
+##### Write path
+
+| Condition | Written with | Response |
+| -- | -- | -- |
+| `hash.value` or `hash.algorithm` is malformed | Any | `TypeError` |
+| Permissions Policy blocks COS | Any | `NotAllowedError` |
+| Valid hash, declared hash matches computed hash | `*` | Success |
+| Valid hash, declared hash matches computed hash | Same-site or list | Success |
+| Valid hash, declared hash does not match computed hash | Any | `DataError` |
+
+##### Policy
+
+| Condition | Response |
+| -- | -- |
+| Permissions Policy blocks COS | `NotAllowedError` |
 
 #### Fingerprinting detection
 
