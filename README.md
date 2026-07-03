@@ -910,7 +910,8 @@ The knowledge an attacker can gain about a user depends heavily on the popularit
 
 Many thanks for valuable feedback from:
 
-- **Yash Raj Bharti**, independent freelancer
+- **Tab Atkins-Bittner**, Google Chrome
+- **Yash Raj Bharti**, Google Cloud
 - **Joshua Lochner**, Hugging Face
 
 Many thanks for valuable inspiration or ideas from:
