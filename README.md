@@ -138,6 +138,17 @@ Web fonts—especially large icon fonts, emoji fonts, and fonts with extensive U
 
 The **COS** API will be available through the `navigator.crossOriginStorage` interface. Files will be stored and retrieved based on their hashes, ensuring that each file is uniquely identified.
 
+#### COS entry
+
+Each resource stored in COS is conceptually represented as an entry with the following fields:
+
+- **`hash`**: the content identifier, consisting of an `algorithm` (a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier)) and a `value` (a 64-character lowercase hex string). Entries are keyed by hash: two files with identical bytes and the same hash algorithm are the same entry, regardless of how many origins stored them or from how many URLs they were fetched.
+- **`bytes`**: the raw file contents. The user agent verifies at write time that hashing `bytes` with `hash.algorithm` produces `hash.value`; a mismatch throws a `DataError`.
+- **`origins`**: the declared sharing scope, initially set by the first writer and upgradeable but never downgradeable. One of: `'*'` (any origin), a list of origin strings (only those origins), or absent (same-site origins only). See [Resource visibility upgrades](#resource-visibility-upgrades).
+- **`storing origins`**: the set of origins that have successfully written this entry. An origin in `storing origins` may always retrieve the entry via `requestFileHandle()`, regardless of the `origins` field value or whether the hash is on the PHL.
+
+`storing origins` is persisted across page loads and grows each time a new origin successfully writes the entry; it is never shrunk. If origin A writes a file restricted to `['https://a.example']` and origin B later writes the same hash with `origins: '*'`, both A and B are in `storing origins` and the `origins` field upgrades to `'*'`. Each writer must supply the full file bytes regardless of whether the entry already exists, which prevents any origin from using a write operation to detect prior presence.
+
 #### Storing files
 
 1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
