@@ -31,3 +31,18 @@ All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
+
+## Building the spec
+
+The formal specification lives in [`index.bs`](index.bs) and is written for
+[Bikeshed](https://speced.github.io/bikeshed/). To build it locally:
+
+```sh
+pip install bikeshed && bikeshed update
+bikeshed spec index.bs index.html
+```
+
+On every push to `main`, [a GitHub Action](.github/workflows/build.yml) builds
+`index.bs` and commits the resulting `index.html` back to `main`, which
+[GitHub Pages](https://wicg.github.io/cross-origin-storage/) serves directly.
+Pull requests only build and validate `index.bs`; they do not commit anything.

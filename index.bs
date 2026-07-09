@@ -1,0 +1,812 @@
+<pre class="metadata">
+Title: Cross-Origin Storage
+Shortname: cross-origin-storage
+Level: 1
+Status: CG-DRAFT
+Group: WICG
+URL: https://wicg.github.io/cross-origin-storage/
+Repository: WICG/cross-origin-storage
+Editor: Thomas Steiner, Google https://www.google.com/, tomac@google.com
+Editor: Christian Liebel, Thinktecture AG https://www.thinktecture.com/, christian@liebel.org
+Editor: François Beaufort, Google https://www.google.com/, fbeaufort@google.com
+Abstract: Cross-Origin Storage (COS) is a content-addressable cache that allows web applications to store and retrieve large files, such as AI models, WebAssembly modules, and highly popular JavaScript libraries, across different origins. Files are identified by their cryptographic hash rather than by URL, so a byte-identical resource fetched once by one origin can be reused by any other origin the user agent permits, without a second download. To keep cache presence from being usable to infer which sites a user has visited, cross-origin disclosure of a file is limited to hashes that clear a k-anonymity-style popularity bar.
+!Participate: <a href="https://github.com/WICG/cross-origin-storage">GitHub WICG/cross-origin-storage</a> (<a href="https://github.com/WICG/cross-origin-storage/issues/new">new issue</a>, <a href="https://github.com/WICG/cross-origin-storage/issues?state=open">open issues</a>)
+!Commits: <a href="https://github.com/WICG/cross-origin-storage/commits/main/index.bs">GitHub index.bs commits</a>
+Inline Github Issues: true
+Complain About: accidental-2119 yes, missing-example-ids yes
+Indent: 2
+Markup Shorthands: markdown yes
+Assume Explicit For: yes
+Default Biblio Status: current
+</pre>
+
+<pre class="link-defaults">
+spec:webidl; type:dfn; text:resolve
+spec:html; type:dfn; text:origin
+spec:html; type:element; text:link
+spec:html; type:element; text:script
+</pre>
+
+<pre class="anchors">
+urlPrefix: https://tc39.es/ecma262/; spec: ECMA-262
+  type: dfn; text: realm; url: realm
+urlPrefix: https://html.spec.whatwg.org/multipage/browsers.html#; spec: HTML
+  type: dfn; text: serialization; for: origin; url: ascii-serialisation-of-an-origin
+</pre>
+
+<style>
+.domintro dt {
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
+  padding-top: 0.5em;
+  padding-bottom: 1em;
+}
+.domintro dt a {
+  color: inherit; border-bottom-style: none;
+}
+.domintro dt code {
+  font-size: inherit;
+}
+.domintro::before {
+  content: 'For web developers (non-normative)';
+  text-transform: initial;
+}
+</style>
+
+# Introduction # {#introduction}
+
+*This section is non-normative.*
+
+Storage is normally partitioned by origin to protect user security and privacy. That is the right
+default, but it is a poor fit for a narrow class of very large, highly popular, publicly-distributed
+resources — AI models, WebAssembly modules, JavaScript libraries, game engines, and large web fonts
+— that are, byte-for-byte, the same file no matter which site requested them. When two
+unrelated origins each depend on the same 8&nbsp;GB model, origin-partitioned storage forces the
+user to download and retain that model twice, which is wasteful for the user's bandwidth, storage,
+and battery, and for the network as a whole.
+
+Cross-Origin Storage (COS) is a [=content-addressable=] cache, keyed by cryptographic hash rather
+than by URL, that lets a user agent share a single stored copy of such a resource across the
+origins that opt into using it. Storing a resource in COS is always an explicit, opt-in act by the
+storing origin, and a user agent may withhold confirming a resource's presence even from origins
+that would otherwise be permitted to read it; see [[#privacy-and-security-considerations]].
+
+The entry point for this specification is the {{CrossOriginStorageManager/requestFileHandle()}}
+method, exposed via {{NavigatorCrossOriginStorage/crossOriginStorage}}:
+
+<pre class="example" id="example-intro-request-file-handle" highlight="js">
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+try {
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
+  const file = await handle.getFile();
+  // Do something with the file.
+} catch (err) {
+  if (err.name === 'NotFoundError') {
+    // Not (disclosably) in Cross-Origin Storage; fetch from the network instead.
+  }
+}
+</pre>
+
+This specification reuses {{FileSystemFileHandle}}, {{FileSystemWritableFileStream}}, and related
+infrastructure from the File System Standard [[FS]], scoped to a dedicated, cross-origin-shared
+file system rather than to a single origin's private or user-visible file system.
+
+This specification defines the imperative JavaScript API only. Related proposals integrate the
+same underlying cache with declarative markup — an HTML `crossoriginstorage` attribute on
+<{link}> and <{script}>, a `crossOriginStorage` JavaScript import attribute, and a CSS
+`cross-origin-storage()` `<request-url-modifier>` — each defined in its host language's own
+specification; see [[#integration-with-other-specifications]].
+
+# Concepts # {#concepts}
+
+## Hashes ## {#hashes}
+
+A <dfn export>COS hash</dfn> is a [=struct=] with the following [=struct/items=]:
+
+: <dfn for="COS hash">algorithm</dfn>
+:: A [=string=] naming a hash algorithm recognized by [[WEBCRYPTO]], for example "`SHA-256`".
+: <dfn for="COS hash">value</dfn>
+:: A [=string=] that is a lowercase hexadecimal encoding of a digest produced by
+   [=COS hash/algorithm=]. For "`SHA-256`", this is 64 characters long.
+
+The {{CrossOriginStorageRequestFileHandleHash/algorithm}} dictionary member is typed as a plain
+`DOMString`, not as a {{HashAlgorithmIdentifier}}, even though its value space is exactly the set
+of names accepted by [[WEBCRYPTO]]'s hash algorithms. A {{HashAlgorithmIdentifier}} is
+`(object or DOMString)` — it additionally admits an `object`, normalized by [[WEBCRYPTO]] into an
+{{Algorithm}}-shaped dictionary, so that callers can pass extra parameters to algorithms that need
+them (for example, `{name: "HMAC", hash: "SHA-256"}`). Hash algorithms take no such parameters,
+[=COS hash/algorithm=] is stored, compared, and round-tripped as part of a [=content-addressable=]
+key rather than consumed once by a single operation, and every use in this specification's
+examples is a bare string; admitting arbitrary objects here would add no capability while making
+[=COS hash/equal|equality=] and serialization needlessly complicated. `DOMString` is therefore the
+narrower and more correct type for this field.
+
+Two [=COS hash=] values are <dfn export for="COS hash">equal</dfn> if their [=COS hash/algorithm=]
+values are an [=ASCII case-insensitive=] match and their [=COS hash/value=] values are exactly
+equal.
+
+Note: Unlike [=COS hash/algorithm=], whose case is not normatively constrained,
+[=COS hash/value=] is already normatively lowercase (see above), so comparing it is a plain
+string comparison rather than an [=ASCII case-insensitive=] one.
+
+A <dfn export>content-addressable</dfn> store is one whose entries are keyed by the
+[=COS hash/equal|equality=] of a [=COS hash=], rather than by URL or by name: two files with
+identical bytes and the same hash algorithm are the same entry, regardless of how many origins
+stored them or how many URLs they were fetched from.
+
+## COS entries ## {#cos-entries}
+
+Each user agent has a single <dfn>COS registry</dfn>, a [=map=] from [=COS hash=] values to
+<dfn export>COS entry</dfn> [=structs=], shared by all origins that use Cross-Origin Storage. A
+[=COS entry=] has the following [=struct/items=]:
+
+: <dfn for="COS entry">hash</dfn>
+:: A [=COS hash=].
+: <dfn for="COS entry">bytes</dfn>
+:: Null, or a [=byte sequence=] whose digest under [=COS entry/hash=]'s [=COS hash/algorithm=]
+   equals [=COS entry/hash=]'s [=COS hash/value=]. Null until a writer completes
+   [=verify and store|verification and storage=].
+: <dfn for="COS entry">state</dfn>
+:: Either "`pending`" or "`written`". An entry starts out "`pending`" and becomes "`written`"
+   exactly once, when [=COS entry/bytes=] is first set.
+: <dfn for="COS entry">origins</dfn>
+:: The declared sharing scope: either "`*`" (any origin), a [=list=] of origin strings
+   (only those origins), or null (same-site origins only). Set by the first writer and
+   [[#resource-visibility-upgrades|upgradeable but never downgradeable]].
+: <dfn for="COS entry">storing origins</dfn>
+:: A [=set=] of [=/origins=] that have each successfully completed
+   [=verify and store|writing=] this entry's bytes at least once. Persisted across page loads and
+   [=set/append|grows=] over time; never shrinks except as described in [[#eviction]]. An origin in
+   [=COS entry/storing origins=] may always obtain a handle for the entry via
+   {{CrossOriginStorageManager/requestFileHandle()}}, independent of [=COS entry/origins=] or
+   whether the entry's [=COS entry/hash=] is [[#public-hash-list|on the Public Hash List (PHL)]].
+   See [[#original-storer-access]].
+
+A user agent has an associated <dfn>Cross-Origin Storage queue</dfn>, which is the result of
+[=starting a new parallel queue=]. All operations on the [=COS registry=] are to be
+[=parallel queue/enqueue the following steps|enqueued=] on this queue, so that they execute in
+[=list/iterate|the order they were enqueued=] and do not interleave.
+
+## The Public Hash List ## {#public-hash-list}
+
+Confirming that a hash is present in Cross-Origin Storage can itself leak information about a
+user's browsing history (see [[#cross-site-probing]]). To bound this, a resource is only
+disclosable to origins outside its [=COS entry/storing origins=] if its hash clears an additional,
+independent gate: membership on the <dfn export id="dfn-public-hash-list">Public Hash List</dfn>
+(<dfn export>PHL</dfn>), a vendor-neutral, [=implementation-defined=] allowlist of [=COS hash=]
+values. A hash is admitted to the Public Hash List only once it clears a k-anonymity-style
+popularity bar — for example, appearing, byte-identical, across some minimum number of independent
+origins — so that confirming its presence in a shared cache is not informative about any
+individual user.
+
+A [=COS hash=] |hash| is <dfn export data-lt="on the PHL">on the Public Hash List</dfn> if |hash|
+[=COS hash/equal|equals=] an entry of the user agent's current snapshot of the [=Public Hash
+List=].
+
+Issue: The retrieval protocol, update cadence, data format, popularity thresholds, and governance
+of the Public Hash List are being designed as a companion artifact to this specification, in the
+spirit of how the [[URL]] Standard's public suffix list is a companion data file rather than
+normative prose. Where that companion artifact is hosted and governed — for example, as a further
+deliverable of this repository, versus a separately governed cross-vendor project analogous to the
+public suffix list — is not yet decided. An early, non-normative prototype is available at
+<a href="https://github.com/tomayac/public-hash-list/">tomayac/public-hash-list</a>. This
+specification only depends on whether a hash is [=on the PHL=], not on any particular retrieval
+mechanism or governance model.
+
+# The {{CrossOriginStorageManager}} interface # {#the-crossoriginstoragemanager-interface}
+
+<xmp class="idl">
+[Exposed=(Window,Worker), SecureContext]
+interface CrossOriginStorageManager {
+  Promise<FileSystemFileHandle> requestFileHandle(
+      CrossOriginStorageRequestFileHandleHash hash,
+      optional CrossOriginStorageRequestFileHandleOptions options = {});
+};
+
+dictionary CrossOriginStorageRequestFileHandleHash {
+  required DOMString value;
+  required DOMString algorithm;
+};
+
+dictionary CrossOriginStorageRequestFileHandleOptions {
+  boolean create = false;
+  (DOMString or sequence<DOMString>) origins;
+};
+
+interface mixin NavigatorCrossOriginStorage {
+  [SameObject, SecureContext] readonly attribute CrossOriginStorageManager crossOriginStorage;
+};
+Navigator includes NavigatorCrossOriginStorage;
+WorkerNavigator includes NavigatorCrossOriginStorage;
+</xmp>
+
+Each {{Navigator}} and {{WorkerNavigator}} object has an associated {{CrossOriginStorageManager}}
+object. The <dfn attribute for="NavigatorCrossOriginStorage">crossOriginStorage</dfn> getter steps
+are to return [=this=]'s associated {{CrossOriginStorageManager}}.
+
+Each {{CrossOriginStorageManager}} object has an associated [=/origin=], set to
+[=this=]'s [=relevant settings object=]'s [=environment settings object/origin=] when the object
+is created.
+
+## The {{CrossOriginStorageManager/requestFileHandle()}} method ## {#requestfilehandle}
+
+<div class="note domintro">
+  : |handle| = await navigator . crossOriginStorage . {{CrossOriginStorageManager/requestFileHandle()|requestFileHandle}}(|hash|)
+  :: Returns a handle for the file identified by |hash|, if it is present in, and disclosable
+     from, Cross-Origin Storage to the calling origin. Otherwise, this rejects with a
+     "{{NotFoundError}}" {{DOMException}}. A "{{NotFoundError}}" does not prove the file is
+     physically absent from Cross-Origin Storage; see [[#availability-gating]]. Callers can
+     treat it as "fetch this from the network instead."
+
+  : |handle| = await navigator . crossOriginStorage . {{CrossOriginStorageManager/requestFileHandle()|requestFileHandle}}(|hash|, { {{CrossOriginStorageRequestFileHandleOptions/create}}: true })
+  :: Returns a handle that can be used to write the file identified by |hash| into Cross-Origin
+     Storage, creating a new entry if none exists yet, restricted by default to same-site origins.
+     The caller needs to write the complete file contents via the handle's
+     {{FileSystemFileHandle/createWritable()}} method regardless of whether an entry already
+     existed; the user agent verifies at that point that the written bytes hash to |hash|,
+     rejecting with a "{{DataError}}" {{DOMException}} otherwise. This requirement prevents an
+     origin from using a create request as an oracle for whether |hash| was already present.
+
+  : |handle| = await navigator . crossOriginStorage . {{CrossOriginStorageManager/requestFileHandle()|requestFileHandle}}(|hash|, { {{CrossOriginStorageRequestFileHandleOptions/create}}: true, {{CrossOriginStorageRequestFileHandleOptions/origins}}: "*" })
+  :: As above, additionally making the entry disclosable to any origin whose request for |hash|
+     clears [[#availability-gating]], once written.
+
+  : |handle| = await navigator . crossOriginStorage . {{CrossOriginStorageManager/requestFileHandle()|requestFileHandle}}(|hash|, { {{CrossOriginStorageRequestFileHandleOptions/create}}: true, {{CrossOriginStorageRequestFileHandleOptions/origins}}: ["https://a.example", "https://b.example"] })
+  :: As above, restricting disclosure to exactly the listed origins (in addition to the calling
+     origin, and any origin already in [=COS entry/storing origins=]).
+</div>
+
+<div algorithm>
+The <dfn method for="CrossOriginStorageManager">requestFileHandle(|hash|, |options|)</dfn> method
+steps are:
+
+1. Let |result| be [=a new promise=].
+1. Let |realm| be [=this=]'s [=relevant Realm=].
+1. Let |global| be [=this=]'s [=relevant global object=].
+1. Let |origin| be [=this=]'s associated [=/origin=].
+1. If |global|'s associated {{Document}}, if any, is not [=allowed to use=] the
+   "<code>[=PermissionsPolicy/cross-origin-storage=]</code>" [=policy-controlled feature=], then:
+   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+      [=/reject=] |result| with a "{{NotAllowedError}}" {{DOMException}}.
+   1. Return |result|.
+1. Let |validationFailure| be the result of running [=validate a COS request=] given |hash| and
+   |options|.
+1. If |validationFailure| is not null:
+   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+      [=/reject=] |result| with |validationFailure|.
+   1. Return |result|.
+1. [=parallel queue/enqueue the following steps|Enqueue the following steps=] to the
+   [=Cross-Origin Storage queue=]:
+   1. If |options|["{{CrossOriginStorageRequestFileHandleOptions/create}}"] is true:
+      1. Run [=complete a create request=] given |result|, |hash|, |options|, |global|, and
+         |realm|.
+   1. Otherwise:
+      1. Run [=complete a read request=] given |result|, |hash|, |origin|, |global|, and |realm|.
+1. Return |result|.
+
+</div>
+
+<div algorithm>
+To <dfn>validate a COS request</dfn> given a {{CrossOriginStorageRequestFileHandleHash}} |hash|
+and a {{CrossOriginStorageRequestFileHandleOptions}} |options|, return null or a {{TypeError}}:
+
+1. If |hash|["{{CrossOriginStorageRequestFileHandleHash/algorithm}}"] is not a hash algorithm
+   name recognized by [[WEBCRYPTO]], return a new {{TypeError}}.
+1. If |hash|["{{CrossOriginStorageRequestFileHandleHash/value}}"] does not match the regular
+   expression `/^[0-9a-f]{64}$/` when
+   |hash|["{{CrossOriginStorageRequestFileHandleHash/algorithm}}"] is an [=ASCII case-insensitive=]
+   match for "`SHA-256`", return a new {{TypeError}}.
+
+   Note: Future hash algorithms can define a different expected digest length; this
+   specification only normatively constrains "`SHA-256`", matching its use throughout the
+   examples.
+1. If |options|["{{CrossOriginStorageRequestFileHandleOptions/origins}}"] [=map/exists=] and is
+   not "`*`":
+   1. Let |candidates| be |options|["{{CrossOriginStorageRequestFileHandleOptions/origins}}"],
+      with a single [=string=] treated as a [=list=] of one.
+   1. If |candidates|'s [=list/size=] is greater than the user agent's
+      [=maximum origins list length=], return a new {{TypeError}}.
+   1. [=set/For each=] |candidate| of |candidates|:
+      1. If the result of running the [=basic URL parser=] on |candidate| is failure, or if the
+         parsed URL's [=/origin=] is an [=opaque origin=], return a new {{TypeError}}.
+1. Return null.
+
+</div>
+
+## Reading files ## {#reading-files}
+
+<div algorithm>
+To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|, a [=COS hash=] |hash|, an
+[=/origin=] |origin|, a global object |global|, and a [=/Realm=] |realm|:
+
+1. Let |entry| be the [=COS entry=] in the [=COS registry=] whose [=COS entry/hash=]
+   [=COS hash/equal|equals=] |hash|, if any, or null otherwise.
+1. If |entry| is not null and |entry|'s [=COS entry/state=] is "`pending`":
+   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+      [=/reject=] |result| with a "{{NotAllowedError}}" {{DOMException}}.
+   1. Return.
+
+   Note: A hash with a write in progress deliberately does not behave like a hash that is
+   absent, so that a caller does not mistake an in-progress write for a genuine cache miss
+   and begin a redundant, concurrent download of a very large file for the sole purpose of
+   writing it. See [[#creating-and-writing-files]].
+1. Let |disclosableEntry| be the result of running [=apply availability gating=] given |entry|
+   and |origin|.
+1. If |disclosableEntry| is null:
+   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+      [=/reject=] |result| with a "{{NotFoundError}}" {{DOMException}}.
+   1. Return.
+1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
+   [=FileSystemHandle/locator=] addresses |disclosableEntry| within the
+   [=Cross-Origin Storage file system=], in |realm|.
+1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+   [=/resolve=] |result| with |handle|.
+
+</div>
+
+<div algorithm>
+To <dfn>determine COS disclosure</dfn> given a [=COS entry=] or null |entry|, and an
+[=/origin=] |origin|, return a [=COS entry=] or null:
+
+1. If |entry| is null, return null.
+1. [=Assert=]: |entry|'s [=COS entry/state=] is "`written`".
+1. If |origin| is in |entry|'s [=COS entry/storing origins=], return |entry|.
+
+   Note: The original storer, and any origin that has itself successfully written the entry,
+   can always read it back. See [[#original-storer-access]].
+1. If |entry|'s [=COS entry/hash=] is not [=on the PHL=], return null.
+1. If |entry|'s [=COS entry/origins=] is "`*`", return |entry|.
+1. If |entry|'s [=COS entry/origins=] is a [=list=]:
+   1. If |origin|'s [=origin/serialization=] is an item of that [=list=],
+      return |entry|.
+   1. Return null.
+1. [=Assert=]: |entry|'s [=COS entry/origins=] is null.
+1. If |origin| is [=same site=] with some item of |entry|'s [=COS entry/storing origins=], return
+   |entry|.
+1. Return null.
+
+</div>
+
+<div algorithm>
+To <dfn>apply availability gating</dfn> given a [=COS entry=] or null |entry|, and an
+[=/origin=] |origin|, return a [=COS entry=] or null:
+
+1. Let |disclosable| be the result of running [=determine COS disclosure=] given |entry| and
+   |origin|.
+1. If |disclosable| is null, return null.
+1. If |origin| is in |disclosable|'s [=COS entry/storing origins=], return |disclosable|.
+1. If the user agent elects to apply [[#greasing|GREASE'ing]] to this request, return null.
+1. Return |disclosable|.
+
+</div>
+
+## Creating and writing files ## {#creating-and-writing-files}
+
+A {{FileSystemFileHandle}} created by [=complete a create request=] has an associated
+<dfn for="FileSystemFileHandle">requested origins</dfn>, the value that [=verify and store=] will
+attempt to [[#resource-visibility-upgrades|upgrade]] the entry's [=COS entry/origins=] to once the
+handle is successfully written through.
+
+<div algorithm>
+To <dfn>complete a create request</dfn> given [=a new promise|a promise=] |result|, a
+[=COS hash=] |hash|, a {{CrossOriginStorageRequestFileHandleOptions}} |options|, a global object
+|global|, and a [=/Realm=] |realm|:
+
+1. Let |requestedOrigins| be the result of running [=normalize requested origins=] given
+   |options|["{{CrossOriginStorageRequestFileHandleOptions/origins}}"].
+1. Let |entry| be the [=COS entry=] in the [=COS registry=] whose [=COS entry/hash=]
+   [=COS hash/equal|equals=] |hash|, if any, or null otherwise.
+1. If |entry| is null:
+   1. Set |entry| to a new [=COS entry=] whose [=COS entry/hash=] is |hash|,
+      [=COS entry/bytes=] is null, [=COS entry/state=] is "`pending`",
+      [=COS entry/origins=] is |requestedOrigins|, and
+      [=COS entry/storing origins=] is an empty [=set=].
+   1. [=map/Set=] the [=COS registry=][|hash|] to |entry|.
+1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
+   [=FileSystemHandle/locator=] addresses |entry| within the
+   [=Cross-Origin Storage file system=], in |realm|.
+1. Set |handle|'s [=FileSystemFileHandle/requested origins=] to |requestedOrigins|.
+
+   Note: |handle| is returned whether or not |entry| already existed, and whether or not it is
+   already "`written`". The caller still needs to supply the complete file bytes through
+   |handle|, so that a write cannot be used to detect prior presence (see
+   [[#cross-site-probing]]) and so that a request for a more permissive
+   [=COS entry/origins=] value can be verified before being honored; see
+   [[#resource-visibility-upgrades]].
+1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+   [=/resolve=] |result| with |handle|.
+
+</div>
+
+<div algorithm>
+To <dfn>normalize requested origins</dfn> given a (DOMString or sequence&lt;DOMString&gt;) or
+undefined |origins|, return "`*`", a [=list=] of [=/origins=], or null:
+
+1. If |origins| does not [=map/exist=], return null.
+1. If |origins| is "`*`", return "`*`".
+1. Let |list| be « ».
+1. [=set/For each=] |candidate| of |origins| (a single [=string=] is treated as a [=list=] of
+   one):
+   1. Let |candidateOrigin| be the [=/origin=] resulting from running the [=basic URL parser=]
+      on |candidate|.
+
+      Note: [=validate a COS request=] has already confirmed each |candidate| parses to a
+      non-opaque origin.
+   1. If |list| does not [=list/contain=] |candidateOrigin|, [=list/append=] |candidateOrigin|
+      to |list|.
+1. Return |list|.
+
+Note: Deduplicating here, rather than only when later [[#resource-visibility-upgrades|merging]]
+into an existing entry, keeps [=COS entry/origins=] duplicate-free from the moment an entry is
+first created, so every later [=list/clone=] of it stays duplicate-free too.
+
+</div>
+
+When the {{FileSystemWritableFileStream}} obtained by calling
+{{FileSystemFileHandle/createWritable()}} on a handle whose [=FileSystemHandle/locator=]
+addresses a [=COS entry=] is closed [[FS]], the user agent must run the [=verify and store=] steps
+below before that closing operation's promise is fulfilled.
+
+<div algorithm>
+The <dfn>verify and store</dfn> steps, given the [=COS entry=] |entry| addressed by the closed
+stream's handle, the complete written [=byte sequence=] |bytes|, and the closing operation's
+[=relevant settings object=]'s [=environment settings object/origin=] |origin|, are:
+
+1. Let |computedValue| be the lowercase hexadecimal digest of |bytes|, computed using the
+   algorithm named by |entry|'s [=COS hash/algorithm=], per [[WEBCRYPTO]].
+1. If |computedValue| is not exactly equal to |entry|'s [=COS hash/value=]:
+   1. [=Reject=] the closing operation's promise with a "{{DataError}}" {{DOMException}}, leaving
+      |entry| unmodified.
+   1. Abort these steps.
+1. [=parallel queue/enqueue the following steps|Enqueue the following steps=] to the
+   [=Cross-Origin Storage queue=]:
+   1. Set |entry|'s [=COS entry/bytes=] to |bytes|.
+   1. Set |entry|'s [=COS entry/state=] to "`written`".
+   1. [=set/Append=] |origin| to |entry|'s [=COS entry/storing origins=], if not already present.
+   1. Run [=upgrade resource visibility=] given |entry| and the handle's
+      [=FileSystemFileHandle/requested origins=].
+
+</div>
+
+Issue: The File System Standard [[FS]] does not yet define an extension point for a dependent
+specification to hook additional per-write validation into {{FileSystemWritableFileStream}}'s
+closing steps. Until such a hook exists, this section describes the required behavior directly; a
+future revision is expected to formally integrate with [[FS]].
+
+## Resource visibility upgrades ## {#resource-visibility-upgrades}
+
+The visibility of a [=COS entry=] can be upgraded but never downgraded.
+
+<div algorithm>
+To <dfn>upgrade resource visibility</dfn> given a [=COS entry=] |entry| and "`*`", a [=list=] of
+[=/origins=], or null |requestedOrigins|:
+
+1. If |requestedOrigins| is null, return.
+
+   Note: Omitting {{CrossOriginStorageRequestFileHandleOptions/origins}} never narrows an
+   existing entry; it only requests same-site availability, which every entry already has at
+   least as much of.
+1. If |entry|'s [=COS entry/origins=] is "`*`", return.
+
+   Note: An already-globally-available entry cannot be restricted by a later writer. When this
+   note applies and |requestedOrigins| is not "`*`", the user agent is expected to log a console
+   warning informing the developer that the requested restriction was not applied.
+1. If |requestedOrigins| is "`*`":
+   1. Set |entry|'s [=COS entry/origins=] to "`*`".
+   1. Return.
+1. If |entry|'s [=COS entry/origins=] is null:
+   1. Set |entry|'s [=COS entry/origins=] to |requestedOrigins|.
+   1. Return.
+1. Let |merged| be a [=list/clone=] of |entry|'s [=COS entry/origins=].
+1. [=set/For each=] |candidateOrigin| of |requestedOrigins|:
+   1. If |merged| [=list/contains=] |candidateOrigin|, then continue.
+   1. If |merged|'s [=list/size=] equals the user agent's [=maximum origins list length=], then
+      break.
+
+      Note: Any remaining |candidateOrigin| values are silently dropped from this upgrade rather
+      than failing it — the write itself already succeeded — but the user agent is expected to
+      log a console warning that the entry's origins list is at capacity.
+   1. [=list/append=] |candidateOrigin| to |merged|.
+1. Set |entry|'s [=COS entry/origins=] to |merged|.
+
+</div>
+
+Note: A new site — not only the original storer — can widen an entry's [=COS entry/origins=], as
+long as it also supplies bytes that hash to the entry's [=COS entry/hash=]. This is intentional:
+any site that already possesses the correct bytes for a hash is, by construction, as authoritative
+as the original storer about what that hash denotes.
+
+### Original storer access ### {#original-storer-access}
+
+An [=/origin=] that has successfully completed [=verify and store|writing=] a [=COS entry=] — that
+is, any [=/origin=] in the entry's [=COS entry/storing origins=] — can always subsequently obtain
+a handle for it via {{CrossOriginStorageManager/requestFileHandle()}}, independent of the entry's
+[=COS entry/origins=] value and independent of whether its [=COS entry/hash=] is [=on the PHL=].
+This mirrors the Cache API's model, in which an origin always has access to what it stored.
+
+# The Cross-Origin Storage file system # {#cos-file-system}
+
+The <dfn>Cross-Origin Storage file system</dfn> is a [=/file system root=], distinct from any
+origin's [=/bucket file system=] or local file system access roots, whose [=/file system entry|
+entries=] correspond one-to-one with the [=COS registry=]'s [=COS entry=] items.
+
+The [=Cross-Origin Storage file system=] does not use [[FS]]'s ordinary per-call permission-check
+model: every {{FileSystemFileHandle}} obtained from it has already been fully authorized by
+[[#reading-files]] or [[#creating-and-writing-files]] before it is returned to script, so calling
+{{FileSystemFileHandle/getFile()}} or {{FileSystemFileHandle/createWritable()}} on such a handle
+never triggers an additional permission prompt.
+
+A {{FileSystemFileHandle}} addressing a [=COS entry=] |entry| can exist while |entry|'s
+[=COS entry/state=] is still "`pending`" — for example, right after a
+[[#creating-and-writing-files|create request]], before the corresponding write has completed.
+Calling {{FileSystemFileHandle/getFile()}} on such a handle must reject with a
+"{{NotAllowedError}}" {{DOMException}}, for the same reason a concurrent
+{{CrossOriginStorageManager/requestFileHandle()}} call for the same hash does (see
+[[#reading-files]]): even the caller that requested the handle must not be able to observe a
+not-yet-verified placeholder as if it were the file's real contents.
+
+Once |entry|'s [=COS entry/state=] is "`written`", {{FileSystemFileHandle/getFile()}} called on
+such a handle returns a {{File}} whose contents are |entry|'s [=COS entry/bytes=]; this is exactly
+the behavior [[FS]] already defines for a [=file entry=] whose [=file entry/binary data=] is
+|entry|'s [=COS entry/bytes=].
+
+# Storage management # {#storage-management}
+
+## Storage limits ## {#storage-limits}
+
+A user agent must impose a limit on the total number of bytes an [=/origin=] may contribute to the
+[=COS registry=] through [=verify and store|successful writes=], to prevent a single origin from
+flooding the cache in an attempt to evict other origins' entries. The specific limit is
+[=implementation-defined=]. If an origin's write would exceed its limit, the user agent must
+[=reject=] the write with a "{{QuotaExceededError}}" {{DOMException}} and should log a warning to
+the console.
+
+Note: Because entries are [=content-addressable=], an origin that repeatedly writes the same
+bytes under the same hash does not consume additional quota beyond the first successful write; see
+[[#cos-entries]].
+
+A user agent also has an [=implementation-defined=] <dfn>maximum origins list length</dfn>, a
+positive integer bounding how many [=/origins=] a single [=COS entry/origins=] [=list=] may
+contain. This is enforced both when a [=list=] is first supplied (see [=validate a COS request=])
+and when one is later merged into an existing entry (see
+[[#resource-visibility-upgrades|upgrade resource visibility]]), so that neither a single call nor
+the cumulative effect of many calls over time can grow an entry's [=COS entry/origins=] without
+bound. Beyond bounding memory use, this also keeps a [=list=] of origins from being usable as an
+undeclared substitute for "`*`"; see [[#cross-site-probing]].
+
+Exceeding this limit is handled differently in each of those two places, because the two calls
+happen at very different points in an operation:
+
+* In [=validate a COS request=], the limit is checked before any file is fetched, hashed, or
+  written. A caller that exceeds it gets an immediate "{{TypeError}}" and nothing else happens —
+  the same treatment as any other malformed {{CrossOriginStorageRequestFileHandleOptions/origins}}
+  value.
+* In [=upgrade resource visibility=], the limit can only be reached by the cumulative effect of
+  origins requested across separate, independent write calls, possibly by unrelated origins over
+  a long period of time, and it is only checked after this call's bytes have already been hashed,
+  verified, and durably stored. Rejecting the write at that point would discard a successful,
+  already-verified — and potentially very large — write over an unrelated bookkeeping limit, and
+  would not even be attributable to a single caller's mistake. The write is therefore left to
+  succeed, and only the origins beyond capacity are dropped from [=COS entry/origins=], with a
+  console warning. This mirrors the existing handling of a
+  [[#resource-visibility-upgrades|permissive-to-more-restricted]] request: an [=/origin=] request
+  that cannot be fully honored is silently capped rather than turned into a failure of the write
+  that carried it. Consistent with [[#availability-gating]] elsewhere in this specification, a
+  caller has no reliable way to confirm after the fact whether its requested [=/origin=] was
+  actually added: a subsequent {{CrossOriginStorageManager/requestFileHandle()}} call as that
+  origin can still fail even if the origin was added — for example because of
+  [[#greasing|GREASE'ing]] — so its result must not be read as confirmation either way.
+
+## Eviction ## {#eviction}
+
+*This section is non-normative.*
+
+Under storage pressure, a user agent may evict [=COS entry|entries=] from the [=COS registry=],
+for example using a least-recently-used policy across the [=COS entry/storing origins=] that have
+most recently accessed each entry. A user agent is expected to provide settings UI through which a
+user can inspect which files are stored, which origins have accessed each file, and manually
+delete entries or clear all Cross-Origin Storage data.
+
+When a user clears an origin's site data, the user agent should remove that origin from every
+[=COS entry/storing origins=] set it appears in. If, after that removal, a [=COS entry=]'s
+[=COS entry/storing origins=] is empty, the user agent may consider that entry for deletion.
+
+## Manually added entries ## {#manually-added-entries}
+
+*This section is non-normative.*
+
+The settings UI described above may let a user directly add a file they already have on disk to
+Cross-Origin Storage — for example, an AI model they downloaded independently of any website —
+without any script ever calling {{CrossOriginStorageManager/requestFileHandle()}}. Such an entry
+has no requesting [=/origin=] to attribute the write to, which raises two questions the imperative
+API does not answer by itself:
+
+* Who is the <em>original storer</em>, for the purposes of
+  [[#original-storer-access]]? Nobody: the entry's [=COS entry/storing origins=] starts out empty,
+  rather than containing an origin that performed the write. No origin is therefore exempt from
+  the ordinary [[#availability-gating|availability gating]] and [=COS entry/origins=] checks that
+  every requesting origin is otherwise subject to — which is the correct outcome, since no origin
+  actually wrote the bytes.
+* Should [=COS entry/origins=] default to same-site-only, as it does for an ordinary write that
+  omits {{CrossOriginStorageRequestFileHandleOptions/origins}}? No: "same-site" is only meaningful
+  relative to a requesting origin, and a manual add has none, so there is no site for "same-site"
+  to mean. A user agent is expected to default such an entry's [=COS entry/origins=] to "`*`"
+  instead, since manually seeding a file only serves its purpose — letting sites the user has not
+  visited yet reuse a file the user already has on disk — if other origins can actually discover
+  it. A user agent's settings UI may additionally let the user choose a narrower scope.
+
+Once added this way, an entry with [=COS entry/state=] "`written`" is otherwise indistinguishable
+from one a website wrote via {{CrossOriginStorageManager/requestFileHandle()}}: the same
+[[#availability-gating|availability gating]], [=on the PHL=] check, and
+[[#resource-visibility-upgrades|visibility upgrade]] rules apply to it.
+
+# Permissions Policy integration # {#permissions-policy-integration}
+
+This specification defines a [=policy-controlled feature=] [[permissions-policy]] identified by
+the string "<dfn for="PermissionsPolicy" export>cross-origin-storage</dfn>". Its default allowlist
+is `self`.
+
+A [=Document=] that is not [=allowed to use=] this feature causes every
+{{CrossOriginStorageManager/requestFileHandle()}} call made from that [=Document=] (or from a
+worker whose owner is that [=Document=]) to reject with a "{{NotAllowedError}}" {{DOMException}},
+before any hash validation, registry lookup, or write occurs.
+
+# Privacy and security considerations # {#privacy-and-security-considerations}
+
+<em>This section is non-normative except where it uses RFC 2119 keywords; see also the
+[security and privacy questionnaire](security-privacy-questionnaire.md) in the repository.</em>
+
+## Resource integrity ## {#resource-integrity}
+
+Every [=COS entry=] is keyed by, and its bytes are verified against, a cryptographic hash (see
+[[#creating-and-writing-files]]). A site can therefore be sure that a file obtained through
+{{CrossOriginStorageManager/requestFileHandle()}} has exactly the same bytes it would have gotten
+by fetching |hash| itself. Developers cannot enumerate the contents of Cross-Origin Storage or
+access a file without already knowing its hash.
+
+A [=COS hash=] is not a secret. It is a content identifier, trivially computable by anyone who
+already has the file, and is routinely public knowledge for the kind of widely distributed
+resources this specification targets — published, for example, alongside a model's or a library's
+release. Knowing a hash is therefore sufficient to look an entry up, but unlike a capability URL
+or a bearer token, it grants no access by itself: whether a lookup succeeds is governed entirely
+by [=COS entry/origins=] and [[#availability-gating]], never by whether the hash happened to stay
+unpublished. Developers must not treat an unpublished hash as an access-control mechanism; an
+attacker interested in a specific file does not need to guess its hash, only to obtain the file
+itself (see [[#cross-site-probing]]).
+
+## Cross-site probing ## {#cross-site-probing}
+
+If a resource is only used by a narrow set of sites, an attacker able to learn that the resource is
+present in Cross-Origin Storage can infer that the user likely visited one of those sites. Because
+{{CrossOriginStorageManager/requestFileHandle()}} is the mechanism for learning presence, each call
+is, in effect, a probe. Two independent mechanisms in this specification bound what a probe can
+learn:
+
+* [=COS entry/origins=] (see [[#resource-visibility-upgrades]]) lets a storing origin restrict
+  disclosure to a chosen set of origins, so a proprietary or low-popularity resource need not be
+  globally probeable at all.
+* [[#availability-gating]] additionally withholds disclosure of resources outside the requesting
+  origin's [=COS entry/storing origins=] unless the hash is [=on the PHL=], independent of the
+  [=COS entry/origins=] value, so that even a resource stored with
+  {{CrossOriginStorageRequestFileHandleOptions/origins}}: "`*`" is not automatically probeable by
+  every origin on the web.
+
+The first bullet only holds if a "chosen set of origins" stays meaningfully smaller than the web.
+Nothing about the shape of {{CrossOriginStorageRequestFileHandleOptions/origins}} stops a caller
+from enumerating a very large number of origins — for example, a list assembled from a public
+top-sites ranking — which would functionally approximate global disclosure while bypassing the
+deliberate, explicit opt-in that "`*`" alone requires. The [=maximum origins list length=] (see
+[[#storage-limits]]) bounds this: a limit small enough to fit genuine multi-property use cases
+(a handful of related origins under common control) but far short of any meaningful approximation
+of "every origin" keeps the restricted-origins form of [=COS entry/origins=] from being usable as
+an undeclared substitute for "`*`".
+
+A user agent should additionally rate-limit or otherwise throttle repeated
+{{CrossOriginStorageManager/requestFileHandle()}} calls from a single origin, and may apply
+on-device heuristics (for example, detecting a pattern of requests for hashes that appear to be
+generated per-user) to identify and block probing attempts, independent of whether the probed
+hashes are [=on the PHL=].
+
+## Availability gating ## {#availability-gating}
+
+Two independent questions determine the outcome of a
+{{CrossOriginStorageManager/requestFileHandle()}} read: whether the requesting origin is *allowed*
+to read the entry (governed by [=COS entry/origins=] and [=COS entry/storing origins=]), and
+whether the user agent is willing to *disclose that the entry exists at all* (governed by
+[=on the PHL|PHL membership=] and [[#greasing|GREASE'ing]]). Both must hold for
+{{CrossOriginStorageManager/requestFileHandle()}} to resolve; see [[#reading-files]] for the
+normative algorithm. A "{{NotFoundError}}" is therefore not proof that a resource is absent: it may
+mean the resource does not exist, that the requesting origin is out of scope, that the hash is not
+(yet, or ever) on the PHL, or that GREASE'ing suppressed a true positive. Developers must not treat
+"{{NotFoundError}}" as anything more specific than "fall back to the network."
+
+## GREASE'ing ## {#greasing}
+
+A user agent may apply <dfn export>GREASE'ing</dfn> ([Generate Random Extensions And Sustain
+Extensibility](https://tools.ietf.org/html/draft-ietf-tls-grease)): occasionally responding as if
+a disclosable entry were absent, even though [[#availability-gating]] would otherwise
+permit disclosure. This adds noise that makes it harder for a site to distinguish a true absence
+from a privacy-motivated false negative, similar to the technique applied by
+[[ua-client-hints|UA Client Hints]].
+
+A user agent applying GREASE'ing must do so with judgement proportionate to the size of the entry
+in question. For small entries, where falling back to a network fetch is inexpensive, an occasional
+false negative is a reasonable privacy trade-off. A user agent must not apply GREASE'ing to entries
+whose size makes a spurious re-download clearly disproportionate to the resulting privacy benefit —
+for example, gigabyte-scale AI model weights — because a false negative there forces a full,
+observable, and costly re-download rather than a cheap one.
+
+## Fingerprinting ## {#fingerprinting}
+
+The information an attacker can extract from probing Cross-Origin Storage is bounded by how popular
+the probed resource is. Learning that a user has a very popular resource, such as a common AI model
+or a widely used JavaScript library, reveals only that the user visited one of the (possibly very
+many) sites that use it. Learning that a user has a rare or unique resource is far more informative.
+A user agent is expected to apply on-device heuristics to detect resources whose hashes look
+deliberately unique per user (for example, a hash that has only ever been written by a single
+site, or that is requested with unusual frequency) and to treat such patterns as probing attempts,
+independent of nominal PHL status.
+
+# Integration with other specifications # {#integration-with-other-specifications}
+
+*This section is non-normative.*
+
+The [=COS registry=] defined here is also reachable declaratively, without going through
+{{CrossOriginStorageManager/requestFileHandle()}} directly, from three host languages. Each
+integration is defined in the specification for its own host language, not in this document; this
+specification defines only the shared underlying concepts ([=COS hash=], [=COS entry=],
+[[#availability-gating|availability gating]], and the [=Public Hash List=]) that those
+integrations are expected to build on.
+
+* **HTML**: a `crossoriginstorage` attribute on <{link}> and <{script}> elements that already
+  carry `integrity` [[SRI]], to be proposed to the WHATWG HTML Standard.
+* **JavaScript**: a host-defined `crossOriginStorage` import attribute, usable alongside
+  `integrity`, building on the [Import Attributes](https://github.com/tc39/proposal-import-attributes)
+  proposal, to be proposed to the WHATWG HTML Standard.
+* **CSS**: a `cross-origin-storage()` `<request-url-modifier>`, usable alongside `integrity()`,
+  proposed to the CSS Working Group in
+  [w3c/csswg-drafts#14056](https://github.com/w3c/csswg-drafts/issues/14056).
+
+For illustration only, here is the same globally-shared resource opted into Cross-Origin Storage
+through each of the three forms:
+
+<pre class="example" id="example-declarative-integration-html" highlight="html">
+&lt;script src="popular-library.js" integrity="sha256-abc123..." crossoriginstorage="*"&gt;&lt;/script&gt;
+</pre>
+
+<pre class="example" id="example-declarative-integration-js" highlight="js">
+import data from "popular-resource.ext" with {
+  integrity: "sha256-abc123...",
+  crossOriginStorage: "*",
+};
+</pre>
+
+<pre class="example" id="example-declarative-integration-css" highlight="css">
+@font-face {
+  font-family: "Popular Font";
+  src: url("popular-font.woff2" integrity("sha256-abc123...") cross-origin-storage(*));
+}
+</pre>
+
+These snippets are illustrative only. None of this syntax is defined by this specification, and
+the authoritative grammar for each form — including how a restricted, non-"`*`" origins value is
+spelled — belongs to its own host-language specification, not to this document.
+
+All three forms are expected to share the processing model of first consulting the [=COS
+registry=] for a matching, disclosable entry before falling back to a network fetch, and of
+storing a successfully fetched and integrity-verified resource into the [=COS registry=] for reuse
+by other origins, exactly as {{CrossOriginStorageManager/requestFileHandle()}} does. Discussion of
+these integrations belongs in the tracker of the host-language specification that would carry them,
+not in this repository's issue tracker.
+
+<h2 class="no-num" id="acks">Acknowledgments</h2>
+
+Many thanks for valuable feedback from Tab Atkins-Bittner, Yash Raj Bharti, and Joshua Lochner, and
+for valuable inspiration or ideas from Kenji Baheux and Kevin Moore.
+
+<p boilerplate="ipr">This specification includes material modeled on
+<a href="https://fs.spec.whatwg.org/"><cite>File System</cite></a>, which is available under the
+<a href="https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document">W3C Software
+and Document License</a>.

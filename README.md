@@ -23,6 +23,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, a *
 
 ## Participate
 
+- [Spec](https://wicg.github.io/cross-origin-storage/) ([source](index.bs))
 - [Issues](https://github.com/WICG/cross-origin-storage/issues)
 - [PRs](https://github.com/WICG/cross-origin-storage/pulls)
 - Support this proposal: https://github.com/WICG/cross-origin-storage/labels/expression%20of%20support
@@ -144,7 +145,7 @@ Each resource stored in COS is conceptually represented as an entry with the fol
 
 - **`hash`**: the content identifier, consisting of an `algorithm` (a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier)) and a `value` (a 64-character lowercase hex string). Entries are keyed by hash: two files with identical bytes and the same hash algorithm are the same entry, regardless of how many origins stored them or from how many URLs they were fetched.
 - **`bytes`**: the raw file contents. The user agent verifies at write time that hashing `bytes` with `hash.algorithm` produces `hash.value`; a mismatch throws a `DataError`.
-- **`origins`**: the declared sharing scope, initially set by the first writer and upgradeable but never downgradeable. One of: `'*'` (any origin), a list of origin strings (only those origins), or absent (same-site origins only). See [Resource visibility upgrades](#resource-visibility-upgrades).
+- **`origins`**: the declared sharing scope, initially set by the first writer and upgradeable but never downgradeable. One of: `'*'` (any origin), a list of origin strings (only those origins), or absent (same-site origins only). A list of origin strings has an implementation-defined maximum length, so it can't be used as an undeclared substitute for `'*'` (see [Storing files](#storing-files) and [Cross-site probing](#cross-site-probing)). See [Resource visibility upgrades](#resource-visibility-upgrades).
 - **`storing origins`**: the set of origins that have successfully written this entry. An origin in `storing origins` may always retrieve the entry via `requestFileHandle()`, regardless of the `origins` field value or whether the hash is on the PHL.
 
 `storing origins` is persisted across page loads and grows each time a new origin successfully writes the entry; it is never shrunk. If origin A writes a file restricted to `['https://a.example']` and origin B later writes the same hash with `origins: '*'`, both A and B are in `storing origins` and the `origins` field upgrades to `'*'`. Each writer must supply the full file bytes regardless of whether the entry already exists, which prevents any origin from using a write operation to detect prior presence.
@@ -160,6 +161,9 @@ Each resource stored in COS is conceptually represented as an entry with the fol
 
 > [!NOTE]
 > If the [Permissions Policy](https://www.w3.org/TR/permissions-policy/) for the current context does not allow Cross-Origin Storage, the user agent must throw a `NotAllowedError` `DOMException` before attempting any write.
+
+> [!NOTE]
+> If `origins` is a list longer than an implementation-defined maximum length, the user agent must throw a `TypeError` before attempting any write. This limit exists so that a list of origins can't be used to approximate `origins: '*'` without going through its explicit opt-in; see [Cross-site probing](#cross-site-probing).
 
 ##### Example: Storing a single file
 
@@ -341,6 +345,7 @@ The visibility of a resource in COS can be upgraded but never downgraded:
 
 - **Restricted to more permissive**: If a resource was initially stored with an `origins` list, any site (including the original storer or a completely different site) can later call `requestFileHandle()` for the same hash with `create: true` and change the `origins` field to a more permissive value. If the user agent verifies the hash matches, the resource is then marked as available according to the new `origins` value. The new site _must still_ write the full file using the returned `FileSystemFileHandle` object, to prevent sites from using this behavior to detect whether a file was previously stored.
 - **Permissive to more restricted**: If a resource is already permissively available in COS, any attempt to store it again with a more restrictive `origins` list is ignored. The resource remains globally available, and the user agent should log a warning to the console to inform the developer that the restriction was not applied.
+- **Origins list capacity**: The same implementation-defined maximum length that bounds a single write's `origins` list (see [Storing files](#storing-files)) also bounds the *merged* list when a newly requested `origins` list is added to an entry that already has one. This can only be reached by the cumulative effect of separate writes by different, possibly unrelated, sites over time, since any single write's own list is already capped. When it is reached, the write still succeeds — the bytes were already verified and stored — but the origins beyond capacity are silently dropped from the merge, and the user agent should log a console warning. Because a `NotFoundError` can't be distinguished from other gating outcomes (see [Availability gating](#availability-gating)), a site cannot reliably confirm after the fact whether its requested origin actually made it into the merge.
 - **Original storer access**: An origin that stores a resource in COS can always read it back via `requestFileHandle()`, regardless of the `origins` value set at write time or whether the hash is on the PHL. This mirrors the Cache API's model where an origin always has access to what it stored.
 
 #### Retrieving files
@@ -742,6 +747,10 @@ const hash = {
 
 If two tabs both check COS for the same file, find it absent, and begin downloading, the user agent may receive two concurrent writes for the same hash. The user agent stores the file once; the duplicate download is accepted as an edge-case cost. This proposal does not prescribe coordination between tabs for this scenario.
 
+While an entry exists but has not yet been fully written—for example, while one of those concurrent writes is still in flight—it deliberately does not behave like an absent entry. Any `requestFileHandle()` call for that hash, from any origin, including the origin currently writing it, rejects with a `NotAllowedError` rather than a `NotFoundError` for as long as the entry remains unwritten (see the "Created, not yet written" row of the [read path table](#read-path)). This prevents a reader from mistaking an in-progress write for a genuine cache miss and starting a redundant, concurrent download of a file that may already be gigabytes into being written.
+
+This also applies to a handle you already hold: calling `getFile()` on a `FileSystemFileHandle` obtained from a `create: true` request rejects with that same `NotAllowedError` until that very handle's `write()`/`close()` has resolved—even for the origin that requested the handle. Call `getFile()` only after the write has completed, not on a handle you are about to write to.
+
 ### Eviction
 
 Under critical storage pressure, user agents could offer a dialog that invites the user to manually free up storage. The user agent could also delete files automatically based on, for example, a least recently used approach.
@@ -822,6 +831,8 @@ In browsers that still support third-party cookies, user agents are expected to 
 
 If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource is not globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
 
+This mitigation only holds if a "specific set of trusted origins" stays meaningfully smaller than the web. Nothing about the shape of `origins` stops a caller from enumerating a very large number of origins—for example, a list assembled from a public top-sites ranking—which would functionally approximate global disclosure while bypassing the deliberate, explicit opt-in that `origins: '*'` alone requires. This is why `origins` lists have an implementation-defined maximum length (see [Storing files](#storing-files)): a limit small enough to fit genuine multi-property use cases (a handful of related origins under common control) but far short of any meaningful approximation of "every origin".
+
 Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
 
 User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandle()` can be considered a probe, and user agents can limit the number of probes per site or even block probes from sites known to be malicious.
@@ -852,7 +863,7 @@ However, user agents must exercise size-proportionate judgment when applying GRE
 
 #### API response reference
 
-The following tables summarize the response a user agent must return for every combination of inputs. All non-success read-path outcomes return `NotFoundError` — the caller cannot distinguish between a genuine cache miss and a gated or access-controlled resource.
+The following tables summarize the response a user agent must return for every combination of inputs. Outside of the "Created, not yet written" case below, every non-success read-path outcome returns `NotFoundError` — the caller cannot distinguish between a genuine cache miss and a gated or access-controlled resource.
 
 ##### Read path
 
@@ -869,15 +880,19 @@ The following tables summarize the response a user agent must return for every c
 | No | Yes | Any | Any other origin | — | `NotFoundError` |
 | No | No | — | — | — | `NotFoundError` |
 
+The "Created, not yet written" row applies both to a fresh `requestFileHandle()` call for that hash and to calling `getFile()` on a `FileSystemFileHandle` that was itself obtained from a still-pending `create: true` request; see [Concurrent writes](#concurrent-writes).
+
 ##### Write path
 
 | Condition | Written with | Response |
 | -- | -- | -- |
 | `hash.value` or `hash.algorithm` is malformed | Any | `TypeError` |
+| `origins` is a list longer than the implementation-defined maximum length | Any | `TypeError` |
 | Permissions Policy blocks COS | Any | `NotAllowedError` |
 | Valid hash, declared hash matches computed hash | `*` | Success |
 | Valid hash, declared hash matches computed hash | Same-site or list | Success |
 | Valid hash, declared hash does not match computed hash | Any | `DataError` |
+| Merging `origins` into an existing entry would exceed the implementation-defined maximum length | Same-site or list | Success (excess origins silently dropped) |
 
 ##### Policy
 
