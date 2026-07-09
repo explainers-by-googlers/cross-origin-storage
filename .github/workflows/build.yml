@@ -14,14 +14,13 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: w3c/spec-prod@v2
         with:
-          TOOLCHAIN: bikeshed
-          SOURCE: index.bs
-          DESTINATION: index.html
-          BUILD_FAIL_ON: warning
-          VALIDATE_WEBIDL: true
-          VALIDATE_MARKUP: true
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install bikeshed && bikeshed update
+      - run: bikeshed spec --die-on=warning index.bs index.html
       - name: Commit built index.html back to main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
