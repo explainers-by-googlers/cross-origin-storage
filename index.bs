@@ -806,7 +806,7 @@ not in this repository's issue tracker.
 Many thanks for valuable feedback from Tab Atkins-Bittner, Yash Raj Bharti, and Joshua Lochner, and
 for valuable inspiration or ideas from Kenji Baheux and Kevin Moore.
 
-<p boilerplate="ipr">This specification includes material modeled on
+<p>This specification includes material modeled on
 <a href="https://fs.spec.whatwg.org/"><cite>File System</cite></a>, which is available under the
 <a href="https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document">W3C Software
 and Document License</a>.
