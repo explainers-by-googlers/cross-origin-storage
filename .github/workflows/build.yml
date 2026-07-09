@@ -25,12 +25,12 @@ jobs:
       - name: Commit built index.html back to main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if git diff --quiet -- index.html; then
+          git add index.html
+          if git diff --cached --quiet -- index.html; then
             echo "index.html unchanged, nothing to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
           git commit -m "Build index.html from index.bs [skip ci]"
           git push
