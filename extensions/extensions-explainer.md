@@ -3,7 +3,7 @@
 ## Authors
 
 - [Thomas Steiner](mailto:tomac@google.com), Google Chrome
-- [Oliver Dunk](mailto:oliverdunk@google.com), Google
+- [Oliver Dunk](mailto:oliverdunk@google.com), Google Chrome
 
 ## Background
 

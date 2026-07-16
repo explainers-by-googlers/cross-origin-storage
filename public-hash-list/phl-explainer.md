@@ -269,3 +269,15 @@ The PHL is a **normatively referenced companion artifact**, not a normative part
 # Possible future directions
 
 **Further sources.** As noted under *Sources*, unpkg and other Web-font providers are the obvious next additions, each gated by the same corroboration-and-exclusion methodology.
+
+# Acknowledgements
+
+Many thanks to the following people, in alphabetical order, whose feedback and ideas have helped shape this proposal:
+
+- Tab Atkins-Bittner
+- Rick Byers
+- Dominic Farolino
+- Deepti Gandluri
+- Thomas Nattestad
+- Hannes Payer
+- Barry Pollard
