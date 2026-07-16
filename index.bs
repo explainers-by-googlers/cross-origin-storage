@@ -172,7 +172,10 @@ A user agent has an associated <dfn>Cross-Origin Storage queue</dfn>, which is t
 ## The Public Hash List ## {#public-hash-list}
 
 Confirming that a hash is present in Cross-Origin Storage can itself leak information about a
-user's browsing history (see [[#cross-site-probing]]). To bound this, a resource is only
+user's browsing history (see [[#cross-site-probing]]). This is a risk specifically for globally
+scoped entries — an entry whose [=COS entry/origins=] is a [=list=] or null has already had its
+disclosure bounded by an explicit choice of the storing origin, but "`*`" potentially exposes an
+entry to any origin on the web. To bound that specific risk, a "`*`"-scoped resource is only
 disclosable to origins outside its [=COS entry/storing origins=] if its hash clears an additional,
 independent gate: membership on the <dfn export id="dfn-public-hash-list">Public Hash List</dfn>
 (<dfn export>PHL</dfn>), a vendor-neutral, [=implementation-defined=] allowlist of [=COS hash=]
@@ -186,14 +189,19 @@ A [=COS hash=] |hash| is <dfn export data-lt="on the PHL">on the Public Hash Lis
 List=].
 
 Issue: The retrieval protocol, update cadence, data format, popularity thresholds, and governance
-of the Public Hash List are being designed as a companion artifact to this specification, in the
-spirit of how the [[URL]] Standard's public suffix list is a companion data file rather than
-normative prose. Where that companion artifact is hosted and governed — for example, as a further
-deliverable of this repository, versus a separately governed cross-vendor project analogous to the
-public suffix list — is not yet decided. An early, non-normative prototype is available at
-<a href="https://github.com/tomayac/public-hash-list/">tomayac/public-hash-list</a>. This
-specification only depends on whether a hash is [=on the PHL=], not on any particular retrieval
-mechanism or governance model.
+of the Public Hash List are designed in detail as a companion artifact to this specification, in
+the spirit of how the [[URL]] Standard's public suffix list is a companion data file rather than
+normative prose — see the
+[Public Hash List explainer](public-hash-list/phl-explainer.md) in this repository. That design
+proposes governance by the WHATWG, modeled on the Public Suffix List's cross-vendor,
+rolling-release precedent, and admission criteria keyed on independently corroborated ubiquity —
+a concrete instance of the k-anonymity-style bar described above, applied once, offline, as part
+of how a hash is admitted, not as a check the user agent repeats per query. None of this is yet
+established outside this proposal. An early, non-normative code prototype of the list itself is
+available at <a href="https://github.com/tomayac/public-hash-list/">tomayac/public-hash-list</a>.
+This specification only depends on whether a hash is [=on the PHL=], not on any particular
+retrieval mechanism or governance model, so it remains correct regardless of how that design
+evolves.
 
 # The {{CrossOriginStorageManager}} interface # {#the-crossoriginstoragemanager-interface}
 
@@ -356,8 +364,17 @@ To <dfn>determine COS disclosure</dfn> given a [=COS entry=] or null |entry|, an
 
    Note: The original storer, and any origin that has itself successfully written the entry,
    can always read it back. See [[#original-storer-access]].
-1. If |entry|'s [=COS entry/hash=] is not [=on the PHL=], return null.
-1. If |entry|'s [=COS entry/origins=] is "`*`", return |entry|.
+1. If |entry|'s [=COS entry/origins=] is "`*`":
+   1. If |entry|'s [=COS entry/hash=] is not [=on the PHL=], return null.
+
+      Note: The Public Hash List gate applies only here, to globally-scoped entries — the one
+      case where disclosure could otherwise reach any origin on the web. It does not apply to
+      the list- and same-site-scoped cases below: a storing origin has already made an explicit,
+      bounded disclosure decision for those, and requiring separate global ubiquity on top of it
+      would make ordinary restricted sharing (see [[#resource-visibility-upgrades]]) depend on
+      unrelated, public curation of what is often a proprietary resource. See
+      [[#cross-site-probing]].
+   1. Return |entry|.
 1. If |entry|'s [=COS entry/origins=] is a [=list=]:
    1. If |origin|'s [=origin/serialization=] is an item of that [=list=],
       return |entry|.
@@ -448,6 +465,11 @@ When the {{FileSystemWritableFileStream}} obtained by calling
 {{FileSystemFileHandle/createWritable()}} on a handle whose [=FileSystemHandle/locator=]
 addresses a [=COS entry=] is closed [[FS]], the user agent must run the [=verify and store=] steps
 below before that closing operation's promise is fulfilled.
+
+Note: This applies regardless of how closing was triggered — an explicit
+{{WritableStream/close()}} call, or a {{ReadableStream/pipeTo()}} call that reaches the end of its
+source, which by default also closes its destination. [[STREAMS]] does not distinguish the two at
+the point a stream becomes closed, and neither does this algorithm.
 
 <div algorithm>
 The <dfn>verify and store</dfn> steps, given the [=COS entry=] |entry| addressed by the closed
@@ -639,8 +661,10 @@ API does not answer by itself:
 
 Once added this way, an entry with [=COS entry/state=] "`written`" is otherwise indistinguishable
 from one a website wrote via {{CrossOriginStorageManager/requestFileHandle()}}: the same
-[[#availability-gating|availability gating]], [=on the PHL=] check, and
-[[#resource-visibility-upgrades|visibility upgrade]] rules apply to it.
+[[#availability-gating|availability gating]] and [[#resource-visibility-upgrades|visibility
+upgrade]] rules apply to it, exactly as they would for any other entry with the same
+[=COS entry/origins=] value — including the [=on the PHL=] check, if the entry ends up "`*`"-scoped,
+which is the default for a manual add but not the only possible outcome.
 
 # Permissions Policy integration # {#permissions-policy-integration}
 
@@ -687,11 +711,12 @@ learn:
 * [=COS entry/origins=] (see [[#resource-visibility-upgrades]]) lets a storing origin restrict
   disclosure to a chosen set of origins, so a proprietary or low-popularity resource need not be
   globally probeable at all.
-* [[#availability-gating]] additionally withholds disclosure of resources outside the requesting
-  origin's [=COS entry/storing origins=] unless the hash is [=on the PHL=], independent of the
-  [=COS entry/origins=] value, so that even a resource stored with
-  {{CrossOriginStorageRequestFileHandleOptions/origins}}: "`*`" is not automatically probeable by
-  every origin on the web.
+* [[#availability-gating]] additionally withholds disclosure of a "`*`"-scoped resource from
+  requesting origins outside its [=COS entry/storing origins=] unless the hash is [=on the PHL=],
+  so that a resource stored with {{CrossOriginStorageRequestFileHandleOptions/origins}}: "`*`" is
+  not automatically probeable by every origin on the web. This gate applies only to "`*`"-scoped
+  entries; for list- and same-site-scoped entries, the first bullet's restriction is the sole
+  gate, since the storing origin has already bounded disclosure explicitly for those.
 
 The first bullet only holds if a "chosen set of origins" stays meaningfully smaller than the web.
 Nothing about the shape of {{CrossOriginStorageRequestFileHandleOptions/origins}} stops a caller
@@ -711,16 +736,18 @@ hashes are [=on the PHL=].
 
 ## Availability gating ## {#availability-gating}
 
-Two independent questions determine the outcome of a
-{{CrossOriginStorageManager/requestFileHandle()}} read: whether the requesting origin is *allowed*
-to read the entry (governed by [=COS entry/origins=] and [=COS entry/storing origins=]), and
-whether the user agent is willing to *disclose that the entry exists at all* (governed by
-[=on the PHL|PHL membership=] and [[#greasing|GREASE'ing]]). Both must hold for
-{{CrossOriginStorageManager/requestFileHandle()}} to resolve; see [[#reading-files]] for the
-normative algorithm. A "{{NotFoundError}}" is therefore not proof that a resource is absent: it may
-mean the resource does not exist, that the requesting origin is out of scope, that the hash is not
-(yet, or ever) on the PHL, or that GREASE'ing suppressed a true positive. Developers must not treat
-"{{NotFoundError}}" as anything more specific than "fall back to the network."
+Whether a {{CrossOriginStorageManager/requestFileHandle()}} read from an origin outside
+[=COS entry/storing origins=] succeeds always depends on whether the requesting origin is
+*allowed* to read the entry, governed by [=COS entry/origins=]. For a "`*`"-scoped entry, a second,
+independent question also applies: whether the user agent is willing to *disclose that the entry
+exists at all*, governed by [=on the PHL|PHL membership=] and [[#greasing|GREASE'ing]]. Both must
+hold for such an entry; for a list- or same-site-scoped entry, only the first question applies,
+though GREASE'ing may still suppress a disclosure that [=COS entry/origins=] would otherwise
+permit. See [[#reading-files]] for the normative algorithm. A "{{NotFoundError}}" is therefore not
+proof that a resource is absent: it may mean the resource does not exist, that the requesting
+origin is out of scope, that a "`*`"-scoped resource's hash is not (yet, or ever) on the PHL, or
+that GREASE'ing suppressed a true positive. Developers must not treat "{{NotFoundError}}" as
+anything more specific than "fall back to the network."
 
 ## GREASE'ing ## {#greasing}
 

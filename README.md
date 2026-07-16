@@ -24,6 +24,7 @@ This proposal outlines the design of the **Cross-Origin Storage (COS)** API, a *
 ## Participate
 
 - [Spec](https://wicg.github.io/cross-origin-storage/) ([source](index.bs))
+- [Public Hash List explainer](public-hash-list/phl-explainer.md)
 - [Issues](https://github.com/WICG/cross-origin-storage/issues)
 - [PRs](https://github.com/WICG/cross-origin-storage/pulls)
 - Support this proposal: https://github.com/WICG/cross-origin-storage/labels/expression%20of%20support
@@ -143,7 +144,7 @@ The **COS** API will be available through the `navigator.crossOriginStorage` int
 
 Each resource stored in COS is conceptually represented as an entry with the following fields:
 
-- **`hash`**: the content identifier, consisting of an `algorithm` (a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier)) and a `value` (a 64-character lowercase hex string). Entries are keyed by hash: two files with identical bytes and the same hash algorithm are the same entry, regardless of how many origins stored them or from how many URLs they were fetched.
+- **`hash`**: the content identifier, consisting of an `algorithm` (a string naming a hash algorithm recognized by the [Web Crypto API](https://w3c.github.io/webcrypto/), e.g. `"SHA-256"`) and a `value` (a 64-character lowercase hex string). Entries are keyed by hash: two files with identical bytes and the same hash algorithm are the same entry, regardless of how many origins stored them or from how many URLs they were fetched.
 - **`bytes`**: the raw file contents. The user agent verifies at write time that hashing `bytes` with `hash.algorithm` produces `hash.value`; a mismatch throws a `DataError`.
 - **`origins`**: the declared sharing scope, initially set by the first writer and upgradeable but never downgradeable. One of: `'*'` (any origin), a list of origin strings (only those origins), or absent (same-site origins only). A list of origin strings has an implementation-defined maximum length, so it can't be used as an undeclared substitute for `'*'` (see [Storing files](#storing-files) and [Cross-site probing](#cross-site-probing)). See [Resource visibility upgrades](#resource-visibility-upgrades).
 - **`storing origins`**: the set of origins that have successfully written this entry. An origin in `storing origins` may always retrieve the entry via `requestFileHandle()`, regardless of the `origins` field value or whether the hash is on the PHL.
@@ -152,12 +153,12 @@ Each resource stored in COS is conceptually represented as an entry with the fol
 
 #### Storing files
 
-1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier).
+1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a string naming a hash algorithm recognized by the [Web Crypto API](https://w3c.github.io/webcrypto/).
 1. Request a `FileSystemFileHandle` object for the file, specifying the file's hash.
-1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. When `writableStream.write(data)` is called, the user agent must verify that the hash of `data` matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must throw a `DataError` `DOMException` and must not store the data in COS.
+1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. Data can be written with one or more `write()` calls, or streamed in with `sourceStream.pipeTo(writableStream)` — which, by default, closes `writableStream` automatically once `sourceStream` is exhausted, unless called with `preventClose: true`. Whenever the stream closes, whether via an explicit `writableStream.close()` call or implicitly through `pipeTo()`, the user agent must verify that the hash of the complete written bytes matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must reject the closing operation's promise with a `DataError` `DOMException` and must not store the data in COS.
 
 > [!NOTE]
-> If `hash.value` is not a valid lowercase hexadecimal string of length 64, or `hash.algorithm` is not a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), the user agent must throw a `TypeError`.
+> If `hash.value` is not a valid lowercase hexadecimal string of length 64, or `hash.algorithm` is not a hash algorithm name recognized by the [Web Crypto API](https://w3c.github.io/webcrypto/), the user agent must throw a `TypeError`.
 
 > [!NOTE]
 > If the [Permissions Policy](https://www.w3.org/TR/permissions-policy/) for the current context does not allow Cross-Origin Storage, the user agent must throw a `NotAllowedError` `DOMException` before attempting any write.
@@ -719,6 +720,8 @@ The HTML, JavaScript, and CSS forms above share the same underlying model as the
 1. The user agent checks COS for a file matching the `integrity` hash. If found and the requesting origin is allowed per the declared `origins`-style value, the resource is served from COS, and no network request is made.
 2. Otherwise, the resource is fetched from the declared URL as usual. If the fetched content matches the `integrity` hash and the declared origins permit it, the user agent stores it in COS for future use by this or other origins. If the hash does not match, the resource is rejected per existing `integrity` behavior and is not stored in COS.
 
+Step 1's COS lookup is subject to the same [availability gating](#availability-gating) as the imperative API. A resource declared with the global (`*`) origins-style value is only found by a requester outside its storing origins if its hash also clears the Public Hash List (and GREASE'ing doesn't suppress it); a same-site- or list-scoped resource needs no such additional clearance once the requesting origin is in scope. Either way, a lookup that doesn't succeed simply falls through to step 2's network fetch — it is indistinguishable from a genuine cache miss, exactly as `requestFileHandle()`'s `NotFoundError` is.
+
 Because all three forms piggyback on `integrity`, they inherit its existing failure semantics: a hash mismatch is always treated as a fetch failure, independent of whether COS is involved.
 
 > [!NOTE]
@@ -730,7 +733,9 @@ Because all three forms piggyback on `integrity`, they inherit its existing fail
 
 The current hashing algorithm is [SHA-256](https://w3c.github.io/webcrypto/#alg-sha-256), implemented by the **Web Crypto API**. If hashing best practices should change, COS will reflect the [implementers' recommendation](https://w3c.github.io/webcrypto/#algorithm-recommendations-implementers) in the Web Crypto API.
 
-The hashing algorithm used is encoded in the hash object's `algorithm` field as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier). This flexible design allows changing the hashing algorithm in the future. The hash string must be a valid lowercase hexadecimal string of length 64 (for SHA-256). The `algorithm` field must be a valid [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), e.g. `"SHA-256"`.
+The hashing algorithm used is encoded in the hash object's `algorithm` field as a plain string naming a hash algorithm recognized by the [Web Crypto API](https://w3c.github.io/webcrypto/), e.g. `"SHA-256"`. This flexible design allows changing the hashing algorithm in the future. The hash string must be a valid lowercase hexadecimal string of length 64 (for SHA-256).
+
+Note that `algorithm` is typed as a plain `DOMString`, not as a [`HashAlgorithmIdentifier`](https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), even though its value space is exactly the set of names a `HashAlgorithmIdentifier` accepts. `HashAlgorithmIdentifier` is `(object or DOMString)`—the `object` branch exists so parameterized algorithms like HMAC can carry extra fields (e.g. `{name: "HMAC", hash: "SHA-256"}`). Hash algorithms take no such parameters, and `algorithm` is stored, compared, and round-tripped as part of a content-addressable key rather than consumed once by a single Web Crypto call, so admitting arbitrary objects here would add no capability while complicating equality and serialization.
 
 ```js
 const hash = {
@@ -839,21 +844,23 @@ User agents are expected to implement safeguards against such attacks, for examp
 
 #### Availability gating
 
-Two independent mechanisms control whether a `requestFileHandle()` call returns a file handle or a `NotFoundError`:
+Two independent mechanisms can control whether a `requestFileHandle()` call returns a file handle or a `NotFoundError`:
 
 - **Access control** (`origins`-based): which origins may obtain a file handle. This is determined by the `origins` field set at write time. An origin that is not in scope receives `NotFoundError`, even if the resource is physically present in COS.
-- **Availability gating** (PHL-based): whether the user agent discloses that the resource exists in COS at all. This is determined by whether the hash is on the **Public Hash List (PHL)**, a shared, vendor-neutral allowlist that all browser vendors are expected to respect. A resource not on the PHL receives `NotFoundError` from all cross-origin requesters, even if the requesting origin would otherwise be in scope.
+- **Availability gating** (PHL-based): whether the user agent discloses that the resource exists in COS at all. **This applies only to resources stored with `origins: '*'`.** It is determined by whether the hash is on the **Public Hash List (PHL)**, a shared, vendor-neutral allowlist that all browser vendors are expected to respect. A `'*'`-scoped resource not on the PHL receives `NotFoundError` from all requesters except the original storer, even though `'*'` nominally permits any origin.
 
-Both conditions must be satisfied for a read to succeed. These two mechanisms are orthogonal. In particular, the PHL and `origins: '*'` are not the same thing: a resource stored with `origins: '*'` but not on the PHL is not cross-origin accessible — the user agent returns `NotFoundError` to all origins except the original storer, because availability gating still applies. Conversely, a PHL resource stored with a specific `origins` list is only accessible to in-scope origins, because access control is still enforced on top of the gating bypass the PHL provides.
+For a resource stored with `origins: '*'`, both mechanisms apply and both must be satisfied for a read to succeed: a resource stored with `origins: '*'` but not on the PHL is not actually cross-origin accessible — the user agent returns `NotFoundError` to all origins except the original storer, because availability gating still applies on top of the `'*'` scope. For a resource stored with a specific `origins` list, or left at the same-site default, **only access control applies**: an in-scope origin succeeds without needing PHL membership at all. This is deliberate, not an oversight — the storing origin has already made an explicit, bounded disclosure decision by choosing a specific list or accepting the same-site default, and requiring separate global-ubiquity clearance on top of that would make ordinary restricted sharing (see [Restricting resources to specific origins](#example-restricting-resources-to-specific-origins)) depend on unrelated, public curation of what is often a proprietary resource that will never appear on a public allowlist. Availability gating exists specifically to bound the one case — `'*'` — where disclosure could otherwise reach any origin on the web.
 
-**Availability gating in detail.** User agents implement availability gating using the PHL:
+**Availability gating in detail.** For a `'*'`-scoped resource, user agents implement availability gating using the PHL:
 
 - **On the PHL:** The user agent may answer truthfully, returning a handle if the file is present, or a `NotFoundError` `DOMException` if it is absent. ([GREASE'ing](#greasing) may still introduce occasional false negatives even for PHL-listed resources.)
 - **Not on the PHL:** The user agent must always return a `NotFoundError` `DOMException`, regardless of whether the file is physically present in COS. The response must be identical whether the file is absent or present, so that cache state cannot be inferred by observing the response or its timing.
 
-The PHL covers well-known resources, such as popular open-source libraries, widely used Wasm modules, web fonts served by major font CDNs, and AI model weights published by recognized model hubs, that are unconditionally eligible for cross-origin availability disclosure because their ubiquity makes cache presence uninformative about any individual user. A hash not on the PHL may still be disclosed if it has met a **popularity threshold** and been encountered on a minimum number of distinct origins (a form of **k-anonymity** where _k_ is that minimum origin count). Hashes that clear neither bar are treated as permanently absent at the API surface: the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
+The PHL covers well-known resources, such as popular open-source libraries, widely used Wasm modules, web fonts served by major font CDNs, and AI model weights published by recognized model hubs, that are unconditionally eligible for cross-origin availability disclosure because independent, corroborated evidence of their ubiquity — for example, appearing byte-identical across a large number of independently crawled origins — makes cache presence uninformative about any individual user (a form of **k-anonymity**, where _k_ is that minimum corroborating-origin count). This ubiquity check happens once, offline, as part of how a hash is admitted to the PHL; it is not a separate check the user agent repeats at query time. A hash is either on the current PHL snapshot or it isn't; a hash that never clears that bar is treated as permanently absent at the API surface, and the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
 
-Developers must NOT rely on a `NotFoundError` as definitive proof that a file is absent from COS. A `NotFoundError` MAY indicate that the user agent has withheld confirmation of the file's presence for privacy reasons.
+The full design of the PHL — its data format, admission criteria, sourcing, and cross-vendor governance — is specified separately from this explainer, in the [Public Hash List explainer](public-hash-list/phl-explainer.md). In short, it proposes: governance by the WHATWG, modeled directly on the [Public Suffix List](https://publicsuffix.org/)'s cross-vendor, rolling-release precedent; a compact, algorithm-sectioned flat-text format of bare hex digests with provenance kept in human-readable comments rather than machine fields; and a separate, optional section for hashes hand-curated from a recognized AI model hub, to unlock the AI use case that objective popularity signals alone cannot cover. An early, non-normative code prototype of the list itself is maintained at [tomayac/public-hash-list](https://github.com/tomayac/public-hash-list/).
+
+Developers must NOT rely on a `NotFoundError` as definitive proof that a file is absent from COS. A `NotFoundError` MAY indicate that the requesting origin is simply out of scope, or — for a `'*'`-scoped resource — that the user agent has withheld confirmation of the file's presence for privacy reasons.
 
 #### GREASE'ing
 
@@ -870,15 +877,16 @@ The following tables summarize the response a user agent must return for every c
 | On PHL? | In COS? | Written with | Requesting origin | GREASEd? | Response |
 | -- | -- | -- | -- | -- | -- |
 | — | Created, not yet written | — | — | — | `NotAllowedError` |
-| Yes | Yes | `*` | Any | No | Success |
-| Yes | Yes | `*` | Any | Yes | `NotFoundError` |
-| Yes | Yes | Same-site or list | In scope | No | Success |
-| Yes | Yes | Same-site or list | In scope | Yes | `NotFoundError` |
-| Yes | Yes | Same-site or list | Out of scope | — | `NotFoundError` |
-| Yes | No | — | — | — | `NotFoundError` |
-| No | Yes | Any | Original storer | — | Success |
-| No | Yes | Any | Any other origin | — | `NotFoundError` |
-| No | No | — | — | — | `NotFoundError` |
+| — | Yes | Any | Storing origin | — | Success |
+| Yes | Yes | `*` | Not a storing origin | No | Success |
+| Yes | Yes | `*` | Not a storing origin | Yes | `NotFoundError` |
+| No | Yes | `*` | Not a storing origin | — | `NotFoundError` |
+| — | Yes | Same-site or list | In scope, not a storing origin | No | Success |
+| — | Yes | Same-site or list | In scope, not a storing origin | Yes | `NotFoundError` |
+| — | Yes | Same-site or list | Out of scope | — | `NotFoundError` |
+| — | No | — | — | — | `NotFoundError` |
+
+"On PHL?" only ever matters for a `*`-written entry: a same-site- or list-scoped entry never consults the PHL, so its rows show "—" regardless of whether the hash happens to be on it. A storing origin always succeeds too, independent of PHL, `origins`, or GREASE'ing — see [Original storer access](#resource-visibility-upgrades).
 
 The "Created, not yet written" row applies both to a fresh `requestFileHandle()` call for that hash and to calling `getFile()` on a `FileSystemFileHandle` that was itself obtained from a still-pending `create: true` request; see [Concurrent writes](#concurrent-writes).
 
@@ -892,7 +900,7 @@ The "Created, not yet written" row applies both to a fresh `requestFileHandle()`
 | Valid hash, declared hash matches computed hash | `*` | Success |
 | Valid hash, declared hash matches computed hash | Same-site or list | Success |
 | Valid hash, declared hash does not match computed hash | Any | `DataError` |
-| Merging `origins` into an existing entry would exceed the implementation-defined maximum length | Same-site or list | Success (excess origins silently dropped) |
+| Merging `origins` into an existing list-scoped entry would exceed the implementation-defined maximum length | List | Success (excess origins silently dropped) |
 
 ##### Policy
 
@@ -912,6 +920,7 @@ The knowledge an attacker can gain about a user depends heavily on the popularit
 
 ## References
 
+- [Public Hash List explainer](public-hash-list/phl-explainer.md)
 - [File System Living Standard](https://fs.spec.whatwg.org/)
 - [Web Cryptography API](https://w3c.github.io/webcrypto/)
 - [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/)
@@ -938,28 +947,31 @@ Many thanks for valuable inspiration or ideas from:
 
 ### Appendix&nbsp;A: Full IDL
 
-```webidl
-interface mixin NavigatorCrossOriginStorage {
-  [SameObject, SecureContext] readonly attribute CrossOriginStorageManager crossOriginStorage;
-};
-Navigator includes NavigatorCrossOriginStorage;
+This is kept in sync with the [formal spec](https://wicg.github.io/cross-origin-storage/); if the two ever disagree, the spec is authoritative.
 
+```webidl
 [Exposed=(Window,Worker), SecureContext]
 interface CrossOriginStorageManager {
   Promise<FileSystemFileHandle> requestFileHandle(
       CrossOriginStorageRequestFileHandleHash hash,
-      CrossOriginStorageRequestFileHandleOptions options = {});
+      optional CrossOriginStorageRequestFileHandleOptions options = {});
 };
 
 dictionary CrossOriginStorageRequestFileHandleHash {
-  DOMString value; // Must be a valid lowercase hexadecimal string; length varies by algorithm (e.g., 64 characters for SHA-256).
-  DOMString algorithm; // Must be a valid HashAlgorithmIdentifier (https://w3c.github.io/webcrypto/#dom-hashalgorithmidentifier), e.g. "SHA-256".
+  required DOMString value; // Must be a valid lowercase hexadecimal string; length varies by algorithm (e.g., 64 characters for SHA-256).
+  required DOMString algorithm; // Must name a hash algorithm recognized by the Web Crypto API (https://w3c.github.io/webcrypto/), e.g. "SHA-256".
 }
 
 dictionary CrossOriginStorageRequestFileHandleOptions {
-  optional boolean create = false;
-  optional (USVString or sequence<USVString>) origins;
+  boolean create = false;
+  (DOMString or sequence<DOMString>) origins;
 }
+
+interface mixin NavigatorCrossOriginStorage {
+  [SameObject, SecureContext] readonly attribute CrossOriginStorageManager crossOriginStorage;
+};
+Navigator includes NavigatorCrossOriginStorage;
+WorkerNavigator includes NavigatorCrossOriginStorage;
 ```
 
 ### Appendix&nbsp;B: Blob hash with the Web Crypto API
