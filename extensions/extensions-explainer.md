@@ -34,7 +34,7 @@ Instead of publishing a separate Shared-Module extension and importing it by ext
 - Extensions aren't "sites" in the usual sense and already carry elevated, manifest-declared permissions — does that change any of COS's cross-site-probing mitigations, e.g. the cap on the number of origins a resource can be shared with?
 - Would extension-authored resources need their own curation path onto (or alongside) the Public Hash List, or should extension use stay restricted to same-extension / explicit-origin storage and never reach global availability?
 
-## 2. Making COS resources blockable via declarativeNetRequest
+## 2. Making COS resources blockable via `declarativeNetRequest`
 
 ### The gap
 
