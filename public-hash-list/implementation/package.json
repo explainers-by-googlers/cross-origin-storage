@@ -1,0 +1,29 @@
+{
+  "name": "public-hash-list",
+  "version": "3.0.0",
+  "description": "Generates the Public Hash List (PHL): a PSL-style flat file of SHA-256 hashes for ubiquitous CDN-hosted resources, used as the availability-gating allowlist for Cross-Origin Storage (COS).",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "google": "node google-hosted-libraries.js",
+    "google-maps": "node google-maps.js",
+    "microsoft": "node microsoft-ajax.js",
+    "cdnjs": "node cdnjs.js",
+    "jsdelivr": "node jsdelivr.js",
+    "npm-popular": "node npm-popular.js",
+    "chromium": "node chromium-pervasive.js",
+    "youtube": "node youtube-player.js",
+    "google-fonts": "node google-fonts.js",
+    "huggingface": "node huggingface.js",
+    "http-archive": "node http-archive.js",
+    "manual": "node manual.js"
+  },
+  "keywords": [],
+  "author": "Thomas Steiner <tomac@google.com>",
+  "license": "MPL-2.0",
+  "type": "module",
+  "dependencies": {
+    "axios": "^1.18.1",
+    "cheerio": "^1.2.0"
+  }
+}
