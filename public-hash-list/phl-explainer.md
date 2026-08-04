@@ -1,12 +1,14 @@
 # The Public Hash List (PHL): an availability-gating allowlist for Cross-Origin Storage
 
-**Status of this document.** This design document currently lives in the
+**Status of this document.** This design document, and the [early implementation](#early-implementation)
+described below, currently live in the
 [WICG/cross-origin-storage](https://github.com/WICG/cross-origin-storage) repository, alongside
-the Cross-Origin Storage explainer and spec it serves as a companion artifact to. The
+the Cross-Origin Storage explainer and spec this document serves as a companion artifact to. The
 [Governance](#governance) section below describes this proposal's target end state — hosting
-under the WHATWG, with a dedicated repository, editors, and a signing key of its own — which has
-not happened yet. Nothing in that section is settled; it is the proposal, not a description of
-where this document or the early implementation currently reside.
+under the WHATWG, with a dedicated, cross-vendor repository, editors, and a signing key of its
+own — which has not happened yet. Housing both the design document and its implementation in a
+single vendor's spec repository is a pragmatic interim step, not the destination: nothing in the
+Governance section is settled, and a dedicated repository remains the goal for both.
 
 **Why "Public Hash List"?** The name is a deliberate echo of the [**Public Suffix List**](https://publicsuffix.org/) **(PSL)**. The PSL is a single, openly licensed, cross-vendor data file that every browser consults to make a privacy-sensitive boundary decision. The PHL is the analogous artifact for Cross-Origin Storage: a single, openly licensed, cross-vendor data file that every browser consults to decide which cached bytes are *safe to admit exist*. "Public Suffix List" → "Public Hash List" is intended to make the analogy, and the freely-reusable intent, obvious on first read.
 
@@ -16,7 +18,13 @@ where this document or the early implementation currently reside.
 
 # Early implementation
 
-An early implementation of the Public Hash List proposal is maintained at [https://github.com/tomayac/public-hash-list/](https://github.com/tomayac/public-hash-list/). To keep the list evergreen, it automatically ingests "top" resources from ten sources (Google Hosted Libraries, Microsoft Ajax CDN, cdnjs, jsDelivr, npm popular packages, Chromium pervasive resources, the YouTube player, Google Maps JS API, Google Fonts, and the HTTP Archive) plus a hand-curated AI model-hub section drawn from the most-downloaded models on the Hugging Face Hub (currently capped at the top 10,000 by download count). Like the PSL, it also supports [manual additions](#manual-additions): contributors propose entries via pull request against a reviewed JSON schema (URL, hash, description, rationale, and submission date), evaluated against the same ubiquity bar the automated sources apply. The canonical [Public Hash List](https://media.githubusercontent.com/media/tomayac/public-hash-list/refs/heads/main/data/public-hash-list-lfs.dat) flat file and [its SHA-256 integrity file](https://media.githubusercontent.com/media/tomayac/public-hash-list/refs/heads/main/data/public-hash-list-lfs.dat.sha256) are published in the [data/](https://github.com/tomayac/public-hash-list/tree/main/data) directory of that repository (stored with [Git LFS](https://git-lfs.com/); `media.githubusercontent.com`, not `raw.githubusercontent.com`, serves the actual file content). A frozen, non-LFS snapshot also remains at `data/public-hash-list.dat` for consumers built against the pre-LFS URL; it no longer receives updates.
+An early implementation of the Public Hash List proposal is maintained at
+[`public-hash-list/implementation/`](https://github.com/WICG/cross-origin-storage/tree/main/public-hash-list/implementation)
+in this repository. Housing it here, alongside this design document (see "Status of this
+document" above), is a pragmatic interim step — the goal remains a dedicated, cross-vendor
+repository, not permanent co-location with the spec of a single implementer.
+
+To keep the list evergreen, it automatically ingests "top" resources from ten sources (Google Hosted Libraries, Microsoft Ajax CDN, cdnjs, jsDelivr, npm popular packages, Chromium pervasive resources, the YouTube player, Google Maps JS API, Google Fonts, and the HTTP Archive) plus a hand-curated AI model-hub section drawn from the most-downloaded models on the Hugging Face Hub (currently capped at the top 10,000 by download count). Like the PSL, it also supports [manual additions](#manual-additions): contributors propose entries via pull request against a reviewed JSON schema (URL, hash, description, rationale, and submission date), evaluated against the same ubiquity bar the automated sources apply. The canonical [Public Hash List](https://media.githubusercontent.com/media/WICG/cross-origin-storage/refs/heads/main/public-hash-list/implementation/data/public-hash-list.dat) flat file and [its SHA-256 integrity file](https://media.githubusercontent.com/media/WICG/cross-origin-storage/refs/heads/main/public-hash-list/implementation/data/public-hash-list.dat.sha256) are published in the [data/](https://github.com/WICG/cross-origin-storage/tree/main/public-hash-list/implementation/data) directory (stored with [Git LFS](https://git-lfs.com/); `media.githubusercontent.com`, not `raw.githubusercontent.com`, serves the actual file content).
 
 # Objective
 

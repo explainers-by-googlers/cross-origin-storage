@@ -198,7 +198,10 @@ rolling-release precedent, and admission criteria keyed on independently corrobo
 a concrete instance of the k-anonymity-style bar described above, applied once, offline, as part
 of how a hash is admitted, not as a check the user agent repeats per query. None of this is yet
 established outside this proposal. An early, non-normative code prototype of the list itself is
-available at <a href="https://github.com/tomayac/public-hash-list/">tomayac/public-hash-list</a>.
+maintained in this repository, at
+<a href="public-hash-list/implementation/">public-hash-list/implementation/</a> — a pragmatic
+interim home; a dedicated, cross-vendor repository remains the governance target described in
+the PHL explainer.
 This specification only depends on whether a hash is [=on the PHL=], not on any particular
 retrieval mechanism or governance model, so it remains correct regardless of how that design
 evolves.

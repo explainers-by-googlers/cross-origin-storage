@@ -23,10 +23,7 @@ algorithm explicitly so it can migrate later without a redesign — see
 The design rationale, requirements, and governance model for the PHL are
 formally written up in the [PHL explainer](../phl-explainer.md), the
 companion document to the Cross-Origin Storage explainer/spec this repository
-publishes. This directory is the proposal's **early implementation** — it used
-to live at `tomayac/public-hash-list`, a separate repository, and was folded in
-here (see [`../phl-explainer.md`](../phl-explainer.md) for the archived
-original).
+publishes. This directory is the proposal's **early implementation**.
 
 The explainer's [Governance](../phl-explainer.md#governance) section describes
 a target end state — a dedicated repository hosted under the WHATWG, with
@@ -107,11 +104,6 @@ is stored with [Git LFS](https://git-lfs.com/), so `raw.githubusercontent.com`
 links resolve to an LFS pointer, not the file content; fetch the real bytes from
 `media.githubusercontent.com` instead, e.g.
 [`media.githubusercontent.com/media/WICG/cross-origin-storage/refs/heads/main/public-hash-list/implementation/data/public-hash-list.dat`](https://media.githubusercontent.com/media/WICG/cross-origin-storage/refs/heads/main/public-hash-list/implementation/data/public-hash-list.dat).
-
-(A separate, permanently frozen snapshot of this file remains at
-[`tomayac/public-hash-list`](https://github.com/tomayac/public-hash-list), the
-archived original location of this directory, for any consumer still built
-against its pre-move URLs — see [`../phl-explainer.md`](../phl-explainer.md#early-implementation).)
 
 The design rationale: a user
 agent needs exactly one thing at runtime — _given a hash, is it on the list?_ —
