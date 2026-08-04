@@ -1,0 +1,49 @@
+name: Public Hash List
+
+on:
+  schedule:
+    # Every Monday at 03:00 UTC.
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: public-hash-list
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    name: Regenerate PHL data
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: public-hash-list/implementation
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Run the PHL pipeline
+        env:
+          GOOGLE_FONTS_API_KEY: ${{ secrets.GOOGLE_FONTS_API_KEY }}
+        run: npm start
+
+      - name: Commit and push regenerated data
+        run: |
+          git add data/
+          if git diff --cached --quiet -- data/; then
+            echo "No changes to the Public Hash List, nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Regenerate Public Hash List [skip ci]"
+          git push
