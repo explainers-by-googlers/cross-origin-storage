@@ -6,7 +6,7 @@
   <link href="https://www.w3.org/StyleSheets/TR/2021/cg-draft" rel="stylesheet">
   <meta content="Bikeshed version d113b2e81, updated Tue Jun 9 14:57:55 2026 -0700" name="generator">
   <link href="https://wicg.github.io/cross-origin-storage/" rel="canonical">
-  <meta content="3be79b34ba59a5684f64def4412eb093076cc743" name="revision">
+  <meta content="dbdd3c580ef895b3df996ca02cee29105e81f5bc" name="revision">
   <meta content="dark light" name="color-scheme">
   <link href="https://www.w3.org/StyleSheets/TR/2021/dark.css" media="(prefers-color-scheme: dark)" rel="stylesheet" type="text/css">
 <style>
@@ -1017,7 +1017,7 @@ origins — so that confirming its presence in a shared cache is not informative
 individual user.</p>
    <p>A <a data-link-type="dfn" href="#cos-hash" id="ref-for-cos-hash⑤">COS hash</a> <var>hash</var> is <dfn class="dfn-paneled" data-dfn-type="dfn" data-export data-lt="on the PHL" id="on-the-phl">on the Public Hash List</dfn> if <var>hash</var>
 <a data-link-type="dfn" href="#cos-hash-equal" id="ref-for-cos-hash-equal②">equals</a> an entry of the user agent’s current snapshot of the <a data-link-type="dfn" href="#dfn-public-hash-list" id="ref-for-dfn-public-hash-list">Public Hash List</a>.</p>
-   <p class="issue" id="issue-01594064"><a class="self-link" href="#issue-01594064"></a> The retrieval protocol, update cadence, data format, popularity thresholds, and governance
+   <p class="issue" id="issue-4f015e20"><a class="self-link" href="#issue-4f015e20"></a> The retrieval protocol, update cadence, data format, popularity thresholds, and governance
 of the Public Hash List are designed in detail as a companion artifact to this specification, in
 the spirit of how the <a data-link-type="biblio" href="#biblio-url" title="URL Standard">[URL]</a> Standard’s public suffix list is a companion data file rather than
 normative prose — see the
@@ -1026,7 +1026,10 @@ proposes governance by the WHATWG, modeled on the Public Suffix List’s cross-v
 rolling-release precedent, and admission criteria keyed on independently corroborated ubiquity —​a concrete instance of the k-anonymity-style bar described above, applied once, offline, as part
 of how a hash is admitted, not as a check the user agent repeats per query. None of this is yet
 established outside this proposal. An early, non-normative code prototype of the list itself is
-available at <a href="https://github.com/tomayac/public-hash-list/">tomayac/public-hash-list</a>.
+maintained in this repository, at
+<a href="public-hash-list/implementation/">public-hash-list/implementation/</a> — a pragmatic
+interim home; a dedicated, cross-vendor repository remains the governance target described in
+the PHL explainer.
 This specification only depends on whether a hash is <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl">on the PHL</a>, not on any particular
 retrieval mechanism or governance model, so it remains correct regardless of how that design
 evolves.</p>
@@ -2028,10 +2031,13 @@ proposes governance by the WHATWG, modeled on the Public Suffix List’s cross-v
 rolling-release precedent, and admission criteria keyed on independently corroborated ubiquity —​a concrete instance of the k-anonymity-style bar described above, applied once, offline, as part
 of how a hash is admitted, not as a check the user agent repeats per query. None of this is yet
 established outside this proposal. An early, non-normative code prototype of the list itself is
-available at <a href="https://github.com/tomayac/public-hash-list/">tomayac/public-hash-list</a>.
+maintained in this repository, at
+<a href="public-hash-list/implementation/">public-hash-list/implementation/</a> — a pragmatic
+interim home; a dedicated, cross-vendor repository remains the governance target described in
+the PHL explainer.
 This specification only depends on whether a hash is <a data-link-type="dfn" href="#on-the-phl">on the PHL</a>, not on any particular
 retrieval mechanism or governance model, so it remains correct regardless of how that design
-evolves. <a class="issue-return" href="#issue-01594064" title="Jump to section">↵</a></div>
+evolves. <a class="issue-return" href="#issue-4f015e20" title="Jump to section">↵</a></div>
    <div class="issue"> The File System Standard <a data-link-type="biblio" href="#biblio-fs" title="File System Standard">[FS]</a> does not yet define an extension point for a dependent
 specification to hook additional per-write validation into <code class="idl"><a data-link-type="idl" href="https://fs.spec.whatwg.org/#filesystemwritablefilestream">FileSystemWritableFileStream</a></code>’s
 closing steps. Until such a hook exists, this section describes the required behavior directly; a
