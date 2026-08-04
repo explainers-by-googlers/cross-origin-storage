@@ -46,4 +46,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "Regenerate Public Hash List [skip ci]"
-          git push
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt), rebasing onto origin/main and retrying..."
+            git pull --rebase origin main
+          done
+          echo "::error::Giving up after 5 push attempts."
+          exit 1
