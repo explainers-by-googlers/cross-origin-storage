@@ -151,6 +151,11 @@ Each user agent has a single <dfn>COS registry</dfn>, a [=map=] from [=COS hash=
 : <dfn for="COS entry">state</dfn>
 :: Either "`pending`" or "`written`". An entry starts out "`pending`" and becomes "`written`"
    exactly once, when [=COS entry/bytes=] is first set.
+: <dfn for="COS entry">pending writer count</dfn>
+:: A non-negative integer, initially 0, counting outstanding writers — {{FileSystemFileHandle}}
+   handles returned by [=complete a create request=] whose [=verify and store|closing write=] has
+   not yet settled. Used only to decide, in [=verify and store=], whether a failed write is safe to
+   clean up; see [[#creating-and-writing-files]].
 : <dfn for="COS entry">origins</dfn>
 :: The declared sharing scope: either "`*`" (any origin), a [=list=] of origin strings
    (only those origins), or null (same-site origins only). Set by the first writer and
@@ -424,6 +429,13 @@ To <dfn>complete a create request</dfn> given [=a new promise|a promise=] |resul
       [=COS entry/origins=] is |requestedOrigins|, and
       [=COS entry/storing origins=] is an empty [=set=].
    1. [=map/Set=] the [=COS registry=][|hash|] to |entry|.
+1. Increment |entry|'s [=COS entry/pending writer count=] by 1.
+
+   Note: This tracks |handle| as an outstanding writer even if the caller never calls
+   {{FileSystemFileHandle/createWritable()}} on it, or never closes the resulting stream. Such an
+   abandoned handle permanently counts against |entry|, exactly as an abandoned in-flight write
+   already left |entry| permanently "`pending`" before this mechanism existed; see
+   [=verify and store=].
 1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
    [=FileSystemHandle/locator=] addresses |entry| within the
    [=Cross-Origin Storage file system=], in |realm|.
@@ -482,14 +494,34 @@ stream's handle, the complete written [=byte sequence=] |bytes|, and the closing
 1. Let |computedValue| be the lowercase hexadecimal digest of |bytes|, computed using the
    algorithm named by |entry|'s [=COS hash/algorithm=], per [[WEBCRYPTO]].
 1. If |computedValue| is not exactly equal to |entry|'s [=COS hash/value=]:
-   1. [=Reject=] the closing operation's promise with a "{{DataError}}" {{DOMException}}, leaving
-      |entry| unmodified.
+   1. [=Reject=] the closing operation's promise with a "{{DataError}}" {{DOMException}}.
+   1. [=parallel queue/enqueue the following steps|Enqueue the following steps=] to the
+      [=Cross-Origin Storage queue=]:
+      1. Decrement |entry|'s [=COS entry/pending writer count=] by 1.
+      1. If |entry|'s [=COS entry/state=] is "`pending`" and |entry|'s
+         [=COS entry/pending writer count=] is 0, then [=map/remove=] |entry|'s
+         [=COS entry/hash=] from the [=COS registry=].
+
+         Note: This is what makes a failed write clean up after itself instead of leaving a
+         permanently unreachable "`pending`" entry behind: a later
+         {{CrossOriginStorageManager/requestFileHandle()}} call for the same hash, once no other
+         writer is still outstanding, sees no entry at all and gets an ordinary
+         "{{NotFoundError}}", not an indefinite "{{NotAllowedError}}". The count guards against
+         deleting an entry that another writer, concurrently in flight for the same hash (for
+         example, two tabs that both found the hash absent and independently began writing it),
+         might still [=verify and store|successfully write=]: if that writer is still outstanding,
+         or already succeeded, either the count has not yet reached 0 or |entry|'s
+         [=COS entry/state=] is no longer "`pending`", and this step is a no-op. An
+         already-"`written`" entry can never be removed this way, regardless of how many later
+         writers request it and fail: only an entry that has never once been successfully written
+         is eligible.
    1. Abort these steps.
 1. [=parallel queue/enqueue the following steps|Enqueue the following steps=] to the
    [=Cross-Origin Storage queue=]:
    1. Set |entry|'s [=COS entry/bytes=] to |bytes|.
    1. Set |entry|'s [=COS entry/state=] to "`written`".
    1. [=set/Append=] |origin| to |entry|'s [=COS entry/storing origins=], if not already present.
+   1. Decrement |entry|'s [=COS entry/pending writer count=] by 1.
    1. Run [=upgrade resource visibility=] given |entry| and the handle's
       [=FileSystemFileHandle/requested origins=].
 
