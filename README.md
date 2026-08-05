@@ -166,6 +166,9 @@ Each resource stored in COS is conceptually represented as an entry with the fol
 > [!NOTE]
 > If `origins` is a list longer than an implementation-defined maximum length, the user agent must throw a `TypeError` before attempting any write. This limit exists so that a list of origins can't be used to approximate `origins: '*'` without going through its explicit opt-in; see [Cross-site probing](#cross-site-probing).
 
+> [!NOTE]
+> If storing the file would cause the requesting origin to exceed its implementation-defined storage limit, the user agent must reject the closing operation's promise with a `QuotaExceededError` `DOMException` and should log a warning to the console. Each origin can only store a limited amount of data in COS, which prevents any one site from flooding the cache in an attempt to evict other sites' resources; see [Cache flooding](#cache-flooding).
+
 ##### Example: Storing a single file
 
 ```js
@@ -826,7 +829,7 @@ User agents are expected to enrich settings UI based on the file hashes. For exa
 
 #### Cache flooding
 
-Sites are prevented from flooding the cache in an attempt to evict other sites' resources. Each site can only store a limited amount of data in COS, and if a site tries to exceed this limit, the user agent can block the attempt and log a warning to the console.
+Sites are prevented from flooding the cache in an attempt to evict other sites' resources. Each site can only store a limited amount of data in COS, and if a site tries to exceed this limit, the user agent rejects the write with a `QuotaExceededError` `DOMException` and logs a warning to the console.
 
 ### Privacy considerations
 
@@ -899,6 +902,7 @@ The "Created, not yet written" row applies both to a fresh `requestFileHandle()`
 | Permissions Policy blocks COS | Any | `NotAllowedError` |
 | Valid hash, declared hash matches computed hash | `*` | Success |
 | Valid hash, declared hash matches computed hash | Same-site or list | Success |
+| Valid hash, declared hash matches computed hash, but exceeds the requesting origin's storage limit | Any | `QuotaExceededError` |
 | Valid hash, declared hash does not match computed hash | Any | `DataError` |
 | Merging `origins` into an existing list-scoped entry would exceed the implementation-defined maximum length | List | Success (excess origins silently dropped) |
 
