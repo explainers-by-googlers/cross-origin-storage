@@ -603,13 +603,13 @@ Omitting `crossoriginstorage` entirely while keeping `integrity` preserves today
 
 ##### Example: Same-site only module
 
-An empty array for `crossOriginStorage` opts the module into COS for same-site access only, mirroring the behavior of omitting `origins` in the imperative API:
+An empty string for `crossOriginStorage` opts the module into COS for same-site access only, mirroring the behavior of omitting `origins` in the imperative API:
 
 ```js
 import data from "same-site-resource.ext" with {
   type: "type",
   integrity: "sha256-abc123...",
-  crossOriginStorage: [],
+  crossOriginStorage: "",
 };
 ```
 
@@ -620,7 +620,7 @@ const module = await import("same-site-resource.ext", {
   with: {
     type: "type",
     integrity: "sha256-abc123...",
-    crossOriginStorage: [],
+    crossOriginStorage: "",
   },
 });
 ```
@@ -651,13 +651,13 @@ const module = await import("popular-resource.ext", {
 
 ##### Example: Module restricted to specific origins
 
-To restrict the resource to specific origins, `crossOriginStorage` takes an array of origin strings instead of `"*"`, mirroring the `origins` option in the imperative API:
+To restrict the resource to specific origins, `crossOriginStorage` takes a space-separated list of origins instead of `"*"`, mirroring the `crossoriginstorage` attribute in the HTML integration:
 
 ```js
 import data from "acme-inc-corporate.ext" with {
   type: "type",
   integrity: "sha256-def456...",
-  crossOriginStorage: ["https://acme-inc.example.com", "https://acme-cdn.example.com"],
+  crossOriginStorage: "https://acme-inc.example.com https://acme-cdn.example.com",
 };
 ```
 
