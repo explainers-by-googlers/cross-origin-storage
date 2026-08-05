@@ -18,12 +18,13 @@
 // The query results are published directly by the HTTP Archive at a stable URL.
 
 import axios from 'axios';
+import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 export const OUTPUT_CSV = 'data/http-archive-hashes.csv';
-// Published HTTP Archive report. One JSON array of
-// { body_hash, type, num_origins, traffic_weighted_score, sample_url }.
+// Published HTTP Archive report. CSV with columns:
+// body_hash, type, num_origins, traffic_weighted_score, sample_url.
 const REPORT_URL =
   'https://cdn.httparchive.org/v1/static/reports/public_hash_list.csv';
 
@@ -32,10 +33,10 @@ export async function run() {
   let entries;
   try {
     const { data } = await axios.get(REPORT_URL, {
-      responseType: 'json',
+      responseType: 'text',
       timeout: 30000,
     });
-    entries = data;
+    entries = parse(data, { columns: true, skip_empty_lines: true });
   } catch (err) {
     console.log(`[http-archive] SKIP: could not fetch report (${err.message}).`);
     return [];
