@@ -531,9 +531,9 @@ try {
 - **Strictly opt-in:** Site A explicitly opts in to make the file globally available by setting `origins: '*'` when storing the file. This ensures that the file is not accidentally made available to all sites.
 - **Cross-origin sharing:** Despite the different origins, the files are securely identified by their hashes, demonstrating the API's ability to facilitate cross-origin file storage and retrieval.
 
-### Declarative integrations
+### Additional integration surfaces
 
-The imperative JavaScript API in the previous section covers the general case, but several use cases, namely markup-driven resource loading, module imports, and CSS-referenced assets like web fonts, are more naturally expressed declaratively. COS is designed to be reachable from HTML, JavaScript's import attributes, and CSS; all consistently keyed off the same `origins`-style value space used by `requestFileHandle()`: omitted for Same-Site only, a list of origin strings for a specific set of origins, or `*` for global availability.
+The imperative JavaScript API in the previous section covers the general case, but several use cases, namely markup-driven resource loading, module imports, and CSS-referenced assets like web fonts, are more naturally expressed without a dedicated imperative call. Markup-driven resource loading and CSS-referenced assets can opt in declaratively; module imports can opt in via JavaScript's import attributes. COS is designed to be reachable from all three, consistently keyed off the same `origins`-style value space used by `requestFileHandle()`: omitted for Same-Site only, a list of origin strings for a specific set of origins, or `*` for global availability.
 
 #### Declarative HTML integration
 
@@ -594,7 +594,7 @@ Omitting `crossoriginstorage` entirely while keeping `integrity` preserves today
 > [!NOTE]
 > `crossoriginstorage` is unrelated to the existing [`crossorigin`](https://html.spec.whatwg.org/multipage/urls-and-fetching.html#cors-settings-attributes) attribute despite the similar name. The `crossorigin` attribute controls the CORS request mode for the element's fetch, which is an orthogonal concern.
 
-#### Declarative JavaScript integration
+#### JavaScript import attribute integration
 
 [Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it.
 
@@ -719,7 +719,7 @@ Passing a list of origins limits COS retrieval to only those origins. All other 
 > [!NOTE]
 > `cross-origin-storage()` is unrelated to the CSS [`cross-origin()`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier-cross-origin-modifier) modifier despite the similar name. The `cross-origin()` modifier controls the CORS request mode, which is an orthogonal concern.
 
-#### Processing flow common to all declarative integrations
+#### Processing flow common to all three integrations
 
 The HTML, JavaScript, and CSS forms above share the same underlying model as the imperative API: a resource is identified by its integrity hash, and a COS lookup is attempted before falling back to the network.
 
@@ -731,7 +731,7 @@ Step 1's COS lookup is subject to the same [availability gating](#availability-g
 Because all three forms piggyback on `integrity`, they inherit its existing failure semantics: a hash mismatch is always treated as a fetch failure, independent of whether COS is involved.
 
 > [!NOTE]
-> The hash format differs between the declarative and imperative forms, intentionally so. The `integrity` attribute and `integrity()` CSS modifier follow the [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/) convention and express hashes as base64-encoded strings (e.g., `sha256-abc123…`). The imperative `requestFileHandle()` API uses lowercase hexadecimal strings (e.g., `8f434346…`), which matches the format used by AI model hubs such as [Hugging Face](https://huggingface.co/) when publishing model checksums. The user agent normalizes both representations internally; they identify the same underlying bytes.
+> The hash format differs between these three integrations and the imperative form, intentionally so. The `integrity` attribute and `integrity()` CSS modifier follow the [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/) convention and express hashes as base64-encoded strings (e.g., `sha256-abc123…`). The imperative `requestFileHandle()` API uses lowercase hexadecimal strings (e.g., `8f434346…`), which matches the format used by AI model hubs such as [Hugging Face](https://huggingface.co/) when publishing model checksums. The user agent normalizes both representations internally; they identify the same underlying bytes.
 
 ## Detailed design discussion
 

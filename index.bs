@@ -94,7 +94,7 @@ infrastructure from the File System Standard [[FS]], scoped to a dedicated, cros
 file system rather than to a single origin's private or user-visible file system.
 
 This specification defines the imperative JavaScript API only. Related proposals integrate the
-same underlying cache with declarative markup — an HTML `crossoriginstorage` attribute on
+same underlying cache into other host languages — an HTML `crossoriginstorage` attribute on
 <{link}> and <{script}>, a `crossOriginStorage` JavaScript import attribute, and a CSS
 `cross-origin-storage()` `<request-url-modifier>` — each defined in its host language's own
 specification; see [[#integration-with-other-specifications]].
@@ -815,8 +815,8 @@ independent of nominal PHL status.
 
 *This section is non-normative.*
 
-The [=COS registry=] defined here is also reachable declaratively, without going through
-{{CrossOriginStorageManager/requestFileHandle()}} directly, from three host languages. Each
+The [=COS registry=] defined here is also reachable from three host languages without going
+through {{CrossOriginStorageManager/requestFileHandle()}} directly. Each
 integration is defined in the specification for its own host language, not in this document; this
 specification defines only the shared underlying concepts ([=COS hash=], [=COS entry=],
 [[#availability-gating|availability gating]], and the [=Public Hash List=]) that those
@@ -834,18 +834,18 @@ integrations are expected to build on.
 For illustration only, here is the same globally-shared resource opted into Cross-Origin Storage
 through each of the three forms:
 
-<pre class="example" id="example-declarative-integration-html" highlight="html">
+<pre class="example" id="example-integration-html" highlight="html">
 &lt;script src="popular-library.js" integrity="sha256-abc123..." crossoriginstorage="*"&gt;&lt;/script&gt;
 </pre>
 
-<pre class="example" id="example-declarative-integration-js" highlight="js">
+<pre class="example" id="example-integration-js" highlight="js">
 import data from "popular-resource.ext" with {
   integrity: "sha256-abc123...",
   crossOriginStorage: "*",
 };
 </pre>
 
-<pre class="example" id="example-declarative-integration-css" highlight="css">
+<pre class="example" id="example-integration-css" highlight="css">
 @font-face {
   font-family: "Popular Font";
   src: url("popular-font.woff2" integrity("sha256-abc123...") cross-origin-storage(*));
