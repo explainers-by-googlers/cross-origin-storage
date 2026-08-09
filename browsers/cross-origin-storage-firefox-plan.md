@@ -125,8 +125,79 @@ run for real. Work happened on a `cross-origin-storage` branch off `main` in
    `WriteSession::mBytes`, so the oversized allocation itself never happens — a session that trips
    the cap just stops accepting further chunks. `FinishWrite` checks this flag first and fails
    `close()` with `DataError`, running the same outstanding-writer-release cleanup the hash-mismatch
-   path already uses. This is a stopgap bounding worst-case memory use, not real per-origin/global
-   storage-budget accounting (still Deferred, below).
+   path already uses. This bounds one in-flight write's worst-case memory use; it is not the real
+   per-origin/global storage-budget accounting decision 13 below adds on top.
+10. **Persistence is content-addressed flat files under `<profile>/cross-origin-storage/`, not a
+    database.** New `CrossOriginStoragePersistence` class:
+    `<profile>/cross-origin-storage/<algorithm>/<value>.bytes` +
+    `<value>.meta` (mirrors Ladybird's own chosen on-disk layout), each written via a hand-rolled
+    atomic tmp-then-rename (`AtomicWriteFile`, not `NS_NewAtomicFileOutputStream` — that helper's
+    `CreateUnique()`-based temp naming isn't predictable enough to reliably identify orphaned temp
+    files at startup, which a hand-rolled `<name>.tmp` sibling is). `.meta` is a small hand-rolled
+    binary format via `nsIBinaryOutputStream`/`nsIBinaryInputStream` (version tag, algorithm, value,
+    scope, storing origins/sites, byte size, last-read time) — deliberately not JSON/SQLite, since
+    Gecko's binary stream primitives already give a compact, dependency-free format. Only `written`
+    entries are ever persisted; a `pending` write session's bytes stay solely in
+    `CrossOriginStorageParent::WriteSession` (in memory) until `VerifyAndStore` succeeds, so losing
+    an in-flight write across a crash/restart is acceptable by design, matching every other
+    implementation's own choice — this also means no crash-recovery logic is needed for partial
+    writes at all, only for a partial *rename* (an orphaned `.tmp` file, cleaned up at the next
+    startup scan). The registry's `Entry` struct no longer keeps a persisted entry's bytes resident
+    (`mBytesOnDisk = true`, `mBytes` cleared) — `GetFileBytes` reads them back from disk per request
+    instead; a real in-memory LRU cache on top is future work, not built here. If persistence is
+    unavailable in this process (no profile, e.g. certain test harnesses), the registry silently
+    falls back to keeping bytes resident in memory (`mBytesOnDisk = false`), exactly as Phase 1
+    originally worked, rather than failing the feature outright.
+11. **A real, non-obvious Gecko footgun found via end-to-end testing, not code review:**
+    `nsIBinaryInputStream::ReadCString()` internally calls `ReadSegments()`, and a raw local-file
+    input stream (`NS_NewLocalFileInputStream`) unconditionally returns `NS_ERROR_NOT_IMPLEMENTED`
+    for `ReadSegments()` (`nsFileStreamBase::ReadSegments`, `netwerk/base/nsFileStreams.cpp`) — its
+    own comment says to wrap it in a buffered stream instead, which is what `ReadMetaFile` now does
+    via `NS_NewBufferedInputStream`. This is deterministic, not a race: it would have failed on
+    *every* metadata read, not just after a restart, and static analysis / code review alone
+    wouldn't have caught it (the write path uses `WriteBytes`/`Write()`, not `WriteSegments`, so
+    only reading was ever affected) — found only by actually writing an entry, restarting the
+    browser via a real marionette-driven process relaunch against a persistent profile, and
+    confirming the read-back failed. See the Verification plan below.
+12. **Public Hash List + GREASE'ing gate wildcard-scope disclosure, matching the spec's
+    `#availability-gating` two-part design.** New `CrossOriginStoragePublicHashList` (a
+    linear-scanned compiled-in list of known-public SHA-256 hashes — trivial complexity-wise
+    while the list is empty, deliberately not a fabricated/placeholder dataset; see the class's own
+    header comment for why real population is separate, later work no implementer has a live feed
+    for yet) and `CrossOriginStorageGrease` (1% probability, 500 KiB size ceiling, matching Servo's
+    and Ladybird's own chosen constants, rolled via `mozilla::RandomUint64OrDie()` — a
+    cryptographically-sourced RNG, not a fast/predictable one, since this feeds a privacy-relevant
+    decision). `CompleteReadRequest`'s `Wildcard` branch now checks PHL-membership OR a GREASE roll
+    before disclosing, instead of unconditionally disclosing.
+13. **Storage-budget eviction is disk-capacity-based and two-tier, matching Ladybird's chosen
+    split**: a global budget of 60% of the persistence directory's disk capacity (`nsIFile::
+    GetDiskCapacity`, the same primitive `dom/quota/ActorsParent.cpp` uses for its own budget,
+    including a 100 GiB sanity ceiling mirroring QuotaManager's own defensive cap against a
+    misreported capacity), and a per-origin share of 20% of *that* global budget (not of raw disk
+    capacity). `EnforceStorageBudget` runs after every successful `VerifyAndStore`: if the writing
+    origin now exceeds its own share, its own sole-owned entries are evicted oldest-`mLastReadTime`-
+    first before touching anyone else's; if the registry is still over the global cap afterward, any
+    entry (regardless of owner) is evicted the same way. Eviction removes the on-disk files too
+    (`CrossOriginStoragePersistence::DeleteEntry`), not just the in-memory `Entry`. `mLastReadTime`
+    itself is updated in memory on every disclosed read but *not* flushed to disk per read (that
+    would mean a disk write on every read) — a crash loses only some recency precision, not
+    correctness. Deliberately a full-entry-list scan-and-sort on every budget-relevant write, not
+    the incremental O(1) usage-tracking / O(log n) eviction-index a real implementation needs at
+    scale (see Deferred work below).
+14. **Rate limiting is per-origin token buckets, checked before any entry lookup, so a
+    rate-limited request is indistinguishable from a genuine miss.** New
+    `CrossOriginStorageRateLimiter`: burst 2000/refill 20 per second for reads, burst 200/refill 2
+    per second for writes — Servo's own chosen constants, copied rather than independently tuned.
+    `CompleteReadRequest` checks-and-consumes a read token *before* the registry lookup, returning
+    `NotFound` on rejection (identical to a genuine miss, by design — the spec's own security
+    considerations flag hash-guessing/timing attacks, and a distinguishable "rate limited" response
+    would itself leak information). `CompleteCreateRequest` checks-and-consumes a write token before
+    touching any entry; on rejection it returns `false` (identical to an ordinary fresh pending
+    creation's return value) without creating an entry, so the eventual `close()` for that write
+    later fails generically (no entry to verify against) rather than surfacing a distinguishable
+    signal at request time. The origin-keyed bucket map itself is bounded (LRU-evicted past 10,000
+    tracked origins) — a distinct concern from the registry's own entry eviction, called out
+    separately since an unbounded rate-limiter map would itself be a memory-exhaustion vector.
 
 ## Implementation plan
 
@@ -175,29 +246,41 @@ run for real. Work happened on a `cross-origin-storage` branch off `main` in
 12. **Fix: cap a write session's in-memory buffer at 4 GiB** (`f3ced467e1`) — closed the
     allocation-DoS gap flagged below, matching Servo's/Ladybird's own placeholder ceiling; see
     decision 9.
+13. **Add persistence, real storage-budget eviction, PHL/GREASE'ing, and rate limiting**
+    (`21e4491f24`) — a self-audit surfaced five remaining gaps (grep for `TODO`/`FIXME`/documented
+    "Phase 1 limitations" comments across the tree, cross-checked against the Deferred work list
+    below); this step closes four of them (persistence, storage budget, wildcard PHL/GREASE, rate
+    limiting) plus the write-size cap's own remaining "not per-origin/global budget" gap from step
+    12. See decisions 10–14. Verified with a real marionette-driven process restart (write, quit,
+    relaunch, read back against a persistent profile), which also found and fixed a genuine Gecko
+    footgun (decision 11) that a full COS WPT re-run alone would not have caught, since WPT test
+    runs don't span a process restart.
+14. **Rework the release workflow: manual dispatch only, macOS + Linux + Windows**
+    (`0c546f8d19`) — previously ran (and rebuilt macOS-only) on every push, which is wasteful for a
+    full clean multi-platform build with no incremental caching; switched to `workflow_dispatch`
+    only, and matrixed the existing bootstrap/build/package steps across `macos-14`, `ubuntu-22.04`,
+    and `windows-2022`. Only the macOS leg has actually been run; see that step's own note in
+    Verification plan below.
 
 ## Deferred / follow-up work
 
-Carried forward, largely unchanged, from the original Phase 1 scoping (a few items below are now
-narrower than originally planned, since list/wildcard-scope and the write-size cap landed in
-steps 8 and 12 above):
+Narrowed twice now from the original Phase 1 scoping: list/wildcard-scope and the write-size cap
+landed in steps 8 and 12; persistence, real storage-budget eviction, PHL/GREASE'ing, and rate
+limiting all landed in step 13. What's left:
 
-- **Persistence**: on-disk registry (per-entry files or SQLite-backed metadata), atomic
-  rename-into-place writes, crash-safe startup scan. Currently fully in-memory; lost on restart.
-- **Real storage-budget/eviction accounting**: step 12's flat 4 GiB write-session cap only bounds
-  worst-case memory use for a *single* in-flight write; it is not per-origin/global budget
-  tracking or eviction (that's the separate item below). Real streaming writes (also below) would
-  let this ceiling be raised well past what's safe to hold in memory today.
-- **Wildcard scope**: Public Hash List fetch/verify/build-time-embed pipeline, then GREASE'ing on
-  top of it. Currently, any wildcard-scoped entry discloses to every requesting origin
-  unconditionally — acceptable only for a disabled-by-default, unshipped local build.
-- **Rate limiting**: per-origin token buckets for reads and writes, bounded rate-limiter memory
-  (LRU-capped origin map).
-- **Storage budget & eviction**: two-tier global/per-origin budget based on total (not free) disk
-  capacity, LRU eviction by last-read time, incremental usage totals and eviction index.
-- **Real streaming writes**: disk-backed temp file instead of the current in-memory buffer,
-  chunked transfer without holding full payloads in either process's memory — this is what would
-  let step 12's flat 4 GiB ceiling be raised (or removed) safely.
+- **Real streaming writes**: a write session's bytes are still fully memory-resident during the
+  write itself (step 12's 4 GiB cap), only reaching disk once `close()`'s `VerifyAndStore` succeeds
+  (decision 10). Real streaming (a disk-backed temp file, chunked transfer without holding the full
+  payload in either process's memory) is what would let that ceiling be raised or removed safely.
+- **A real I/O thread for persistence**: `CrossOriginStoragePersistence` does synchronous file I/O
+  directly on the PBackground thread (documented in its own header comment) rather than dispatching
+  to a dedicated thread the way QuotaManager does — correct but not necessarily fast under load.
+- **A real eviction index**: `EnforceStorageBudget` does a full-entry-list scan-and-sort on every
+  budget-relevant write (documented in the registry header's Phase 1 limitations note), not the
+  incremental O(1) usage-tracking / O(log n) eviction-index a real implementation needs at scale.
+- **Populating the Public Hash List**: the gating mechanism (decision 12) is real; the list itself
+  ships with an empty seed. Populating it with real, independently-verifiable public hashes is a
+  fetch/verify/build-time-embed pipeline no implementer (including this one) has built yet.
 - **Dedicated security review pass**: per-algorithm path-safety validation reaching the trusted
   process, resource caps on `seek()`/`truncate()` once real disk backing exists.
 - **Settings UI**: inspect/delete entries, clear-site-data integration.
@@ -209,10 +292,15 @@ steps 8 and 12 above):
   `Feature-Policy` header, which is supported), not something to fix as part of COS. Two WPT
   subtests that rely on the header-based (not `allow=`-attribute-based) restriction form currently
   fail for this reason.
+- **Dedicated regression tests for the persistence/budget/PHL/rate-limiting code paths**: all four
+  were verified via a real marionette-driven restart script and a full WPT re-run (no regressions),
+  not via a checked-in, repeatable automated test targeting each mechanism directly (e.g. a test
+  that actually exhausts a rate-limit bucket, or forces a budget-triggered eviction). Worth building
+  before this goes further, same rationale as the concurrent-writers-race item resolved below.
 
 ## Verification plan
 
-- `./mach build` after every WebIDL/IPDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12) — new
+- `./mach build` after every WebIDL/IPDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12, 13) — new
   bindings and actor code need a real build, not `build faster`.
 - Manual smoke testing via `./mach run --setpref dom.crossOriginStorage.enabled=true` against a
   public COS test page after each user-visible step — this is what actually caught the two real
@@ -220,33 +308,50 @@ steps 8 and 12 above):
   both were runtime-only failures (a feature-policy allowlist miss, and a missing prototype
   method) that don't show up as compile errors.
 - `./mach wpt --headless --setpref dom.crossOriginStorage.enabled=true
-  testing/web-platform/tests/cross-origin-storage/` after step 9 and again after step 11.
-  Current state (post step 11): `filesystemwritablefilestream-verify.tentative.https.any.js`
-  passes 16/16 subtests across all 4 globals (window/worker/sharedworker/serviceworker); the only
+  testing/web-platform/tests/cross-origin-storage/` after every step from 9 onward. Current state
+  (post step 13): `filesystemwritablefilestream-verify.tentative.https.any.js` passes 16/16
+  subtests across all 4 globals; `requestFileHandle-create-and-read.tentative.https.any.js`
+  (including its concurrent-writers subtest, see below) passes 12/12 across all 4 globals; the only
   remaining failures across the full suite are the pre-existing, explicitly out-of-scope gaps
   listed under Deferred work above (declarative HTML/CSS/import-attribute integrations, and the
-  `Permissions-Policy` header). Re-run again after step 12 with identical results — the write-size
-  cap has no dedicated WPT coverage (the spec doesn't mandate an exact ceiling), so this only
-  confirms no regression, not the cap's own behavior.
-- The write-size cap from step 12 has **not** been exercised end to end (neither by WPT, which has
-  no dedicated coverage since the spec doesn't mandate an exact ceiling, nor manually — writing
-  4 GiB in a quick manual console test isn't practical either). Verification so far is limited to
-  a successful build and no WPT regression. A session whose `WriteChunk`/`Truncate` calls would
-  grow `WriteSession::mBytes` past 4 GiB is expected to fail `close()` with `DataError`; worth an
-  actual regression test (e.g. seeking to just past 4 GiB and writing one byte, rather than
-  writing the full 4 GiB) before relying on this.
+  `Permissions-Policy` header) — unchanged in count and identity across every re-run since step 9,
+  confirming none of steps 10–14 regressed anything.
+- **Persistence (step 13) was verified with a real cross-process restart**, not just WPT (a single
+  WPT run never spans a process restart, so it structurally cannot exercise the
+  reload-from-disk path): a `marionette_driver`-scripted Python harness launches the built Firefox
+  against a persistent (not auto-deleted) profile with a `.bytes`/`.meta` pair confirmed on disk
+  after the write, force-quits it, relaunches against the *same* profile, and confirms
+  `requestFileHandle()` (no `create`) + `getFile()` still returns the original content. This is
+  what actually caught decision 11's `ReadSegments()` bug — every earlier verification pass
+  (build succeeding, full WPT suite passing) had missed it, since the write path never exercises
+  `ReadCString()` at all and nothing else in this feature restarts the browser mid-test.
+- The write-size cap from step 12 has **still not** been exercised end to end at the exact 4 GiB
+  boundary (WPT has no dedicated coverage since the spec doesn't mandate an exact ceiling, and
+  writing 4 GiB in a quick manual/scripted test isn't practical). A session whose `WriteChunk`/
+  `Truncate` calls would grow `WriteSession::mBytes` past 4 GiB is expected to fail `close()` with
+  `DataError`; worth an actual regression test (e.g. seeking to just past 4 GiB and writing one
+  byte, rather than writing the full 4 GiB) before relying on this.
 - The two-concurrent-writers-one-fails-one-succeeds scenario the outstanding-writer-count design
-  (decision 8) exists to handle has not yet been exercised by a dedicated regression test — the
-  general WPT suite doesn't target it directly, and both Servo and Ladybird's own notes flag this
-  exact race as the single most likely bug real implementations ship. Worth a dedicated test before
-  this goes further.
+  (decision 8) exists to handle is **covered**: it turned out to already be a test case in the
+  imported `wpt#61811` suite (`requestFileHandle-create-and-read.tentative.https.any.js`, "a failed
+  write does not disrupt a concurrent, still-outstanding write for the same hash that succeeds") —
+  missed on an earlier read-through of the suite, found on a closer look, confirmed passing 12/12
+  across all 4 globals post step 13. No new test was needed.
+- Storage-budget eviction, rate limiting, and PHL/GREASE'ing (step 13) do **not** have a dedicated
+  regression test yet — see the matching item under Deferred work above. They were exercised only
+  incidentally (a handful of ordinary requests during WPT/manual runs, never enough traffic to
+  actually trip a rate limit or a budget eviction) and are unverified in the specific failure modes
+  they exist to handle.
 
 ## Rollout
 
 Every step above was committed individually to `tomayac/firefox`'s `cross-origin-storage` branch
 and pushed after local verification passed; no step was squashed or amended. The GitHub Actions
-release workflow (step 10) runs on every push to this branch and publishes to a rolling
+release workflow (step 10, reworked in step 14) is now manual-dispatch only (`workflow_dispatch`,
+not on every push, to avoid paying for a full clean multi-platform build on every commit) and
+publishes macOS arm64, Linux x86_64, and Windows x86_64 builds to a rolling
 `cross-origin-storage-latest` release tag on the same fork, so testers can download a build without
-compiling locally. Nothing has been proposed upstream to `mozilla-central` — this is a disabled-by-
-default, personal-fork feature branch for as long as Deferred work above remains open, in
-particular the write-size cap and the Public Hash List/GREASE'ing gate.
+compiling locally — though only the macOS leg has actually been run and confirmed working; Linux
+and Windows are best-effort until someone triggers the workflow and checks. Nothing has been
+proposed upstream to `mozilla-central` — this is a disabled-by-default, personal-fork feature
+branch for as long as Deferred work above remains open.
