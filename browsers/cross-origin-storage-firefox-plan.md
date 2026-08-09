@@ -119,6 +119,14 @@ run for real. Work happened on a `cross-origin-storage` branch off `main` in
    called `close()`/`abort()`; `CrossOriginStorageParent::ActorDestroy` additionally releases any
    in-flight write sessions immediately on content-process teardown, rather than waiting for that
    timeout.
+9. **A flat 4 GiB write-target ceiling** (`kMaxCOSWriteBytes`, `CrossOriginStorageParent.cpp`),
+   matching Servo's `MAX_COS_WRITE_FILE_BYTES` and Ladybird's own placeholder starting point:
+   `WriteChunk`/`Truncate` check the resulting size against the cap *before* ever growing
+   `WriteSession::mBytes`, so the oversized allocation itself never happens — a session that trips
+   the cap just stops accepting further chunks. `FinishWrite` checks this flag first and fails
+   `close()` with `DataError`, running the same outstanding-writer-release cleanup the hash-mismatch
+   path already uses. This is a stopgap bounding worst-case memory use, not real per-origin/global
+   storage-budget accounting (still Deferred, below).
 
 ## Implementation plan
 
@@ -164,21 +172,22 @@ run for real. Work happened on a `cross-origin-storage` branch off `main` in
     which calls `.seek()`/`.truncate()` directly and separately pipes a `Blob.stream()`
     `ReadableStream` (which yields `Uint8Array` chunks, not a `Blob` or a string) into the writable
     stream. See decisions 3 and 4.
+12. **Fix: cap a write session's in-memory buffer at 4 GiB** (`f3ced467e1`) — closed the
+    allocation-DoS gap flagged below, matching Servo's/Ladybird's own placeholder ceiling; see
+    decision 9.
 
 ## Deferred / follow-up work
 
 Carried forward, largely unchanged, from the original Phase 1 scoping (a few items below are now
-narrower than originally planned, since list/wildcard-scope work items landed in step 8 above):
+narrower than originally planned, since list/wildcard-scope and the write-size cap landed in
+steps 8 and 12 above):
 
 - **Persistence**: on-disk registry (per-entry files or SQLite-backed metadata), atomic
   rename-into-place writes, crash-safe startup scan. Currently fully in-memory; lost on restart.
-- **A write-size cap**: unlike Servo's (4 GiB, backed by a real disk-backed temp file) and
-  Ladybird's (disk-backed from Phase 4 onward) implementations, Firefox's `WriteSession::mBytes`
-  is an in-memory `nsTArray<uint8_t>` with **no size ceiling at all** — `seek()`/`truncate()` can
-  currently grow it without bound. This is a real, currently-open allocation-DoS gap of exactly
-  the shape both other implementations' own notes warn about; closing it (a flat ceiling initially,
-  matching Servo's placeholder approach, or going disk-backed outright) should be one of the very
-  next follow-ups, not indefinitely deferred alongside the lower-priority items below.
+- **Real storage-budget/eviction accounting**: step 12's flat 4 GiB write-session cap only bounds
+  worst-case memory use for a *single* in-flight write; it is not per-origin/global budget
+  tracking or eviction (that's the separate item below). Real streaming writes (also below) would
+  let this ceiling be raised well past what's safe to hold in memory today.
 - **Wildcard scope**: Public Hash List fetch/verify/build-time-embed pipeline, then GREASE'ing on
   top of it. Currently, any wildcard-scoped entry discloses to every requesting origin
   unconditionally — acceptable only for a disabled-by-default, unshipped local build.
@@ -187,8 +196,8 @@ narrower than originally planned, since list/wildcard-scope work items landed in
 - **Storage budget & eviction**: two-tier global/per-origin budget based on total (not free) disk
   capacity, LRU eviction by last-read time, incremental usage totals and eviction index.
 - **Real streaming writes**: disk-backed temp file instead of the current in-memory buffer,
-  chunked transfer without holding full payloads in either process's memory — this would also
-  naturally subsume the write-size-cap gap above.
+  chunked transfer without holding full payloads in either process's memory — this is what would
+  let step 12's flat 4 GiB ceiling be raised (or removed) safely.
 - **Dedicated security review pass**: per-algorithm path-safety validation reaching the trusted
   process, resource caps on `seek()`/`truncate()` once real disk backing exists.
 - **Settings UI**: inspect/delete entries, clear-site-data integration.
@@ -203,8 +212,8 @@ narrower than originally planned, since list/wildcard-scope work items landed in
 
 ## Verification plan
 
-- `./mach build` after every WebIDL/IPDL-touching step (2, 3, 4, 5, 6, 7, 8, 11) — new bindings and
-  actor code need a real build, not `build faster`.
+- `./mach build` after every WebIDL/IPDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12) — new
+  bindings and actor code need a real build, not `build faster`.
 - Manual smoke testing via `./mach run --setpref dom.crossOriginStorage.enabled=true` against a
   public COS test page after each user-visible step — this is what actually caught the two real
   bugs fixed in steps 6 and 7; type-checking and WPT alone would not have caught either, since
@@ -216,7 +225,16 @@ narrower than originally planned, since list/wildcard-scope work items landed in
   passes 16/16 subtests across all 4 globals (window/worker/sharedworker/serviceworker); the only
   remaining failures across the full suite are the pre-existing, explicitly out-of-scope gaps
   listed under Deferred work above (declarative HTML/CSS/import-attribute integrations, and the
-  `Permissions-Policy` header).
+  `Permissions-Policy` header). Re-run again after step 12 with identical results — the write-size
+  cap has no dedicated WPT coverage (the spec doesn't mandate an exact ceiling), so this only
+  confirms no regression, not the cap's own behavior.
+- The write-size cap from step 12 has **not** been exercised end to end (neither by WPT, which has
+  no dedicated coverage since the spec doesn't mandate an exact ceiling, nor manually — writing
+  4 GiB in a quick manual console test isn't practical either). Verification so far is limited to
+  a successful build and no WPT regression. A session whose `WriteChunk`/`Truncate` calls would
+  grow `WriteSession::mBytes` past 4 GiB is expected to fail `close()` with `DataError`; worth an
+  actual regression test (e.g. seeking to just past 4 GiB and writing one byte, rather than
+  writing the full 4 GiB) before relying on this.
 - The two-concurrent-writers-one-fails-one-succeeds scenario the outstanding-writer-count design
   (decision 8) exists to handle has not yet been exercised by a dedicated regression test — the
   general WPT suite doesn't target it directly, and both Servo and Ladybird's own notes flag this
