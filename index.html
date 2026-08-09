@@ -6,7 +6,7 @@
   <link href="https://www.w3.org/StyleSheets/TR/2021/cg-draft" rel="stylesheet">
   <meta content="Bikeshed version d113b2e81, updated Tue Jun 9 14:57:55 2026 -0700" name="generator">
   <link href="https://wicg.github.io/cross-origin-storage/" rel="canonical">
-  <meta content="4733c49571c5d8013fe7f536186c54468d578b7b" name="revision">
+  <meta content="2ad5a66c9ade1c53f63fdffb2389268d3d56ac66" name="revision">
   <meta content="dark light" name="color-scheme">
   <link href="https://www.w3.org/StyleSheets/TR/2021/dark.css" media="(prefers-color-scheme: dark)" rel="stylesheet" type="text/css">
 <style>
@@ -785,7 +785,7 @@ var[data-var-color="6"] { --var-vg: #FFBCF2; }
   <div class="head">
    <h1 class="no-ref p-name" id="title">Cross-Origin Storage</h1>
    <p id="w3c-state"><a href="https://www.w3.org/standards/types/#CG-DRAFT">Draft Community Group Report</a>,
-    <time class="dt-updated" datetime="2026-08-07">7 August 2026</time></p>
+    <time class="dt-updated" datetime="2026-08-09">9 August 2026</time></p>
    <div data-fill-with="spec-metadata">
     <dl>
      <dt>This version:
@@ -1742,11 +1742,13 @@ integrations are expected to build on.</p>
    <ul>
     <li data-md>
      <p><strong>HTML</strong>: a <code>crossoriginstorage</code> attribute on <code><a data-link-type="element" href="https://html.spec.whatwg.org/multipage/semantics.html#the-link-element" id="ref-for-the-link-element①">link</a></code> and <code><a data-link-type="element" href="https://html.spec.whatwg.org/multipage/scripting.html#script" id="ref-for-script①">script</a></code> elements that already
-carry <code>integrity</code> <a data-link-type="biblio" href="#biblio-sri" title="Subresource Integrity">[SRI]</a>, to be proposed to the WHATWG HTML Standard.</p>
+carry <code>integrity</code> <a data-link-type="biblio" href="#biblio-sri" title="Subresource Integrity">[SRI]</a>, proposed to the WHATWG in
+<a href="https://github.com/whatwg/html/issues/12770">whatwg/html#12770</a>.</p>
     <li data-md>
      <p><strong>JavaScript</strong>: a host-defined <code>crossOriginStorage</code> import attribute, usable alongside
 <code>integrity</code>, building on the <a href="https://github.com/tc39/proposal-import-attributes">Import Attributes</a>
-proposal, to be proposed to the WHATWG HTML Standard.</p>
+proposal, proposed to the WHATWG in
+<a href="https://github.com/whatwg/html/issues/12771">whatwg/html#12771</a>.</p>
     <li data-md>
      <p><strong>CSS</strong>: a <code>cross-origin-storage()</code> <code>&lt;request-url-modifier></code>, usable alongside <code>integrity()</code>,
 proposed to the CSS Working Group in
