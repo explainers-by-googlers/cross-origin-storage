@@ -537,7 +537,7 @@ The imperative JavaScript API in the previous section covers the general case, b
 
 #### Declarative HTML integration
 
-`<link>` and `<script>` elements that already carry [`integrity`](https://w3c.github.io/webappsec-subresource-integrity/#integrity-element) can opt in to COS with a new `crossoriginstorage` attribute. As in the JavaScript and CSS forms, the `integrity` hash identifies the file in COS, and `crossoriginstorage` specifies which origins may retrieve it.
+`<link>` and `<script>` elements that already carry [`integrity`](https://w3c.github.io/webappsec-subresource-integrity/#integrity-element) can opt in to COS with a new `crossoriginstorage` attribute, proposed to the WHATWG in [whatwg/html#12770](https://github.com/whatwg/html/issues/12770). As in the JavaScript and CSS forms, the `integrity` hash identifies the file in COS, and `crossoriginstorage` specifies which origins may retrieve it.
 
 ##### Example: Same-site only stylesheet and script
 
@@ -596,7 +596,7 @@ Omitting `crossoriginstorage` entirely while keeping `integrity` preserves today
 
 #### JavaScript import attribute integration
 
-[Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly. As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it.
+[Import attributes](https://github.com/tc39/proposal-import-attributes) provide a way to reach COS from module imports and dynamic `import()`, without going through `navigator.crossOriginStorage` directly, proposed to the WHATWG in [whatwg/html#12771](https://github.com/whatwg/html/issues/12771). As with the HTML and CSS forms, `integrity` identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it.
 
 > [!NOTE]
 > The `with { … }` syntax is defined by TC39, but `crossOriginStorage` is a **host-defined attribute key** — like `integrity`, it requires no TC39 involvement and will be defined in the HTML Standard.

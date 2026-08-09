@@ -823,10 +823,12 @@ specification defines only the shared underlying concepts ([=COS hash=], [=COS e
 integrations are expected to build on.
 
 * **HTML**: a `crossoriginstorage` attribute on <{link}> and <{script}> elements that already
-  carry `integrity` [[SRI]], to be proposed to the WHATWG HTML Standard.
+  carry `integrity` [[SRI]], proposed to the WHATWG in
+  [whatwg/html#12770](https://github.com/whatwg/html/issues/12770).
 * **JavaScript**: a host-defined `crossOriginStorage` import attribute, usable alongside
   `integrity`, building on the [Import Attributes](https://github.com/tc39/proposal-import-attributes)
-  proposal, to be proposed to the WHATWG HTML Standard.
+  proposal, proposed to the WHATWG in
+  [whatwg/html#12771](https://github.com/whatwg/html/issues/12771).
 * **CSS**: a `cross-origin-storage()` `<request-url-modifier>`, usable alongside `integrity()`,
   proposed to the CSS Working Group in
   [w3c/csswg-drafts#14056](https://github.com/w3c/csswg-drafts/issues/14056).
