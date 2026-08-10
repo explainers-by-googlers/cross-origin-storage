@@ -20,11 +20,13 @@ which catch several real bugs (unbounded `truncate()` DoS, path traversal via un
 per-algorithm hash values, entry-cleanup races between concurrent writers) that a naive first pass
 would miss; both were used as prior art the way Ladybird's own plan used Servo's.
 
-This document covers Firefox's Phase 1: the WebIDL surface, actor plumbing, and a correct (if
-in-memory-only) read/write round trip across all three disclosure scopes, behind a
-disabled-by-default pref — plus a follow-up fix (this document's last implementation step) that
-closes a `filesystemwritablefilestream-verify` WPT gap found once the WPT suite was imported and
-run for real. Work happened on a `cross-origin-storage` branch off `main` in
+This document covers Firefox's Phase 1: the WebIDL surface, actor plumbing, and a correct read/write
+round trip (now disk-persisted, budget-accounted, PHL/GREASE-gated, and rate-limited) across all
+three disclosure scopes, plus a handful of follow-up fixes found via WPT and real end-to-end
+testing after the initial implementation. `dom.crossOriginStorage.enabled` now defaults to `true`
+on this branch (step 15) — this is a personal-fork testing branch, not a real Firefox release
+channel, so "on by default" here means "on for anyone who downloads a build from this branch's own
+release workflow," nothing more. Work happened on a `cross-origin-storage` branch off `main` in
 `tomayac/firefox`, committing at each step below.
 
 ## Key architectural decisions
@@ -198,6 +200,30 @@ run for real. Work happened on a `cross-origin-storage` branch off `main` in
     signal at request time. The origin-keyed bucket map itself is bounded (LRU-evicted past 10,000
     tracked origins) — a distinct concern from the registry's own entry eviction, called out
     separately since an unbounded rate-limiter map would itself be a memory-exhaustion vector.
+15. **`nsIClearDataService` integration uses "revoke-and-GC" semantics for site-scoped clearing,
+    not "delete by ownership."** COS entries aren't per-origin storage — several origins can
+    legitimately store the identical bytes under the same hash — so the usual "delete everything
+    this principal/site owns" a `Cleaner` normally does doesn't fit cleanly; deleting outright
+    wherever the target site was *ever* involved would mean clearing one site's data can silently
+    delete a *different*, uncleared site's data as a side effect. New `nsICrossOriginStorageService`
+    (`dom/crossoriginstorage/nsICrossOriginStorageService.idl`, a `[scriptable]` singleton
+    reachable from chrome JS, registered via `components.conf`) exposes `clear()` (full wipe,
+    unambiguous) and `clearBySite(schemelessSite)`; both dispatch to the PBackground thread (via
+    `mozilla::ipc::BackgroundParent::GetBackgroundThread()`, resolving immediately as a no-op if
+    that thread was never started — nothing was ever stored) and return a `Promise` resolved once
+    the registry operation completes, mirroring `AboutThirdParty::CollectSystemInfo()`'s own
+    `[implicit_jscontext] Promise` pattern. `CrossOriginStorageRegistry::RemoveSite()` strips the
+    target site (matched by host suffix, the same convention `nsIClearDataService::deleteBySite()`
+    itself uses, not a real public-suffix-list eTLD+1 computation) from every entry's storing
+    origins/sites and any explicit `origins`-list scope, deleting an entry outright only if that
+    leaves it with no storing origin left. A new `CLEAR_CROSS_ORIGIN_STORAGE` flag
+    (`nsIClearDataService.idl`) is folded into the existing `CLEAR_DOM_STORAGES` composite, so
+    "Forget about this site" and "Clear cookies and site data" sweep it in automatically — no new
+    dedicated UI checkbox needed. Known, documented limitation: storage-budget usage
+    (`mOriginUsage`) is attributed only to an entry's first storing origin; if partial (not full)
+    revocation removes specifically that origin while others remain, its usage credit goes stale
+    rather than being reattributed — rare (needs multiple origins to have genuinely stored
+    byte-identical content) and bounded (can't grow, only go stale), not fixed here.
 
 ## Implementation plan
 
@@ -261,12 +287,29 @@ run for real. Work happened on a `cross-origin-storage` branch off `main` in
     only, and matrixed the existing bootstrap/build/package steps across `macos-14`, `ubuntu-22.04`,
     and `windows-2022`. Only the macOS leg has actually been run; see that step's own note in
     Verification plan below.
+15. **Fix: `./mach bootstrap` has no `--no-interactive` flag** (`d79b385aac`) — the very first
+    triggered run of step 14's new workflow failed identically on all three legs at the bootstrap
+    step: `--no-interactive` is a *global* mach argument (must precede the subcommand), not one
+    `bootstrap` itself accepts, so appending it after `--application-choice=browser` made mach
+    reject the whole invocation outright. Simply dropped — mach's own `--help` says non-interactive
+    behavior is already assumed whenever there's no terminal, which is always true in CI.
+16. **Enable `dom.crossOriginStorage.enabled` by default on this branch** (`cafc735ca0`) — so
+    testers downloading a release-workflow build can use the feature immediately, no
+    `about:config` detour needed; updated the release notes to match. See decision 15's own
+    "personal-fork testing branch, not a release channel" framing above for why this is a
+    reasonable thing to do here specifically.
+17. **Add `nsIClearDataService` integration** (`a07ac65fa7`) — closing the gap flagged in an
+    earlier self-audit: entries aren't per-origin storage, so "Clear Data"/"Forget This Site"
+    previously did nothing to them at all, a real problem for a feature now enabled by default and
+    writing to the user's actual profile directory. See decision 15 for the full design (and why
+    it isn't simply "delete by ownership" the way every other `Cleaner` in
+    `ClearDataService.sys.mjs` is).
 
 ## Deferred / follow-up work
 
-Narrowed twice now from the original Phase 1 scoping: list/wildcard-scope and the write-size cap
-landed in steps 8 and 12; persistence, real storage-budget eviction, PHL/GREASE'ing, and rate
-limiting all landed in step 13. What's left:
+Narrowed three times now from the original Phase 1 scoping: list/wildcard-scope and the write-size
+cap landed in steps 8 and 12; persistence, real storage-budget eviction, PHL/GREASE'ing, and rate
+limiting landed in step 13; `nsIClearDataService` integration landed in step 17. What's left:
 
 - **Real streaming writes**: a write session's bytes are still fully memory-resident during the
   write itself (step 12's 4 GiB cap), only reaching disk once `close()`'s `VerifyAndStore` succeeds
@@ -283,7 +326,12 @@ limiting all landed in step 13. What's left:
   fetch/verify/build-time-embed pipeline no implementer (including this one) has built yet.
 - **Dedicated security review pass**: per-algorithm path-safety validation reaching the trusted
   process, resource caps on `seek()`/`truncate()` once real disk backing exists.
-- **Settings UI**: inspect/delete entries, clear-site-data integration.
+- **Settings UI**: inspect/delete individual entries from `about:preferences` or similar --
+  step 17's clear-data integration covers bulk/site-scoped clearing, not a per-entry browser.
+- **Reattributing storage-budget usage on partial site-clear**: decision 15's own documented
+  limitation -- if `clearBySite()` removes specifically an entry's *first* storing origin (the one
+  `mOriginUsage` attributes bytes to) while other storing origins remain, that usage credit goes
+  stale rather than transferring to the entry's new first storing origin. Rare, bounded, not fixed.
 - **Declarative integrations** (HTML `crossoriginstorage` attribute, JS import attribute, CSS
   `cross-origin-storage()`): each belongs to its own host-language spec, out of scope here. WPT
   subtests for all three currently fail for this reason, confirmed on the latest full-suite run.
@@ -292,16 +340,19 @@ limiting all landed in step 13. What's left:
   `Feature-Policy` header, which is supported), not something to fix as part of COS. Two WPT
   subtests that rely on the header-based (not `allow=`-attribute-based) restriction form currently
   fail for this reason.
-- **Dedicated regression tests for the persistence/budget/PHL/rate-limiting code paths**: all four
-  were verified via a real marionette-driven restart script and a full WPT re-run (no regressions),
-  not via a checked-in, repeatable automated test targeting each mechanism directly (e.g. a test
-  that actually exhausts a rate-limit bucket, or forces a budget-triggered eviction). Worth building
-  before this goes further, same rationale as the concurrent-writers-race item resolved below.
+- **Dedicated regression tests for the persistence/budget/PHL/rate-limiting/clear-data code
+  paths**: all five were verified via ad hoc marionette scripts (not checked into the tree) and a
+  full WPT re-run (no regressions) each time, not via a checked-in, repeatable automated test
+  targeting each mechanism directly (e.g. a test that actually exhausts a rate-limit bucket, forces
+  a budget-triggered eviction, or exercises `clearBySite()`'s partial-revoke branch specifically,
+  as opposed to the full-wipe path the marionette script for step 17 actually covered). Worth
+  building before this goes further, same rationale as the concurrent-writers-race item resolved
+  below.
 
 ## Verification plan
 
-- `./mach build` after every WebIDL/IPDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12, 13) — new
-  bindings and actor code need a real build, not `build faster`.
+- `./mach build` after every WebIDL/IPDL/XPIDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 17)
+  — new bindings and actor code need a real build, not `build faster`.
 - Manual smoke testing via `./mach run --setpref dom.crossOriginStorage.enabled=true` against a
   public COS test page after each user-visible step — this is what actually caught the two real
   bugs fixed in steps 6 and 7; type-checking and WPT alone would not have caught either, since
@@ -342,16 +393,30 @@ limiting all landed in step 13. What's left:
   incidentally (a handful of ordinary requests during WPT/manual runs, never enough traffic to
   actually trip a rate limit or a budget eviction) and are unverified in the specific failure modes
   they exist to handle.
+- **`nsIClearDataService` integration (step 17) was verified end to end with a marionette script**,
+  not WPT (clear-data is chrome-only, never reachable from web content): writes two entries, calls
+  `nsICrossOriginStorageService.clear()` directly, confirms both become unreadable; writes a third,
+  clears via the real `Services.clearData.deleteData(CLEAR_CROSS_ORIGIN_STORAGE, ...)` path
+  (proving the flag registration, `ClearDataService.sys.mjs` wiring, and XPCOM component
+  registration all actually connect, not just the registry method in isolation), confirms the
+  same. Only the **full-wipe** path (`clear()`/`deleteData`) was exercised this way —
+  `clearBySite()`'s partial-revoke branch (an entry surviving with one storing origin removed but
+  others intact) was reasoned through by hand, not run against real, distinct origins; doing that
+  properly needs real content-page navigation to distinct https origins, which a chrome-context-only
+  marionette script (system principal throughout) can't produce on its own. See the matching item
+  under Deferred work above.
 
 ## Rollout
 
 Every step above was committed individually to `tomayac/firefox`'s `cross-origin-storage` branch
 and pushed after local verification passed; no step was squashed or amended. The GitHub Actions
-release workflow (step 10, reworked in step 14) is now manual-dispatch only (`workflow_dispatch`,
-not on every push, to avoid paying for a full clean multi-platform build on every commit) and
-publishes macOS arm64, Linux x86_64, and Windows x86_64 builds to a rolling
-`cross-origin-storage-latest` release tag on the same fork, so testers can download a build without
-compiling locally — though only the macOS leg has actually been run and confirmed working; Linux
-and Windows are best-effort until someone triggers the workflow and checks. Nothing has been
-proposed upstream to `mozilla-central` — this is a disabled-by-default, personal-fork feature
-branch for as long as Deferred work above remains open.
+release workflow (step 10, reworked in step 14) is manual-dispatch only (`workflow_dispatch`, not
+on every push, to avoid paying for a full clean multi-platform build on every commit) and publishes
+macOS arm64, Linux x86_64, and Windows x86_64 builds to a rolling `cross-origin-storage-latest`
+release tag on the same fork, so testers can download a build without compiling locally — though
+only the macOS leg has actually been run and confirmed working; Linux and Windows are best-effort
+until someone triggers the workflow and checks. As of step 16, those builds have the feature
+enabled by default, so there's nothing left for a tester to configure. Nothing has been proposed
+upstream to `mozilla-central` — this is a personal-fork feature branch for as long as Deferred work
+above remains open (default-enabled on this fork's own testing builds is not the same claim as
+"ready to ship" — see step 16's own framing).
