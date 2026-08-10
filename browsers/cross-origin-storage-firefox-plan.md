@@ -224,6 +224,31 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
     revocation removes specifically that origin while others remain, its usage credit goes stale
     rather than being reattributed — rare (needs multiple origins to have genuinely stored
     byte-identical content) and bounded (can't grow, only go stale), not fixed here.
+16. **The Public Hash List is a real upstream snapshot, shipped as a plain data file, not a
+    compiled-in array.** A self-audit had assumed no real PHL existed yet and shipped an
+    intentionally empty seed (decision 12); this turned out to be wrong — `WICG/cross-origin-storage`
+    has its own actively-maintained `public-hash-list/implementation/` pipeline (scrapers for cdnjs,
+    jsDelivr, Google Fonts, Chromium's pervasive-resource list, npm popularity, HTTP Archive, Hugging
+    Face, and manual additions, gated by real-world k-anonymity thresholds), regenerated on a
+    schedule and published at `public-hash-list/implementation/data/public-hash-list.dat` (a
+    PSL-style flat file — fetch the real bytes from `media.githubusercontent.com`, not
+    `raw.githubusercontent.com`, which serves only a Git LFS pointer for that path). New
+    `generate_public_hash_list.py` parses that file's three MUST/SHOULD-adopt sections (core,
+    Hugging Face, manual — see that repository's own README for the exact semantics of each),
+    validates/dedups/sorts ~295k SHA-256 digests, and packs them as raw 32-byte values (not hex
+    text — half the size, and the format `CrossOriginStoragePublicHashList::Contains()` already
+    binary-searches). The packed result (`data/public-hash-list.bin`, 9.45 MiB) is **not** compiled
+    into a C++ array — embedding that much high-entropy (hence uncompressible) data as string/array
+    literals would bloat both the translation unit and compile time for no benefit — it ships as a
+    plain file via `FINAL_TARGET_FILES.crossoriginstorage`, landing alongside the GRE, and
+    `CrossOriginStoragePublicHashList` loads it lazily (one `NS_GetSpecialDirectory(NS_GRE_DIR, ...)`
+    main-thread round trip, mirroring `CrossOriginStoragePersistence`'s own pattern, then a single
+    file read) and holds it resident for the process lifetime. A load failure of any kind (missing
+    file, wrong size) fails safe to "nothing loaded," identical to the old empty seed's behavior,
+    never a crash. New gtest (`dom/crossoriginstorage/gtest/`) exercises real first/middle/last
+    entries pulled directly from the shipped file, plus absent/malformed/wrong-algorithm rejection
+    — the first unit test in this feature's history, and a real regression check: a broken load
+    path degrades every wildcard-scope read to GREASE-only without any test noticing otherwise.
 
 ## Implementation plan
 
@@ -304,26 +329,41 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
     writing to the user's actual profile directory. See decision 15 for the full design (and why
     it isn't simply "delete by ownership" the way every other `Cleaner` in
     `ClearDataService.sys.mjs` is).
+18. **Populate the Public Hash List with a real upstream snapshot** (`62a6025eb5`) — found while
+    syncing this document to the shared spec repository: `WICG/cross-origin-storage` has a real,
+    actively-maintained PHL pipeline this branch's own earlier self-audit had assumed didn't exist.
+    Downloaded the published `.dat` snapshot, verified it against the upstream-published SHA-256
+    checksum, and wired it in as described in decision 16. Also added this feature's first unit
+    test (a gtest against the real shipped data), closing part of the "no unit tests" gap from that
+    same earlier self-audit.
 
 ## Deferred / follow-up work
 
-Narrowed three times now from the original Phase 1 scoping: list/wildcard-scope and the write-size
+Narrowed four times now from the original Phase 1 scoping: list/wildcard-scope and the write-size
 cap landed in steps 8 and 12; persistence, real storage-budget eviction, PHL/GREASE'ing, and rate
-limiting landed in step 13; `nsIClearDataService` integration landed in step 17. What's left:
+limiting landed in step 13; `nsIClearDataService` integration landed in step 17; the real Public
+Hash List snapshot landed in step 18. What's left:
 
 - **Real streaming writes**: a write session's bytes are still fully memory-resident during the
   write itself (step 12's 4 GiB cap), only reaching disk once `close()`'s `VerifyAndStore` succeeds
   (decision 10). Real streaming (a disk-backed temp file, chunked transfer without holding the full
   payload in either process's memory) is what would let that ceiling be raised or removed safely.
-- **A real I/O thread for persistence**: `CrossOriginStoragePersistence` does synchronous file I/O
-  directly on the PBackground thread (documented in its own header comment) rather than dispatching
-  to a dedicated thread the way QuotaManager does — correct but not necessarily fast under load.
+- **A real I/O thread for persistence**: `CrossOriginStoragePersistence` (and, since step 18,
+  `CrossOriginStoragePublicHashList`'s own lazy load) does synchronous file I/O directly on the
+  PBackground thread (documented in `CrossOriginStoragePersistence`'s own header comment) rather
+  than dispatching to a dedicated thread the way QuotaManager does — correct but not necessarily
+  fast under load. The PHL load is a one-time ~9 MiB read, not a per-request cost, so lower
+  priority than persistence's own per-write I/O.
 - **A real eviction index**: `EnforceStorageBudget` does a full-entry-list scan-and-sort on every
   budget-relevant write (documented in the registry header's Phase 1 limitations note), not the
   incremental O(1) usage-tracking / O(log n) eviction-index a real implementation needs at scale.
-- **Populating the Public Hash List**: the gating mechanism (decision 12) is real; the list itself
-  ships with an empty seed. Populating it with real, independently-verifiable public hashes is a
-  fetch/verify/build-time-embed pipeline no implementer (including this one) has built yet.
+- **Keeping the Public Hash List snapshot current**: step 18's `data/public-hash-list.bin` is a
+  one-time snapshot (generated `62a6025eb5`); the upstream `.dat` file is regenerated on its own
+  schedule (a bot commit landed *during this same session*, coincidentally), and nothing here
+  re-runs `generate_public_hash_list.py` automatically. A real implementation would need either a
+  periodic re-embed (rebuild-triggered, matching the etld_data.inc-style "checked-in generated
+  file, manually refreshed" precedent this mirrors) or a genuine runtime update mechanism -- out of
+  scope for a first real pass.
 - **Dedicated security review pass**: per-algorithm path-safety validation reaching the trusted
   process, resource caps on `seek()`/`truncate()` once real disk backing exists.
 - **Settings UI**: inspect/delete individual entries from `about:preferences` or similar --
@@ -340,18 +380,21 @@ limiting landed in step 13; `nsIClearDataService` integration landed in step 17.
   `Feature-Policy` header, which is supported), not something to fix as part of COS. Two WPT
   subtests that rely on the header-based (not `allow=`-attribute-based) restriction form currently
   fail for this reason.
-- **Dedicated regression tests for the persistence/budget/PHL/rate-limiting/clear-data code
-  paths**: all five were verified via ad hoc marionette scripts (not checked into the tree) and a
-  full WPT re-run (no regressions) each time, not via a checked-in, repeatable automated test
-  targeting each mechanism directly (e.g. a test that actually exhausts a rate-limit bucket, forces
-  a budget-triggered eviction, or exercises `clearBySite()`'s partial-revoke branch specifically,
-  as opposed to the full-wipe path the marionette script for step 17 actually covered). Worth
-  building before this goes further, same rationale as the concurrent-writers-race item resolved
-  below.
+- **Dedicated regression tests for the persistence/budget/rate-limiting/clear-data code paths**:
+  step 18 added this feature's first gtest, but only for PHL lookup specifically (`Contains()`
+  against the real shipped file). Persistence, storage-budget eviction, rate limiting, and
+  `clearBySite()`'s partial-revoke branch were all verified only via ad hoc marionette scripts (not
+  checked into the tree) and a full WPT re-run (no regressions) each time, not via a checked-in,
+  repeatable automated test targeting each mechanism directly (e.g. a test that actually exhausts a
+  rate-limit bucket, forces a budget-triggered eviction, or exercises `clearBySite()` against two
+  genuinely distinct origins rather than the full-wipe path the step-17 marionette script actually
+  covered). Worth building before this goes further, same rationale as the concurrent-writers-race
+  item resolved below.
 
 ## Verification plan
 
-- `./mach build` after every WebIDL/IPDL/XPIDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 17)
+- `./mach build` after every WebIDL/IPDL/XPIDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 17,
+  18)
   — new bindings and actor code need a real build, not `build faster`.
 - Manual smoke testing via `./mach run --setpref dom.crossOriginStorage.enabled=true` against a
   public COS test page after each user-visible step — this is what actually caught the two real
@@ -388,11 +431,23 @@ limiting landed in step 13; `nsIClearDataService` integration landed in step 17.
   write does not disrupt a concurrent, still-outstanding write for the same hash that succeeds") —
   missed on an earlier read-through of the suite, found on a closer look, confirmed passing 12/12
   across all 4 globals post step 13. No new test was needed.
-- Storage-budget eviction, rate limiting, and PHL/GREASE'ing (step 13) do **not** have a dedicated
+- Storage-budget eviction, rate limiting, and GREASE'ing (step 13) do **not** have a dedicated
   regression test yet — see the matching item under Deferred work above. They were exercised only
   incidentally (a handful of ordinary requests during WPT/manual runs, never enough traffic to
   actually trip a rate limit or a budget eviction) and are unverified in the specific failure modes
-  they exist to handle.
+  they exist to handle. The Public Hash List's own lookup mechanism is the exception — see below.
+- **The real Public Hash List (step 18) was verified with a gtest against the actual shipped
+  file**, not a synthetic stand-in: `dom/crossoriginstorage/gtest/
+  TestCrossOriginStoragePublicHashList.cpp` extracts the first, a middle, and the last entry
+  directly from `data/public-hash-list.bin` at generation time and asserts `Contains()` finds all
+  three, plus rejects an absent (all-zeros) digest, malformed input, and a real digest tagged with
+  the wrong algorithm. `./mach gtest "CrossOriginStoragePublicHashList.*"` — all 4 cases pass. This
+  exercises the full path (`FINAL_TARGET_FILES` packaging, `NS_GRE_DIR` resolution at runtime, the
+  actual file read, and the binary search), not just the parsing logic in isolation. What it does
+  **not** cover: an end-to-end wildcard-scope disclosure decision actually driven by real PHL
+  membership (as opposed to GREASE) — doing that would need real content bytes matching one of the
+  ~295k listed hashes, which by construction (pre-image resistance) aren't available to fabricate
+  for a test.
 - **`nsIClearDataService` integration (step 17) was verified end to end with a marionette script**,
   not WPT (clear-data is chrome-only, never reachable from web content): writes two entries, calls
   `nsICrossOriginStorageService.clear()` directly, confirms both become unreadable; writes a third,
