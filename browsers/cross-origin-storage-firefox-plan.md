@@ -407,10 +407,10 @@ user-visible failure.
 The GitHub Actions release workflow is manual-dispatch only (`workflow_dispatch`, not on every
 push, to avoid paying for a full clean multi-platform build on every commit) and publishes macOS
 arm64, Linux x86_64, and Windows x86_64 builds to a rolling `cross-origin-storage-latest` release
-tag on the same fork, so testers can download a build without compiling locally — though only the
-macOS leg has actually been run and confirmed working; Linux and Windows are best-effort until
-someone triggers the workflow and checks. Those builds have the feature enabled by default, so
-there's nothing left for a tester to configure. Nothing has been proposed upstream to
+tag on the same fork, so testers can download a build without compiling locally — all three legs
+(macOS arm64, Linux x86_64, Windows x86_64) have been run and confirmed working. Those builds
+have the feature enabled by default, so there's nothing left for a tester to configure. Nothing
+has been proposed upstream to
 `mozilla-central` — this is a personal-fork feature branch for as long as Deferred work above
 remains open (default-enabled on this fork's own testing builds is not the same claim as "ready to
 ship").
