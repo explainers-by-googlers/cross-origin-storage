@@ -336,6 +336,37 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
     checksum, and wired it in as described in decision 16. Also added this feature's first unit
     test (a gtest against the real shipped data), closing part of the "no unit tests" gap from that
     same earlier self-audit.
+19. **Fix: macOS `globstar` and missing Windows MozillaBuild** (`691bb1cff8`) — the release
+    workflow's first triggered run failed on macOS (`shopt: globstar: invalid shell option name` —
+    bash 3.2, macOS's bundled shell, only gained `globstar` in bash 4.0, and none of the three
+    artifact glob patterns need it anyway) and on Windows (`./mach` itself hard-requires
+    MozillaBuild pre-installed at exactly `C:\mozilla-build`, which a stock GitHub-hosted runner
+    doesn't ship). Dropped `globstar` from the `shopt` call; added an explicit PowerShell
+    install step for MozillaBuild before the first `./mach` invocation of any kind.
+20. **Add gtest coverage for the registry, utils, and rate limiter** (`8245611557`) — the gap that
+    had specifically blocked upstreaming this branch (see the last Deferred-work bullet below).
+    Covers the create/read lifecycle, the concurrent-writer safety invariant (decision 8),
+    disclosure scoping across all three scopes and its monotonic-upgrade rule, and the
+    `RemoveSite`/`ClearAll` clear-data paths (step 17) — including the partial-revoke branch
+    against two genuinely distinct sites (`example.com`/`example.org`), the specific gap the
+    step-17 marionette script couldn't cover on its own. Also covers the rate limiter (step 13),
+    including actually exhausting a write burst to a denial, closing another named gap below.
+    Found and fixed two real bugs in the process: raw NSS calls (`ComputeHashValueHex` →
+    `PK11_HashBuf`) `MOZ_CRASH()` in a bare gtest process, since nothing there triggers PSM's
+    normal startup path — the crash (not a hang) was what had looked like an unrelated ~20-minute
+    test freeze, actually the headless crash reporter processing a report nothing was there to
+    dismiss; fixed with an explicit `NSS_NoDB_Init(nullptr)` call, matching existing precedent in
+    `security/manager/ssl/tests/gtest/HMACTest.cpp`. Separately, wildcard-scope disclosure is
+    correctly gated behind the PHL/GREASE roll (decision 16) even for the entry's own upgrade
+    writer, which an earlier draft of this test suite hadn't accounted for — fixed by asserting
+    only the deterministic parts of the monotonic-upgrade invariant, not a PHL/GREASE-dependent
+    outcome for a fabricated test hash that was never going to be genuinely public.
+21. **Fix: Windows release artifact glob targeted the wrong file** (`13b8c5b052`) — the run
+    triggered right after step 19 built successfully but then failed at artifact collection:
+    `./mach package` on Windows produces a plain `.zip` directly under `obj-*/dist/`, like the
+    other two platforms, not the self-extracting NSIS `.installer.exe` under `dist/install/sea/`
+    the glob was looking for (a separate build target this workflow never invokes). Changed the
+    glob to match the `.zip` that's actually produced.
 
 ## Deferred / follow-up work
 
@@ -380,16 +411,16 @@ Hash List snapshot landed in step 18. What's left:
   `Feature-Policy` header, which is supported), not something to fix as part of COS. Two WPT
   subtests that rely on the header-based (not `allow=`-attribute-based) restriction form currently
   fail for this reason.
-- **Dedicated regression tests for the persistence/budget/rate-limiting/clear-data code paths**:
-  step 18 added this feature's first gtest, but only for PHL lookup specifically (`Contains()`
-  against the real shipped file). Persistence, storage-budget eviction, rate limiting, and
-  `clearBySite()`'s partial-revoke branch were all verified only via ad hoc marionette scripts (not
-  checked into the tree) and a full WPT re-run (no regressions) each time, not via a checked-in,
-  repeatable automated test targeting each mechanism directly (e.g. a test that actually exhausts a
-  rate-limit bucket, forces a budget-triggered eviction, or exercises `clearBySite()` against two
-  genuinely distinct origins rather than the full-wipe path the step-17 marionette script actually
-  covered). Worth building before this goes further, same rationale as the concurrent-writers-race
-  item resolved below.
+- **Dedicated regression tests for the persistence/budget code paths**: step 20 closed most of
+  this — the registry's full lifecycle, disclosure scoping, `RemoveSite`'s partial-revoke branch
+  against two genuinely distinct sites, and the rate limiter (including actually exhausting a
+  write burst to a denial) all now have checked-in gtest coverage, not just ad hoc marionette
+  scripts. What's still uncovered: **persistence** (`CrossOriginStoragePersistence`'s disk
+  read/write/scan path — step 20's tests all use the in-memory fallback, none force a real
+  `WriteEntry`/`ScanPersistedEntries` round trip) and **storage-budget eviction**
+  (`EnforceStorageBudget` actually evicting an entry under a constrained budget) — both still
+  verified only via ad hoc marionette scripts (not checked into the tree) and a full WPT re-run
+  (no regressions) each time.
 
 ## Verification plan
 
@@ -448,18 +479,26 @@ Hash List snapshot landed in step 18. What's left:
   membership (as opposed to GREASE) — doing that would need real content bytes matching one of the
   ~295k listed hashes, which by construction (pre-image resistance) aren't available to fabricate
   for a test.
+- **Step 20's gtest suite** (`./mach gtest "CrossOriginStorage*"`) — 27 tests across 4 suites, all
+  passing: `CrossOriginStorageUtilsTest` (9), `CrossOriginStorageRegistryTest` (10),
+  `CrossOriginStorageRateLimiterTest` (4), `CrossOriginStoragePublicHashList` (4, from step 18). A
+  full WPT re-run after landing this confirmed no regressions — the only failures are the same
+  pre-existing, out-of-scope categories listed under Deferred work (declarative HTML/CSS/import
+  attribute, Permissions-Policy header), unchanged in identity from every prior run since step 9.
 - **`nsIClearDataService` integration (step 17) was verified end to end with a marionette script**,
   not WPT (clear-data is chrome-only, never reachable from web content): writes two entries, calls
   `nsICrossOriginStorageService.clear()` directly, confirms both become unreadable; writes a third,
   clears via the real `Services.clearData.deleteData(CLEAR_CROSS_ORIGIN_STORAGE, ...)` path
   (proving the flag registration, `ClearDataService.sys.mjs` wiring, and XPCOM component
   registration all actually connect, not just the registry method in isolation), confirms the
-  same. Only the **full-wipe** path (`clear()`/`deleteData`) was exercised this way —
+  same. Only the **full-wipe** path (`clear()`/`deleteData`) was exercised end to end this way —
   `clearBySite()`'s partial-revoke branch (an entry surviving with one storing origin removed but
-  others intact) was reasoned through by hand, not run against real, distinct origins; doing that
-  properly needs real content-page navigation to distinct https origins, which a chrome-context-only
-  marionette script (system principal throughout) can't produce on its own. See the matching item
-  under Deferred work above.
+  others intact) still isn't, since that needs real content-page navigation to distinct https
+  origins, which a chrome-context-only marionette script (system principal throughout) can't
+  produce on its own. Step 20's gtest suite does now cover the underlying logic `clearBySite()`
+  delegates to (`CrossOriginStorageRegistry::RemoveSite()`) directly, against two genuinely
+  distinct sites — a real, checked-in regression test for the mechanism itself, just not the
+  actor/IPC plumbing on top of it. See the matching item under Deferred work above.
 
 ## Rollout
 
