@@ -72,6 +72,25 @@ still be read and sent individually, just sourced from disk instead of memory.
    `file.metadata()`, and loop-read it back in `WRITE_CHUNK_BYTES` pieces, sending each piece as a
    `WriteChunk` immediately — never materializing the whole file as one `Vec<u8>`.
 
+## Deferred / follow-up work
+
+This plan only changes the write-side scratch buffer (see Context above) — deliberately out of
+scope:
+
+- **The resource thread's own registry storage and the `BeginWrite`/`WriteChunk`/`FinishWrite`
+  wire protocol** are unaffected by this change and stay exactly as they are.
+- **Broader COS hardening** (rate limiting, PHL refresh automation, storage-budget eviction
+  improvements) is unrelated to the write-buffer backing store and isn't touched here — see the
+  shared cross-vendor engineering notes for that work generally.
+
+## Risks
+
+**The main risk is platform-specific `tempfile::tempfile()` behavior**, not the chunked-transfer
+logic itself (which is explicitly unchanged, see Key architectural decisions above). An anonymous,
+unlinked temp file's exact semantics (permissions, filesystem placement, behavior under a full
+disk) can differ across the platforms Servo supports — verify the write/seek/truncate/close path
+this change touches on each target platform, not just the one used for local development.
+
 ## Verification plan
 
 1. `cargo check -p servo-script` must be clean, no new warnings.

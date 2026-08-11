@@ -21,13 +21,11 @@ per-algorithm hash values, entry-cleanup races between concurrent writers) that 
 would miss; both were used as prior art the way Ladybird's own plan used Servo's.
 
 This document covers Firefox's Phase 1: the WebIDL surface, actor plumbing, and a correct read/write
-round trip (now disk-persisted, budget-accounted, PHL/GREASE-gated, and rate-limited) across all
-three disclosure scopes, plus a handful of follow-up fixes found via WPT and real end-to-end
-testing after the initial implementation. `dom.crossOriginStorage.enabled` now defaults to `true`
-on this branch (step 15) — this is a personal-fork testing branch, not a real Firefox release
-channel, so "on by default" here means "on for anyone who downloads a build from this branch's own
-release workflow," nothing more. Work happened on a `cross-origin-storage` branch off `main` in
-`tomayac/firefox`, committing at each step below.
+round trip (disk-persisted, budget-accounted, PHL/GREASE-gated, and rate-limited) across all
+three disclosure scopes. `dom.crossOriginStorage.enabled` defaults to `true` on this branch —
+this is a personal-fork testing branch, not a real Firefox release channel, so "on by default"
+here means "on for anyone who downloads a build from this branch's own release workflow," nothing
+more. Work happened on a `cross-origin-storage` branch off `main` in `tomayac/firefox`.
 
 ## Key architectural decisions
 
@@ -76,10 +74,10 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
    when the cursor sits past the current end; `Seek` moves the cursor without resizing; `Truncate`
    resizes (`SetLength`, which also zero-fills on grow) and clamps the cursor if it now exceeds the
    new size.
-4. **A generated WebIDL `BufferSource` union type turned out not to be usable** for accepting raw
-   bytes directly — exhaustive header search found no working generated binding for the plain
-   (non-`AllowShared`) `BufferSource` typedef in this configuration. Chunk bytes are instead
-   extracted with the same raw JSAPI calls named in decision 3
+4. **Chunk bytes are extracted with raw JSAPI calls, not a generated WebIDL `BufferSource` union
+   type.** There is no working generated binding for the plain (non-`AllowShared`) `BufferSource`
+   typedef in this configuration, so accepting raw bytes directly through one goes unused; chunk
+   bytes are instead extracted with the same raw JSAPI calls named in decision 3
    (`JS::GetObjectAsArrayBuffer`/`JS_GetObjectAsArrayBufferView`), which unwrap cross-compartment
    wrappers internally and need no prior manual unwrap step.
 5. **Hashing/same-site/Permissions Policy/Navigator wiring all reuse existing Gecko primitives**
@@ -109,8 +107,8 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
    write does not. `UpgradeResourceVisibility` implements the spec's monotonic
    same-site<list<wildcard upgrade, with list-merges silently capped at the same 100-entry limit
    (excess candidates dropped, not erroring — the write has already succeeded by that point).
-   Wildcard's Public Hash List gate and GREASE'ing are explicitly not implemented (see Deferred
-   work below).
+   Wildcard-scope disclosure is additionally gated by the Public Hash List and GREASE'ing — see
+   decision 12 below.
 8. **Write-session lifecycle**: `BeginWrite`/`WriteChunk`/`Seek`/`Truncate`/`FinishWrite`/
    `AbortWrite` actor messages (`PCrossOriginStorage.ipdl`) drive a `pending`→`written` entry state
    machine gated by an outstanding-writer count (incremented by `CompleteCreateRequest`,
@@ -150,27 +148,23 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
     unavailable in this process (no profile, e.g. certain test harnesses), the registry silently
     falls back to keeping bytes resident in memory (`mBytesOnDisk = false`), exactly as Phase 1
     originally worked, rather than failing the feature outright.
-11. **A real, non-obvious Gecko footgun found via end-to-end testing, not code review:**
-    `nsIBinaryInputStream::ReadCString()` internally calls `ReadSegments()`, and a raw local-file
-    input stream (`NS_NewLocalFileInputStream`) unconditionally returns `NS_ERROR_NOT_IMPLEMENTED`
-    for `ReadSegments()` (`nsFileStreamBase::ReadSegments`, `netwerk/base/nsFileStreams.cpp`) — its
-    own comment says to wrap it in a buffered stream instead, which is what `ReadMetaFile` now does
-    via `NS_NewBufferedInputStream`. This is deterministic, not a race: it would have failed on
-    *every* metadata read, not just after a restart, and static analysis / code review alone
-    wouldn't have caught it (the write path uses `WriteBytes`/`Write()`, not `WriteSegments`, so
-    only reading was ever affected) — found only by actually writing an entry, restarting the
-    browser via a real marionette-driven process relaunch against a persistent profile, and
-    confirming the read-back failed. See the Verification plan below.
+11. **`nsIBinaryInputStream::ReadCString()` needs a buffered underlying stream, not a raw file
+    stream.** `ReadCString()` internally calls `ReadSegments()`, and a raw local-file input stream
+    (`NS_NewLocalFileInputStream`) unconditionally returns `NS_ERROR_NOT_IMPLEMENTED` for
+    `ReadSegments()` (`nsFileStreamBase::ReadSegments`, `netwerk/base/nsFileStreams.cpp`) — wrap it
+    in a buffered stream (`NS_NewBufferedInputStream`) instead, which is what `ReadMetaFile` does.
+    This is deterministic, not a race: it affects every metadata read, not just one after a restart
+    (the write path uses `WriteBytes`/`Write()`, not `WriteSegments`, so only reading is affected).
+    Persistence code needs a test that spans a real process restart against real on-disk state, not
+    just a passing build and in-process test suite — see the Verification plan below.
 12. **Public Hash List + GREASE'ing gate wildcard-scope disclosure, matching the spec's
-    `#availability-gating` two-part design.** New `CrossOriginStoragePublicHashList` (a
-    linear-scanned compiled-in list of known-public SHA-256 hashes — trivial complexity-wise
-    while the list is empty, deliberately not a fabricated/placeholder dataset; see the class's own
-    header comment for why real population is separate, later work no implementer has a live feed
-    for yet) and `CrossOriginStorageGrease` (1% probability, 500 KiB size ceiling, matching Servo's
-    and Ladybird's own chosen constants, rolled via `mozilla::RandomUint64OrDie()` — a
+    `#availability-gating` two-part design.** New `CrossOriginStoragePublicHashList` (binary-search
+    lookup against the real upstream snapshot described in decision 16 below) and
+    `CrossOriginStorageGrease` (1% probability, 500 KiB size ceiling, matching Servo's and
+    Ladybird's own chosen constants, rolled via `mozilla::RandomUint64OrDie()` — a
     cryptographically-sourced RNG, not a fast/predictable one, since this feeds a privacy-relevant
-    decision). `CompleteReadRequest`'s `Wildcard` branch now checks PHL-membership OR a GREASE roll
-    before disclosing, instead of unconditionally disclosing.
+    decision). `CompleteReadRequest`'s `Wildcard` branch checks PHL-membership OR a GREASE roll
+    before disclosing.
 13. **Storage-budget eviction is disk-capacity-based and two-tier, matching Ladybird's chosen
     split**: a global budget of 60% of the persistence directory's disk capacity (`nsIFile::
     GetDiskCapacity`, the same primitive `dom/quota/ActorsParent.cpp` uses for its own budget,
@@ -225,9 +219,8 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
     rather than being reattributed — rare (needs multiple origins to have genuinely stored
     byte-identical content) and bounded (can't grow, only go stale), not fixed here.
 16. **The Public Hash List is a real upstream snapshot, shipped as a plain data file, not a
-    compiled-in array.** A self-audit had assumed no real PHL existed yet and shipped an
-    intentionally empty seed (decision 12); this turned out to be wrong — `WICG/cross-origin-storage`
-    has its own actively-maintained `public-hash-list/implementation/` pipeline (scrapers for cdnjs,
+    compiled-in array.** `WICG/cross-origin-storage` has its own actively-maintained
+    `public-hash-list/implementation/` pipeline (scrapers for cdnjs,
     jsDelivr, Google Fonts, Chromium's pervasive-resource list, npm popularity, HTTP Archive, Hugging
     Face, and manual additions, gated by real-world k-anonymity thresholds), regenerated on a
     schedule and published at `public-hash-list/implementation/data/public-hash-list.dat` (a
@@ -252,134 +245,49 @@ release workflow," nothing more. Work happened on a `cross-origin-storage` branc
 
 ## Implementation plan
 
-### Steps
+### Build order
 
-1. **Branch**: create `cross-origin-storage` off `main`.
-2. **WebIDL surface + Navigator/WorkerNavigator wiring** (`af78acbd1d`) — `CrossOriginStorageManager`
-   interface, `CrossOriginStorageRequestFileHandleHash`/`Options` dictionaries transcribed from the
-   spec's IDL block; `dom.crossOriginStorage.enabled` static pref; new `dom/crossoriginstorage/`
-   directory and `moz.build`.
-3. **Request validation + Permissions Policy gating** (`fb736fe732`) — recognized-algorithm check
-   plus per-algorithm hex-length validation for every WebCrypto-recognized algorithm, not just
-   SHA-256 (closing the path-traversal-shaped footgun both Servo's and Ladybird's own notes flag);
-   `origins` option normalization capped at 100 entries; `FeaturePolicyUtils::IsFeatureAllowed`
-   check before validation; all rejections queued as a task per spec, never a synchronous throw.
-4. **`PCrossOriginStorage` actor + in-memory registry singleton** (`8b3fc546b8`) — protocol
-   registration in `PBackground.ipdl`/`BackgroundParentImpl`/`BackgroundChildImpl`;
-   `CrossOriginStorageRegistry` singleton with the state machine and outstanding-writer-count
-   cleanup from decision 8.
-5. **Wire `CrossOriginStorageManager::RequestFileHandle()` to the actor** for both read and create
-   requests (`d1ea9f6d7a`), constructing a real `dom::FileSystemFileHandle` per decision 2.
-6. **Fix: register `cross-origin-storage` as a recognized Permissions Policy feature**
-   (`d70f3fb446`) — found via manual testing against a public COS test page
-   (`web-ai-community.github.io/cross-origin-storage-extension/test.html`): `sSupportedFeatures[]`
-   had never been given an entry, so `DefaultAllowListFeature` fell through to deny-all for every
-   request, surfacing as `NotAllowedError` regardless of caller.
-7. **Fix: add `CrossOriginStorageWritableFileStream` for a real `write()` method**
-   (`5399bc79ad`) — also found via manual testing: `createWritable()` had been resolving with a
-   plain `WritableStream` (via `WritableStream::CreateNative`), which per WHATWG Streams has no
-   `.write()` method at all; decision 2 above covers the class actually built to fix this.
-8. **Implement list- and wildcard-scoped disclosure and visibility upgrades** (`ccc8e52764`) — the
-   `origins` option, previously rejected outright as "not yet supported by this implementation".
-9. **Import the COS WPT suite from `wpt#61811` and run it against the local build**
-   (`7ecf94fba7`) — copying both `cross-origin-storage/` and the separately-located
-   `interfaces/cross-origin-storage.idl` (`idlharness.js` fetches it independently; missing it
-   broke every worker-global test with a fetch error, not a real failure).
-10. **Add a GitHub Actions workflow** building macOS arm64 and publishing to GitHub Releases on
-    push to this branch (`e410108b1f`) —
-    `.github/workflows/cross-origin-storage-build.yml`, so testers can try the feature without
-    building from source; publishes to a rolling `cross-origin-storage-latest` release tag.
-11. **Fix: implement `seek()`/`truncate()` and ArrayBuffer/ArrayBufferView `write()` chunks**
-    (`92ecd41594`) — found via the imported `filesystemwritablefilestream-verify` WPT subtest,
-    which calls `.seek()`/`.truncate()` directly and separately pipes a `Blob.stream()`
-    `ReadableStream` (which yields `Uint8Array` chunks, not a `Blob` or a string) into the writable
-    stream. See decisions 3 and 4.
-12. **Fix: cap a write session's in-memory buffer at 4 GiB** (`f3ced467e1`) — closed the
-    allocation-DoS gap flagged below, matching Servo's/Ladybird's own placeholder ceiling; see
-    decision 9.
-13. **Add persistence, real storage-budget eviction, PHL/GREASE'ing, and rate limiting**
-    (`21e4491f24`) — a self-audit surfaced five remaining gaps (grep for `TODO`/`FIXME`/documented
-    "Phase 1 limitations" comments across the tree, cross-checked against the Deferred work list
-    below); this step closes four of them (persistence, storage budget, wildcard PHL/GREASE, rate
-    limiting) plus the write-size cap's own remaining "not per-origin/global budget" gap from step
-    12. See decisions 10–14. Verified with a real marionette-driven process restart (write, quit,
-    relaunch, read back against a persistent profile), which also found and fixed a genuine Gecko
-    footgun (decision 11) that a full COS WPT re-run alone would not have caught, since WPT test
-    runs don't span a process restart.
-14. **Rework the release workflow: manual dispatch only, macOS + Linux + Windows**
-    (`0c546f8d19`) — previously ran (and rebuilt macOS-only) on every push, which is wasteful for a
-    full clean multi-platform build with no incremental caching; switched to `workflow_dispatch`
-    only, and matrixed the existing bootstrap/build/package steps across `macos-14`, `ubuntu-22.04`,
-    and `windows-2022`. Only the macOS leg has actually been run; see that step's own note in
-    Verification plan below.
-15. **Fix: `./mach bootstrap` has no `--no-interactive` flag** (`d79b385aac`) — the very first
-    triggered run of step 14's new workflow failed identically on all three legs at the bootstrap
-    step: `--no-interactive` is a *global* mach argument (must precede the subcommand), not one
-    `bootstrap` itself accepts, so appending it after `--application-choice=browser` made mach
-    reject the whole invocation outright. Simply dropped — mach's own `--help` says non-interactive
-    behavior is already assumed whenever there's no terminal, which is always true in CI.
-16. **Enable `dom.crossOriginStorage.enabled` by default on this branch** (`cafc735ca0`) — so
-    testers downloading a release-workflow build can use the feature immediately, no
-    `about:config` detour needed; updated the release notes to match. See decision 15's own
-    "personal-fork testing branch, not a release channel" framing above for why this is a
-    reasonable thing to do here specifically.
-17. **Add `nsIClearDataService` integration** (`a07ac65fa7`) — closing the gap flagged in an
-    earlier self-audit: entries aren't per-origin storage, so "Clear Data"/"Forget This Site"
-    previously did nothing to them at all, a real problem for a feature now enabled by default and
-    writing to the user's actual profile directory. See decision 15 for the full design (and why
-    it isn't simply "delete by ownership" the way every other `Cleaner` in
-    `ClearDataService.sys.mjs` is).
-18. **Populate the Public Hash List with a real upstream snapshot** (`62a6025eb5`) — found while
-    syncing this document to the shared spec repository: `WICG/cross-origin-storage` has a real,
-    actively-maintained PHL pipeline this branch's own earlier self-audit had assumed didn't exist.
-    Downloaded the published `.dat` snapshot, verified it against the upstream-published SHA-256
-    checksum, and wired it in as described in decision 16. Also added this feature's first unit
-    test (a gtest against the real shipped data), closing part of the "no unit tests" gap from that
-    same earlier self-audit.
-19. **Fix: macOS `globstar` and missing Windows MozillaBuild** (`691bb1cff8`) — the release
-    workflow's first triggered run failed on macOS (`shopt: globstar: invalid shell option name` —
-    bash 3.2, macOS's bundled shell, only gained `globstar` in bash 4.0, and none of the three
-    artifact glob patterns need it anyway) and on Windows (`./mach` itself hard-requires
-    MozillaBuild pre-installed at exactly `C:\mozilla-build`, which a stock GitHub-hosted runner
-    doesn't ship). Dropped `globstar` from the `shopt` call; added an explicit PowerShell
-    install step for MozillaBuild before the first `./mach` invocation of any kind.
-20. **Add gtest coverage for the registry, utils, and rate limiter** (`8245611557`) — the gap that
-    had specifically blocked upstreaming this branch (see the last Deferred-work bullet below).
-    Covers the create/read lifecycle, the concurrent-writer safety invariant (decision 8),
-    disclosure scoping across all three scopes and its monotonic-upgrade rule, and the
-    `RemoveSite`/`ClearAll` clear-data paths (step 17) — including the partial-revoke branch
-    against two genuinely distinct sites (`example.com`/`example.org`), the specific gap the
-    step-17 marionette script couldn't cover on its own. Also covers the rate limiter (step 13),
-    including actually exhausting a write burst to a denial, closing another named gap below.
-    Found and fixed two real bugs in the process: raw NSS calls (`ComputeHashValueHex` →
-    `PK11_HashBuf`) `MOZ_CRASH()` in a bare gtest process, since nothing there triggers PSM's
-    normal startup path — the crash (not a hang) was what had looked like an unrelated ~20-minute
-    test freeze, actually the headless crash reporter processing a report nothing was there to
-    dismiss; fixed with an explicit `NSS_NoDB_Init(nullptr)` call, matching existing precedent in
-    `security/manager/ssl/tests/gtest/HMACTest.cpp`. Separately, wildcard-scope disclosure is
-    correctly gated behind the PHL/GREASE roll (decision 16) even for the entry's own upgrade
-    writer, which an earlier draft of this test suite hadn't accounted for — fixed by asserting
-    only the deterministic parts of the monotonic-upgrade invariant, not a PHL/GREASE-dependent
-    outcome for a fabricated test hash that was never going to be genuinely public.
-21. **Fix: Windows release artifact glob targeted the wrong file** (`13b8c5b052`) — the run
-    triggered right after step 19 built successfully but then failed at artifact collection:
-    `./mach package` on Windows produces a plain `.zip` directly under `obj-*/dist/`, like the
-    other two platforms, not the self-extracting NSIS `.installer.exe` under `dist/install/sea/`
-    the glob was looking for (a separate build target this workflow never invokes). Changed the
-    glob to match the `.zip` that's actually produced.
+Recommended order to build this feature in Firefox specifically, on a `cross-origin-storage`
+branch off `main`:
+
+1. **WebIDL surface + Navigator/WorkerNavigator wiring**, pref-gated
+   (`dom.crossOriginStorage.enabled`): `CrossOriginStorageManager` interface,
+   `CrossOriginStorageRequestFileHandleHash`/`Options` dictionaries transcribed from the spec's IDL
+   block, in a new `dom/crossoriginstorage/` directory. Methods reject with a placeholder error
+   until the actor exists.
+2. **Request validation + Permissions Policy gating**: per-algorithm hash-shape checks for every
+   WebCrypto-recognized algorithm, not just SHA-256 (see decision 5); register `cross-origin-storage`
+   in `sSupportedFeatures[]` and check via `FeaturePolicyUtils::IsFeatureAllowed` before validation.
+3. **`PCrossOriginStorage` actor + in-memory `CrossOriginStorageRegistry` singleton** on the
+   PBackground thread (decisions 1, 7, 8).
+4. **Wire `CrossOriginStorageManager::RequestFileHandle()` to the actor** for both read and create
+   requests, constructing a real `dom::FileSystemFileHandle` (decision 2) and
+   `CrossOriginStorageWritableFileStream` (decisions 2–4) for the write path.
+5. **Import and run the COS WPT suite** (`testing/web-platform/tests/cross-origin-storage/`, plus
+   the separately-located `interfaces/cross-origin-storage.idl` that `idlharness.js` needs) to
+   validate the round trip end to end — this validates the core round trip before layering more
+   scopes and persistence on top.
+6. **List- and wildcard-scoped disclosure and the monotonic visibility-upgrade rule** (decision 7).
+7. **Persistence (decision 10), real storage-budget eviction (decision 13), Public Hash List +
+   GREASE'ing (decisions 12, 16), and rate limiting (decision 14)** — these are naturally bundled
+   since they all touch the same registry/write-path surface.
+8. **`nsIClearDataService` integration** with revoke-and-GC semantics (decision 15).
+9. **gtest coverage** for the registry, utils, and rate limiter, directly against the
+   PBackground-thread singletons (no script/IPC) — see the Verification plan below.
+10. **CI**: a `workflow_dispatch`-only GitHub Actions workflow building and publishing
+    macOS/Linux/Windows builds to a rolling release tag, so testers can try the feature without
+    building from source.
 
 ## Deferred / follow-up work
 
-Narrowed four times now from the original Phase 1 scoping: list/wildcard-scope and the write-size
-cap landed in steps 8 and 12; persistence, real storage-budget eviction, PHL/GREASE'ing, and rate
-limiting landed in step 13; `nsIClearDataService` integration landed in step 17; the real Public
-Hash List snapshot landed in step 18. What's left:
+What's still open, beyond the architecture described above:
 
 - **Real streaming writes**: a write session's bytes are still fully memory-resident during the
-  write itself (step 12's 4 GiB cap), only reaching disk once `close()`'s `VerifyAndStore` succeeds
-  (decision 10). Real streaming (a disk-backed temp file, chunked transfer without holding the full
-  payload in either process's memory) is what would let that ceiling be raised or removed safely.
-- **A real I/O thread for persistence**: `CrossOriginStoragePersistence` (and, since step 18,
+  write itself (bounded by the 4 GiB cap, decision 9), only reaching disk once `close()`'s
+  `VerifyAndStore` succeeds (decision 10). Real streaming (a disk-backed temp file, chunked
+  transfer without holding the full payload in either process's memory) is what would let that
+  ceiling be raised or removed safely.
+- **A real I/O thread for persistence**: `CrossOriginStoragePersistence` (and
   `CrossOriginStoragePublicHashList`'s own lazy load) does synchronous file I/O directly on the
   PBackground thread (documented in `CrossOriginStoragePersistence`'s own header comment) rather
   than dispatching to a dedicated thread the way QuotaManager does — correct but not necessarily
@@ -388,129 +296,121 @@ Hash List snapshot landed in step 18. What's left:
 - **A real eviction index**: `EnforceStorageBudget` does a full-entry-list scan-and-sort on every
   budget-relevant write (documented in the registry header's Phase 1 limitations note), not the
   incremental O(1) usage-tracking / O(log n) eviction-index a real implementation needs at scale.
-- **Keeping the Public Hash List snapshot current**: step 18's `data/public-hash-list.bin` is a
-  one-time snapshot (generated `62a6025eb5`); the upstream `.dat` file is regenerated on its own
-  schedule (a bot commit landed *during this same session*, coincidentally), and nothing here
-  re-runs `generate_public_hash_list.py` automatically. A real implementation would need either a
-  periodic re-embed (rebuild-triggered, matching the etld_data.inc-style "checked-in generated
-  file, manually refreshed" precedent this mirrors) or a genuine runtime update mechanism -- out of
-  scope for a first real pass.
+- **Keeping the Public Hash List snapshot current**: `data/public-hash-list.bin` is a one-time
+  snapshot; the upstream `.dat` file is regenerated on its own schedule, and nothing here re-runs
+  `generate_public_hash_list.py` automatically. A real implementation would need either a periodic
+  re-embed (rebuild-triggered, matching the etld_data.inc-style "checked-in generated file,
+  manually refreshed" precedent this mirrors) or a genuine runtime update mechanism — out of scope
+  for a first real pass.
 - **Dedicated security review pass**: per-algorithm path-safety validation reaching the trusted
   process, resource caps on `seek()`/`truncate()` once real disk backing exists.
-- **Settings UI**: inspect/delete individual entries from `about:preferences` or similar --
-  step 17's clear-data integration covers bulk/site-scoped clearing, not a per-entry browser.
+- **Settings UI**: inspect/delete individual entries from `about:preferences` or similar — the
+  clear-data integration (decision 15) covers bulk/site-scoped clearing, not a per-entry browser.
 - **Reattributing storage-budget usage on partial site-clear**: decision 15's own documented
-  limitation -- if `clearBySite()` removes specifically an entry's *first* storing origin (the one
+  limitation — if `clearBySite()` removes specifically an entry's *first* storing origin (the one
   `mOriginUsage` attributes bytes to) while other storing origins remain, that usage credit goes
   stale rather than transferring to the entry's new first storing origin. Rare, bounded, not fixed.
 - **Declarative integrations** (HTML `crossoriginstorage` attribute, JS import attribute, CSS
   `cross-origin-storage()`): each belongs to its own host-language spec, out of scope here. WPT
-  subtests for all three currently fail for this reason, confirmed on the latest full-suite run.
+  subtests for all three currently fail for this reason.
 - **Firefox's lack of `Permissions-Policy` HTTP header support**: a pre-existing platform gap
   (`grep -rln "\"Permissions-Policy\""` across `dom/`/`netwerk/` returns nothing, vs. the legacy
   `Feature-Policy` header, which is supported), not something to fix as part of COS. Two WPT
   subtests that rely on the header-based (not `allow=`-attribute-based) restriction form currently
   fail for this reason.
-- **Dedicated regression tests for the persistence/budget code paths**: step 20 closed most of
-  this — the registry's full lifecycle, disclosure scoping, `RemoveSite`'s partial-revoke branch
-  against two genuinely distinct sites, and the rate limiter (including actually exhausting a
-  write burst to a denial) all now have checked-in gtest coverage, not just ad hoc marionette
-  scripts. What's still uncovered: **persistence** (`CrossOriginStoragePersistence`'s disk
-  read/write/scan path — step 20's tests all use the in-memory fallback, none force a real
-  `WriteEntry`/`ScanPersistedEntries` round trip) and **storage-budget eviction**
-  (`EnforceStorageBudget` actually evicting an entry under a constrained budget) — both still
-  verified only via ad hoc marionette scripts (not checked into the tree) and a full WPT re-run
-  (no regressions) each time.
+- **Dedicated regression tests for the persistence/budget code paths**: the registry's full
+  lifecycle, disclosure scoping, `RemoveSite`'s partial-revoke branch against two genuinely
+  distinct sites, and the rate limiter (including exhausting a write burst to a denial) all have
+  checked-in gtest coverage. What's still uncovered: **persistence**
+  (`CrossOriginStoragePersistence`'s disk read/write/scan path — the current gtest suite exercises
+  only the in-memory fallback, none force a real `WriteEntry`/`ScanPersistedEntries` round trip)
+  and **storage-budget eviction** (`EnforceStorageBudget` actually evicting an entry under a
+  constrained budget) — both still verified only via ad hoc marionette scripts (not checked into
+  the tree) and a full WPT re-run.
+
+## Risks
+
+**Biggest open risk: the write path is still fully memory-resident, capped at a flat 4 GiB
+ceiling (decision 9), not genuinely streaming to disk.** This bounds worst-case memory correctly,
+but it's a hard ceiling on how large a single write can ever be, and one in-flight write can hold
+up to 4 GiB resident in the parent process. Removing or raising that ceiling safely needs real
+disk-backed streaming (see Deferred work above) — not a purely mechanical swap, since the
+integrity-ordering constraint the shared cross-vendor engineering notes describe (hash only the
+complete, final content, never incrementally) applies regardless of backing store.
+
+**Second risk: storage-budget eviction and PHL-membership disclosure have no dedicated regression
+test yet** (see Deferred work and Verification plan below) — they're exercised only incidentally
+through manual/WPT runs that don't generate enough traffic to trip an eviction or land on a real
+PHL-listed hash. A regression in either would likely go unnoticed until it surfaced as a real,
+user-visible failure.
 
 ## Verification plan
 
-- `./mach build` after every WebIDL/IPDL/XPIDL-touching step (2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 17,
-  18)
-  — new bindings and actor code need a real build, not `build faster`.
-- Manual smoke testing via `./mach run --setpref dom.crossOriginStorage.enabled=true` against a
-  public COS test page after each user-visible step — this is what actually caught the two real
-  bugs fixed in steps 6 and 7; type-checking and WPT alone would not have caught either, since
-  both were runtime-only failures (a feature-policy allowlist miss, and a missing prototype
-  method) that don't show up as compile errors.
-- `./mach wpt --headless --setpref dom.crossOriginStorage.enabled=true
-  testing/web-platform/tests/cross-origin-storage/` after every step from 9 onward. Current state
-  (post step 13): `filesystemwritablefilestream-verify.tentative.https.any.js` passes 16/16
-  subtests across all 4 globals; `requestFileHandle-create-and-read.tentative.https.any.js`
-  (including its concurrent-writers subtest, see below) passes 12/12 across all 4 globals; the only
-  remaining failures across the full suite are the pre-existing, explicitly out-of-scope gaps
-  listed under Deferred work above (declarative HTML/CSS/import-attribute integrations, and the
-  `Permissions-Policy` header) — unchanged in count and identity across every re-run since step 9,
-  confirming none of steps 10–14 regressed anything.
-- **Persistence (step 13) was verified with a real cross-process restart**, not just WPT (a single
-  WPT run never spans a process restart, so it structurally cannot exercise the
-  reload-from-disk path): a `marionette_driver`-scripted Python harness launches the built Firefox
-  against a persistent (not auto-deleted) profile with a `.bytes`/`.meta` pair confirmed on disk
-  after the write, force-quits it, relaunches against the *same* profile, and confirms
-  `requestFileHandle()` (no `create`) + `getFile()` still returns the original content. This is
-  what actually caught decision 11's `ReadSegments()` bug — every earlier verification pass
-  (build succeeding, full WPT suite passing) had missed it, since the write path never exercises
-  `ReadCString()` at all and nothing else in this feature restarts the browser mid-test.
-- The write-size cap from step 12 has **still not** been exercised end to end at the exact 4 GiB
-  boundary (WPT has no dedicated coverage since the spec doesn't mandate an exact ceiling, and
-  writing 4 GiB in a quick manual/scripted test isn't practical). A session whose `WriteChunk`/
-  `Truncate` calls would grow `WriteSession::mBytes` past 4 GiB is expected to fail `close()` with
-  `DataError`; worth an actual regression test (e.g. seeking to just past 4 GiB and writing one
-  byte, rather than writing the full 4 GiB) before relying on this.
-- The two-concurrent-writers-one-fails-one-succeeds scenario the outstanding-writer-count design
-  (decision 8) exists to handle is **covered**: it turned out to already be a test case in the
-  imported `wpt#61811` suite (`requestFileHandle-create-and-read.tentative.https.any.js`, "a failed
-  write does not disrupt a concurrent, still-outstanding write for the same hash that succeeds") —
-  missed on an earlier read-through of the suite, found on a closer look, confirmed passing 12/12
-  across all 4 globals post step 13. No new test was needed.
-- Storage-budget eviction, rate limiting, and GREASE'ing (step 13) do **not** have a dedicated
-  regression test yet — see the matching item under Deferred work above. They were exercised only
-  incidentally (a handful of ordinary requests during WPT/manual runs, never enough traffic to
-  actually trip a rate limit or a budget eviction) and are unverified in the specific failure modes
-  they exist to handle. The Public Hash List's own lookup mechanism is the exception — see below.
-- **The real Public Hash List (step 18) was verified with a gtest against the actual shipped
-  file**, not a synthetic stand-in: `dom/crossoriginstorage/gtest/
-  TestCrossOriginStoragePublicHashList.cpp` extracts the first, a middle, and the last entry
-  directly from `data/public-hash-list.bin` at generation time and asserts `Contains()` finds all
-  three, plus rejects an absent (all-zeros) digest, malformed input, and a real digest tagged with
-  the wrong algorithm. `./mach gtest "CrossOriginStoragePublicHashList.*"` — all 4 cases pass. This
-  exercises the full path (`FINAL_TARGET_FILES` packaging, `NS_GRE_DIR` resolution at runtime, the
-  actual file read, and the binary search), not just the parsing logic in isolation. What it does
-  **not** cover: an end-to-end wildcard-scope disclosure decision actually driven by real PHL
-  membership (as opposed to GREASE) — doing that would need real content bytes matching one of the
-  ~295k listed hashes, which by construction (pre-image resistance) aren't available to fabricate
-  for a test.
-- **Step 20's gtest suite** (`./mach gtest "CrossOriginStorage*"`) — 27 tests across 4 suites, all
-  passing: `CrossOriginStorageUtilsTest` (9), `CrossOriginStorageRegistryTest` (10),
-  `CrossOriginStorageRateLimiterTest` (4), `CrossOriginStoragePublicHashList` (4, from step 18). A
-  full WPT re-run after landing this confirmed no regressions — the only failures are the same
-  pre-existing, out-of-scope categories listed under Deferred work (declarative HTML/CSS/import
-  attribute, Permissions-Policy header), unchanged in identity from every prior run since step 9.
-- **`nsIClearDataService` integration (step 17) was verified end to end with a marionette script**,
-  not WPT (clear-data is chrome-only, never reachable from web content): writes two entries, calls
-  `nsICrossOriginStorageService.clear()` directly, confirms both become unreadable; writes a third,
-  clears via the real `Services.clearData.deleteData(CLEAR_CROSS_ORIGIN_STORAGE, ...)` path
-  (proving the flag registration, `ClearDataService.sys.mjs` wiring, and XPCOM component
-  registration all actually connect, not just the registry method in isolation), confirms the
-  same. Only the **full-wipe** path (`clear()`/`deleteData`) was exercised end to end this way —
-  `clearBySite()`'s partial-revoke branch (an entry surviving with one storing origin removed but
-  others intact) still isn't, since that needs real content-page navigation to distinct https
-  origins, which a chrome-context-only marionette script (system principal throughout) can't
-  produce on its own. Step 20's gtest suite does now cover the underlying logic `clearBySite()`
-  delegates to (`CrossOriginStorageRegistry::RemoveSite()`) directly, against two genuinely
-  distinct sites — a real, checked-in regression test for the mechanism itself, just not the
-  actor/IPC plumbing on top of it. See the matching item under Deferred work above.
+- **Build after every WebIDL/IPDL/XPIDL-touching change.** New bindings and actor code need a real
+  `./mach build`, not `build faster`.
+- **Manual smoke testing** via `./mach run --setpref dom.crossOriginStorage.enabled=true` against a
+  real page exercising the API. This catches runtime-only failures — a Permissions Policy allowlist
+  miss, a missing prototype method — that don't show up as compile errors and that WPT or
+  type-checking alone won't surface.
+- **Run the imported WPT suite**: `./mach wpt --headless --setpref
+  dom.crossOriginStorage.enabled=true testing/web-platform/tests/cross-origin-storage/`. Expected
+  current state: `filesystemwritablefilestream-verify.tentative.https.any.js` and
+  `requestFileHandle-create-and-read.tentative.https.any.js` pass in full across all 4 globals; the
+  declarative HTML/CSS/import-attribute integration tests and two `Permissions-Policy`-header tests
+  are expected to fail (out of scope / pre-existing platform gap — see Deferred work above).
+- **Persistence needs verification via a real cross-process restart, not just WPT** — a WPT run
+  never spans a process restart, so it structurally cannot exercise the reload-from-disk path.
+  Recommended technique: a `marionette_driver`-scripted Python harness launches the built Firefox
+  against a persistent (not auto-deleted) profile, writes an entry, confirms the `.bytes`/`.meta`
+  pair on disk, force-quits the browser, relaunches against the *same* profile, and confirms
+  `requestFileHandle()` (no `create`) + `getFile()` still returns the original content.
+- **The write-size cap (4 GiB)** doesn't yet have a dedicated boundary test; worth adding as a
+  regression test that seeks to just past 4 GiB and writes one byte, expecting `close()` to fail
+  with `DataError` — not a test that actually writes 4 GiB.
+- **The concurrent-writers-one-fails-one-succeeds invariant** the outstanding-writer-count design
+  (decision 8) exists to handle is covered by the imported WPT suite's own test for it
+  (`requestFileHandle-create-and-read.tentative.https.any.js`, "a failed write does not disrupt a
+  concurrent, still-outstanding write for the same hash that succeeds") — no separate WPT-level
+  test is needed for this, though the gtest suite (below) also covers it directly for speed.
+- **Storage-budget eviction, rate limiting, and GREASE'ing**: the gtest suite covers rate-limiter
+  burst exhaustion; storage-budget eviction and PHL-membership disclosure (which needs a real
+  preimage, not fabricatable) are not yet covered — see the matching item under Deferred work
+  above.
+- **The Public Hash List**: recommended verification technique for this kind of shipped-data-file
+  testing is a gtest that extracts real first/middle/last entries from the shipped
+  `data/public-hash-list.bin` at generation time and asserts `Contains()` finds them, plus rejects
+  an absent (all-zeros) digest, malformed input, and a real digest tagged with the wrong algorithm
+  (`dom/crossoriginstorage/gtest/TestCrossOriginStoragePublicHashList.cpp`,
+  `./mach gtest "CrossOriginStoragePublicHashList.*"`). This exercises the full path
+  (`FINAL_TARGET_FILES` packaging, `NS_GRE_DIR` resolution at runtime, the actual file read, and the
+  binary search), not just the parsing logic in isolation. It does not cover an end-to-end
+  wildcard-scope disclosure decision actually driven by real PHL membership (as opposed to GREASE)
+  — that would need real content bytes matching one of the listed hashes, which by construction
+  (pre-image resistance) aren't available to fabricate for a test.
+- **The gtest suite as a whole** (`./mach gtest "CrossOriginStorage*"`) covers the registry
+  lifecycle, disclosure scoping, the monotonic upgrade rule, the `RemoveSite`/`ClearAll` clear-data
+  paths (including the partial-revoke branch against two genuinely distinct sites), and the
+  rate limiter's burst exhaustion. Raw NSS calls (`ComputeHashValueHex` → `PK11_HashBuf`) need an
+  explicit `NSS_NoDB_Init(nullptr)` call in a bare gtest process, since nothing there triggers the
+  platform's normal crypto-subsystem startup path — this matches
+  `security/manager/ssl/tests/gtest/HMACTest.cpp`'s own precedent.
+- **`nsIClearDataService` integration**: the recommended verification technique for chrome-only
+  surfaces WPT can't reach is a marionette script that writes entries, calls `clear()` directly and
+  via the real `Services.clearData.deleteData()` path, and confirms both are unreadable afterward.
+  The full-wipe path is straightforward to verify this way. The partial-revoke branch's actor/IPC
+  plumbing (as opposed to the underlying `RemoveSite()` registry logic, which the gtest suite
+  covers directly) needs real distinct-origin content-page navigation, which a chrome-context
+  script can't produce on its own.
 
 ## Rollout
 
-Every step above was committed individually to `tomayac/firefox`'s `cross-origin-storage` branch
-and pushed after local verification passed; no step was squashed or amended. The GitHub Actions
-release workflow (step 10, reworked in step 14) is manual-dispatch only (`workflow_dispatch`, not
-on every push, to avoid paying for a full clean multi-platform build on every commit) and publishes
-macOS arm64, Linux x86_64, and Windows x86_64 builds to a rolling `cross-origin-storage-latest`
-release tag on the same fork, so testers can download a build without compiling locally — though
-only the macOS leg has actually been run and confirmed working; Linux and Windows are best-effort
-until someone triggers the workflow and checks. As of step 16, those builds have the feature
-enabled by default, so there's nothing left for a tester to configure. Nothing has been proposed
-upstream to `mozilla-central` — this is a personal-fork feature branch for as long as Deferred work
-above remains open (default-enabled on this fork's own testing builds is not the same claim as
-"ready to ship" — see step 16's own framing).
+The GitHub Actions release workflow is manual-dispatch only (`workflow_dispatch`, not on every
+push, to avoid paying for a full clean multi-platform build on every commit) and publishes macOS
+arm64, Linux x86_64, and Windows x86_64 builds to a rolling `cross-origin-storage-latest` release
+tag on the same fork, so testers can download a build without compiling locally — though only the
+macOS leg has actually been run and confirmed working; Linux and Windows are best-effort until
+someone triggers the workflow and checks. Those builds have the feature enabled by default, so
+there's nothing left for a tester to configure. Nothing has been proposed upstream to
+`mozilla-central` — this is a personal-fork feature branch for as long as Deferred work above
+remains open (default-enabled on this fork's own testing builds is not the same claim as "ready to
+ship").
