@@ -29,9 +29,11 @@ turned out to be: almost all of it.
 
 This document covers the initial implementation: the WebIDL surface, IPC plumbing, and a correct
 read/write round trip (disk-persisted, budget-accounted, PHL/GREASE-gated, and rate-limited)
-across all three disclosure scopes, plus a real Public Hash List with an automated refresh.
-`CrossOriginStorageEnabled` is `status: testable` — off in shipping builds, on under the test
-runner. Work happened on a `cross-origin-storage` branch in `tomayac/WebKit`.
+across all three disclosure scopes, plus a real Public Hash List with an automated refresh. Work
+happened on a `cross-origin-storage` branch in `tomayac/WebKit`, and it builds, links, and passes
+the spec-conformance parts of the WPT suite — 139 subtests passing, with every remaining failure
+attributable to a host-language integration this implementation does not have or to a WebKit gap
+unrelated to this feature (see [Verification results](#verification-results)).
 
 ## Key architectural decisions
 
@@ -315,6 +317,11 @@ direct unit tests, and what needs a real browser with two real origins:
   target, so this needs a real listed resource. The manual-additions section carries exactly one
   entry with documented provenance and a fetchable source URL, which is the right anchor for this
   test. Not yet written.
+
+  Note that `origins-scoping`'s wildcard-tier test deliberately does *not* pin this down: it
+  asserts only that a non-storer's read is either a correct disclosure or a miss, because whether
+  a given hash is on the PHL is implementation-defined. So a passing suite is not evidence the PHL
+  gate works — that still needs this test.
 - **Registry logic directly.** Rate-limiter burst exhaustion, eviction ordering, the
   concurrent-writer race, and staleness are all far easier to drive against the registry's own
   functions than through a browser — and, per Ladybird's experience, loop-shaped scenarios can be
@@ -323,6 +330,67 @@ direct unit tests, and what needs a real browser with two real origins:
   happens; successes fall in `[capacity, capacity + slack]`), never an exact boundary count, since
   a refill tick landing between two consumes will let one extra request through
   non-deterministically. These tests are not written yet.
+
+## Verification results
+
+The suite was vendored into `LayoutTests/imported/w3c/web-platform-tests/` and run with
+`run-webkit-tests`. Two mechanical things are needed and neither is obvious: WebKit discovers
+tests by scanning the filesystem, so each `.any.js` needs checked-in `.any.html` and
+`.any.worker.html` placeholder wrappers beside it or its tests silently never run at all; and
+`interfaces/cross-origin-storage.idl` has to be copied separately, or `idlharness` fails with a
+fetch error that reads like a real failure.
+
+| Test file (window + worker where applicable) | Pass | Fail |
+|---|---:|---:|
+| `idlharness` | 30 + 30 | 0 |
+| `requestFileHandle-validation` | 12 + 12 | 0 |
+| `requestFileHandle-create-and-read` | 12 + 12 | 0 |
+| `filesystemwritablefilestream-verify` | 4 + 4 | 0 |
+| `origins-scoping` | 12 | 0 |
+| `permissions-policy` | 3 | 2 |
+| `declarative-css` (2 files) | 6 | 3 |
+| `declarative-html` (2 files) | 1 | 5 |
+| `import-attribute` (2 files) | 1 | 9 |
+| **Total** | **139** | **19** |
+
+Every remaining failure is outside this implementation:
+
+* **17** are the HTML `crossoriginstorage` attribute, the CSS `cross-origin-storage()` modifier,
+  and the JavaScript `crossOriginStorage` import attribute. Those are defined in their own host
+  languages, not in the COS specification, and none is implemented here. Several also need
+  `integrity` support the engine lacks independently — dynamic `import()` rejects the `integrity`
+  attribute itself, before COS is reached.
+* **2** need `Permissions-Policy` *header* support, which WebKit does not have at all: there is
+  not one reference to that header anywhere in WebCore or WebKit, only the iframe `allow`
+  attribute path. Both failing tests block their context with
+  `pipeHeader: 'header(Permissions-Policy,cross-origin-storage=())'`. Worth knowing because the
+  second of them looks like an ordering bug in the implementation — it expects `NotAllowedError`
+  and gets `TypeError` — when in fact the policy check does run first and the context was simply
+  never blocked.
+
+**Two bugs that only a real end-to-end run could have found**, both of which made the feature
+non-functional while every other signal stayed green:
+
+1. **The digest was compared in the wrong case.** `WTF::toHexString()` emits uppercase; a COS hash
+   value is normatively lowercase. Every write failed its own hash check, including correct ones.
+   It was silent: a failed verification aborts the write, discards the temporary file, and
+   reclaims the entry as never-written, so every later read is an ordinary-looking
+   `NotFoundError`. On disk it showed as a zero-length bytes file with no metadata beside it.
+   **The unit tests could not have caught this** — they cover the PHL, the rate limiter, and
+   request validation, but not `closeWritable`, the one disk-touching path the bug lived on, and
+   one this document already listed as untested.
+2. **`close()` could not report failure.** `FileSystemWritableFileStreamSink::close()` resolved
+   its promise unconditionally and handed the backend an ignoring callback, so nothing occurring
+   while closing could reach script. That both hid bug 1 and made the specification's `DataError`
+   on a hash mismatch unreachable. Fixing it meant threading the promise through `closeWritable()`
+   and settling it on the backend's result — which changes the bucket file system's behaviour too,
+   so `LayoutTests/storage/filesystemaccess` was run to confirm it regresses nothing.
+
+**A caution about which passes are load-bearing.** Several cross-origin assertions in
+`origins-scoping` tolerate a GREASE'd miss, since GREASE'ing is deliberately unobservable. Before
+bug 1 was fixed those tests passed anyway, while *every* read in the browser was failing — a
+suite can be 7/12 green with the feature completely broken. Read the storing-origin read-back
+cases as the real signal.
 
 ## Rollout
 
