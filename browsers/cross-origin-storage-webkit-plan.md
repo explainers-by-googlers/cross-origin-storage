@@ -237,6 +237,10 @@ Following the notes' suggested ordering, adapted to what WebKit already had:
 Named here rather than left as `FIXME`s, because a deferral note nothing forces anyone to revisit
 is not a plan.
 
+Each of the items below was reviewed deliberately and kept, rather than simply not reached — the
+reasoning is recorded with each so a later reader can disagree with the judgement rather than
+having to reconstruct it.
+
 - **Hashing blocks the storage work queue.** `closeWritable()` reads and digests the finished
   temporary file synchronously, in 1 MiB chunks, on `NetworkStorageManager`'s work queue. This
   matches what the surrounding code already does — the existing `closeWritable()` copies the whole
@@ -260,12 +264,14 @@ is not a plan.
 - **In-memory read cache.** Every `getFile()` hands back a path the WebContent process reads
   directly, so this matters less than it does for an implementation that copies bytes across IPC,
   but repeated reads of the same entry still re-open the file each time.
-- **The PHL data path is Cocoa-plus-environment-variable.** `defaultDataPath()` resolves the file
-  from the WebKit framework's own resources on Cocoa, and honors
-  `WEBKIT_CROSS_ORIGIN_STORAGE_PUBLIC_HASH_LIST` everywhere. GTK and WPE need their own install
-  location and a `WEBKIT_CROSS_ORIGIN_STORAGE_PUBLIC_HASH_LIST_PATH` build definition before the
-  gate does anything on those ports; until then wildcard scope fails closed there, which is the
-  safe direction but not the useful one.
+- **The PHL data path on GTK/WPE is written but unverified.** `defaultDataPath()` resolves the file
+  from the framework bundle on Cocoa; GTK and WPE now install it beside the library's other data
+  files and compile in its path, mirroring `inspector.gresource`. Worth knowing why this was worth
+  fixing rather than deferring: the failure was *silent and fail-closed*, so wildcard scope simply
+  never disclosed anything on those ports and looked indistinguishable from the gate working. The
+  release workflow ships a tarball rather than an installed tree, where the compiled-in path does
+  not exist, so it ships the list and sets the runtime override instead. None of this has been
+  built on those ports.
 - **A restart-spanning persistence test.** The notes are emphatic that a passing build and a
   passing in-process suite can both stay green while the reload-from-disk path is completely
   broken, since a conformance run never restarts the browser. WebKit's API test infrastructure can
