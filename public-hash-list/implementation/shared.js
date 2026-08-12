@@ -26,6 +26,26 @@ export async function getSha256(url) {
   }
 }
 
+// Map `fn` over `items` with at most `limit` in flight. N workers share one
+// cursor, so a slow item delays only its own worker rather than a whole batch —
+// the difference from slicing the input into fixed batches and awaiting each.
+// Results come back in input order regardless of completion order.
+export async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let idx = 0;
+
+  // Single-threaded JS makes `idx++` atomic across async workers, so no mutex.
+  async function worker() {
+    while (idx < items.length) {
+      const i = idx++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 // --- Public Hash List (PHL) formatting ---------------------------------------
 // The PHL is a flat, PSL-style text file: bare lowercase SHA-256 digests, one
 // per line, grouped into structured sections, with `//` comment lines carrying

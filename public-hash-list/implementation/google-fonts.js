@@ -7,7 +7,7 @@ try { process.loadEnvFile(); } catch {}
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256 } from './shared.js';
+import { getSha256, mapLimit } from './shared.js';
 
 // Hashes every woff2 font file served by fonts.gstatic.com for all font
 // families in the Google Fonts catalog, discovered via the CSS2 API.
@@ -102,27 +102,16 @@ async function fetchBatchUrls(families) {
   }
 }
 
-// Hash all URLs with bounded concurrency. JS is single-threaded so `idx++`
-// is safe without a mutex across async workers.
+// Hash all URLs with bounded concurrency.
 async function hashAll(urls) {
-  const records = [];
-  let idx = 0;
-
-  async function worker() {
-    while (idx < urls.length) {
-      const i = idx++;
-      const sha256 = await getSha256(urls[i]);
-      if (sha256) records.push({ sha256, url: urls[i] });
-      if ((i + 1) % 500 === 0 || i + 1 === urls.length) {
-        console.log(`[google-fonts]   hashed ${i + 1}/${urls.length}`);
-      }
+  const results = await mapLimit(urls, HASH_CONCURRENCY, async (url, i) => {
+    const sha256 = await getSha256(url);
+    if ((i + 1) % 500 === 0 || i + 1 === urls.length) {
+      console.log(`[google-fonts]   hashed ${i + 1}/${urls.length}`);
     }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(HASH_CONCURRENCY, urls.length) }, worker),
-  );
-  return records;
+    return sha256 ? { sha256, url } : null;
+  });
+  return results.filter(Boolean);
 }
 
 export async function run() {

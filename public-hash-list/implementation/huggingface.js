@@ -4,6 +4,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { mapLimit } from './shared.js';
 
 // Hand-curated AI model source for the Public Hash List's optional model-hub
 // section. Unlike the other sources, inclusion here is NOT gated on an objective
@@ -120,31 +121,19 @@ export async function run() {
   );
 
   // Hash all LFS pointers with bounded concurrency.
-  const records = [];
-  let idx = 0;
   let valid = 0;
   let omitted = 0;
 
-  async function worker() {
-    while (idx < entries.length) {
-      const i = idx++;
-      const { url } = entries[i];
-      const sha256 = await lfsHash(url);
-      if (sha256) {
-        records.push({ url, sha256 });
-        valid++;
-      } else {
-        omitted++;
-      }
-      if ((i + 1) % 1000 === 0 || i + 1 === entries.length) {
-        console.log(`[huggingface]   ${i + 1}/${entries.length} processed (${valid} valid, ${omitted} omitted)`);
-      }
+  const results = await mapLimit(entries, LFS_CONCURRENCY, async ({ url }, i) => {
+    const sha256 = await lfsHash(url);
+    if (sha256) valid++;
+    else omitted++;
+    if ((i + 1) % 1000 === 0 || i + 1 === entries.length) {
+      console.log(`[huggingface]   ${i + 1}/${entries.length} processed (${valid} valid, ${omitted} omitted)`);
     }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(LFS_CONCURRENCY, entries.length) }, worker)
-  );
+    return sha256 ? { url, sha256 } : null;
+  });
+  const records = results.filter(Boolean);
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
