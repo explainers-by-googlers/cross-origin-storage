@@ -110,7 +110,7 @@ async function getMapsVersions() {
   try {
     const { data } = await axios.get('https://maps.googleapis.com/maps/api/js', {
       responseType: 'text',
-      timeout: 10000,
+      timeout: 30000,
     });
     const match = data.match(/maps-api-v3\/api\/js\/(\d+)\/([^/"]+)/);
     return match ? { v1: match[1], v2: match[2] } : null;
@@ -129,7 +129,7 @@ async function getYouTubePlayerId() {
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
       },
       responseType: 'text',
-      timeout: 10000,
+      timeout: 30000,
     });
     const match = data.match(/player\\\/([0-9a-f]+)\\\//);
     return match ? match[1] : null;

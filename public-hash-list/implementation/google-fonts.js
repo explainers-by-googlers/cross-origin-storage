@@ -94,7 +94,7 @@ async function fetchBatchUrls(families) {
   try {
     const { data } = await axios.get(`${CSS2_API}?${params}`, {
       headers: { 'User-Agent': UA },
-      timeout: 15000,
+      timeout: 30000,
     });
     return extractWoff2Urls(data);
   } catch {
@@ -137,7 +137,10 @@ export async function run() {
   try {
     const { data } = await axios.get(FONTS_API, {
       params: { key: apiKey, sort: 'popularity' },
-      timeout: 10000,
+      // This single request gates the whole source, and it runs alongside every
+      // other source in one `Promise.all`, so it needs more headroom than its
+      // ~2s idle latency suggests. 30s matches the rest of the pipeline.
+      timeout: 30000,
     });
     families = data.items;
     console.log(`[google-fonts] ${families.length} font families in catalog.`);

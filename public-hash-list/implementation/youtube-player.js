@@ -37,7 +37,7 @@ async function getCurrentPlayerId() {
   const { data } = await axios.get(IFRAME_API_URL, {
     headers: { 'User-Agent': UA },
     responseType: 'text',
-    timeout: 10000,
+    timeout: 30000,
   });
   const match = data.match(/player\\\/([0-9a-f]+)\\\//);
   if (!match)
@@ -51,7 +51,7 @@ async function getHistoricalPlayerIds() {
       const { data } = await axios.get(PLAYER_LOG_URL, {
         headers: { 'User-Agent': UA },
         responseType: 'text',
-        timeout: 15000,
+        timeout: 30000,
       });
       // IDs appear in href attributes: /s/player/<8-hex-chars>/
       const ids = [...new Set(

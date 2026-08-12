@@ -16,6 +16,7 @@
     "google-fonts": "node google-fonts.js",
     "huggingface": "node huggingface.js",
     "http-archive": "node http-archive.js",
+    "nuxt-cos": "node nuxt-cos.js",
     "manual": "node manual.js"
   },
   "keywords": [],

@@ -40,7 +40,7 @@ async function resolveVersion(pkg) {
   try {
     const { data } = await axios.get(
       `${JSDELIVR_API}/packages/npm/${encodeURIComponent(pkg)}/resolved`,
-      { headers: { 'User-Agent': UA }, timeout: 8000 }
+      { headers: { 'User-Agent': UA }, timeout: 30000 }
     );
     return data.version ?? null;
   } catch {
@@ -57,7 +57,7 @@ async function getEntrypoints(pkg, version) {
     const encoded = encodeURIComponent(pkg);
     const { data } = await axios.get(
       `${JSDELIVR_API}/packages/npm/${encoded}@${version}/entrypoints`,
-      { headers: { 'User-Agent': UA }, timeout: 8000 }
+      { headers: { 'User-Agent': UA }, timeout: 30000 }
     );
     // Response: { entrypoints: { js: { file: '/dist/...' }, css: { file: '/dist/...' } } }
     return Object.values(data.entrypoints ?? data)

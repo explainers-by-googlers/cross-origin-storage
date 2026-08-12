@@ -10,7 +10,7 @@ export async function getSha256(url) {
       method: 'get',
       url,
       responseType: 'stream',
-      timeout: 6000,
+      timeout: 30000,
     });
 
     if (response.status !== 200) return null;
@@ -42,6 +42,7 @@ const SOURCE_LABELS = {
   'google-maps': 'Google Maps JS API',
   'google-fonts': 'Google Fonts',
   'http-archive': 'HTTP Archive',
+  'nuxt-cos': 'nuxt-cos / vite-plugin-cross-origin-storage',
   huggingface: 'Hugging Face Hub',
   manual: 'Manual addition',
 };

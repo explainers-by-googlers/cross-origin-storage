@@ -14,7 +14,10 @@ jobs:
   regenerate:
     name: Regenerate PHL data
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # The nuxt-cos source runs an npm install and a Vite build per matrix cell:
+    # about five minutes at one covered release, and proportionally more if
+    # several accumulate (see NUXT_COS_MAX_RECIPES).
+    timeout-minutes: 90
     permissions:
       contents: write
     defaults:
@@ -31,6 +34,13 @@ jobs:
 
       - run: npm ci
 
+      # Must run before the pipeline: the pipeline rewrites the release record
+      # it compares against. A new plugin release changes every chunk hash that
+      # source emits, so this is what turns a silent regeneration into a report.
+      - name: Check for new nuxt-cos plugin releases
+        id: nuxt-cos
+        run: node nuxt-cos.js --check-recipes
+
       - name: Run the PHL pipeline
         env:
           GOOGLE_FONTS_API_KEY: ${{ secrets.GOOGLE_FONTS_API_KEY }}
@@ -38,8 +48,8 @@ jobs:
 
       - name: Commit and push regenerated data
         run: |
-          git add data/
-          if git diff --cached --quiet -- data/; then
+          git add data/ nuxt-cos-releases.json
+          if git diff --cached --quiet; then
             echo "No changes to the Public Hash List, nothing to commit."
             exit 0
           fi
@@ -55,3 +65,22 @@ jobs:
           done
           echo "::error::Giving up after 5 push attempts."
           exit 1
+
+      # The commit is the notification; this just makes the run page say what
+      # changed, since data/ is stored with Git LFS and does not diff readably.
+      - name: Summarise new nuxt-cos hashes
+        if: steps.nuxt-cos.outputs.changed == 'true'
+        env:
+          ADDED: ${{ steps.nuxt-cos.outputs.added }}
+        run: |
+          {
+            echo "### nuxt-cos: new \`vite-plugin-cross-origin-storage\` release(s): \`$ADDED\`"
+            echo
+            echo "A new release pins a new exact rolldown version, which changes every"
+            echo "chunk hash it emits, so \`data/nuxt-cos-hashes.csv\` has been rebuilt"
+            echo "against the new recipe. Recipes covered after this run:"
+            echo
+            echo '```'
+            node -e "for (const r of JSON.parse(require('fs').readFileSync('nuxt-cos-releases.json','utf8')).recipes) console.log(\`vite-plugin-cross-origin-storage@\${r.plugin}  rolldown \${r.rolldown}  \${r.chunkCount} chunks  (nuxt-cos@\${r.nuxtCos.join(', ') || '—'})\`)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

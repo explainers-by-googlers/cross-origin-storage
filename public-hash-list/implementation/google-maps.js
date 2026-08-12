@@ -108,7 +108,7 @@ async function getVersionPair(versionStr) {
     const { data, status } = await axios.get(BOOTSTRAP_URL, {
       params: { v: versionStr },
       responseType: 'text',
-      timeout: 10000,
+      timeout: 30000,
       validateStatus: (s) => s < 500,
     });
     if (status !== 200) return null;

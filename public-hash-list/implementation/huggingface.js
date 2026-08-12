@@ -79,7 +79,7 @@ async function lfsHash(resolveUrl) {
   try {
     const { data } = await axios.get(rawUrl, {
       headers: { 'User-Agent': UA },
-      timeout: 8000,
+      timeout: 30000,
       responseType: 'text',
     });
     const m = data.match(/^oid sha256:([0-9a-f]{64})$/m);

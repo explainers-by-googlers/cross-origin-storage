@@ -64,8 +64,16 @@ from a shared cross-origin cache. Sites built with the plugin that share common
 dependencies (React, lodash, etc.) will find those chunks already cached across
 visits — no repeated downloads.
 
-The allowlist this project generates is the complement: it covers files loaded
-directly from public CDNs (as opposed to build-tool-generated chunks), and
+[`danielroe/cross-origin-storage`](https://github.com/danielroe/cross-origin-storage)
+— the `nuxt-cos` Nuxt module and the Vite plugin it wraps — makes those chunks
+*reproducible*: the filename and inter-chunk references derive from a SHA-256 of
+the contents under a pinned build recipe, so two independent sites building the
+same dependency at the same version emit the same chunk with no central registry.
+That is what the [`nuxt-cos` source](#build-tool-source-nuxt-cos--vite-plugin-cross-origin-storage)
+covers — the one source here whose hashes are regenerated rather than downloaded.
+
+The allowlist this project generates is otherwise the complement: it covers files
+loaded directly from public CDNs (as opposed to build-tool-generated chunks), and
 seeds the well-known-resources list with packages that are candidates for
 COS sharing regardless of how they are currently loaded.
 
@@ -83,12 +91,15 @@ COS sharing regardless of how they are currently loaded.
 | [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript) _(extends Chromium)_ | Probes all currently available quarterly versions (3.NN) via their versioned bootstrap URLs; hashes 34 JS files per version (23 on `maps.googleapis.com`, 11 on the `maps.google.com` mirror) including the files Chromium tracks plus additional API modules (see below) | [`data/google-maps-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/google-maps-hashes.csv) |
 | [Google Fonts](https://fonts.google.com) | Fetches all font families from the Google Fonts catalog (sorted by popularity); for each family, requests the CSS2 API with all weights and styles to discover versioned `fonts.gstatic.com` woff2 URLs; hashes every unique file. Requires `GOOGLE_FONTS_API_KEY` env var (free key from Google Cloud Console). | [`data/google-fonts-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/google-fonts-hashes.csv) |
 | [HTTP Archive](https://httparchive.org) | Reads the HTTP Archive's published query results (see [`queries/http-archive.sql`](queries/http-archive.sql)) directly from a stable HTTP Archive URL; takes hashes present on ≥100 independent origins (the k-anonymity gate is enforced in the query). No network downloads — the HTTP Archive crawl already provides the SHA-256 of every response body. | [`data/http-archive-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/http-archive-hashes.csv) |
+| [nuxt-cos / vite-plugin-cross-origin-storage](https://github.com/danielroe/cross-origin-storage) | Reproduces the content-addressed COS chunks the Nuxt/Vite integration emits, by running the real published plugin over a matrix of plugin releases × `vue` releases. No download: these bytes exist only in site builds, and are regenerated here from the pinned build recipe; see [Build-tool source](#build-tool-source-nuxt-cos--vite-plugin-cross-origin-storage) | [`data/nuxt-cos-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/nuxt-cos-hashes.csv) |
 | [Hugging Face Hub](https://huggingface.co) _(hand-curated, optional)_ | Lists the most-downloaded models and hashes their large weight/asset files (`.safetensors`, `.gguf`, `.onnx`, `.tflite`, `.task`, …); see [Model-hub source](#model-hub-source-hugging-face) | [`data/huggingface-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/huggingface-hashes.csv) |
 | Manual additions | Hand-curated entries proposed via pull request and reviewed against the ubiquity criteria; see [`manual-additions.json`](manual-additions.json) and [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) | [`data/manual-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/manual-hashes.csv) |
 
-The first nine sources are **objective**: a resource qualifies through a
-real-world popularity signal (CDN request volume, npm downloads, cross-CDN
-byte-identity, or browser-vendor vetting). The Hugging Face and manual sources
+The first ten sources are **objective**: a resource qualifies mechanically, with
+no per-entry judgement — nine through a real-world popularity signal (CDN request
+volume, npm downloads, cross-CDN byte-identity, or browser-vendor vetting), and
+the tenth (`nuxt-cos`) through byte-for-byte reproducibility from a public,
+pinned build recipe. The Hugging Face and manual sources
 are different — **hand-curated** — and each land in their own section of the
 output; see [Model-hub source](#model-hub-source-hugging-face) and
 [Manual additions](#manual-additions). This source set is not fixed: unpkg and
@@ -331,6 +342,104 @@ the HTTP Archive at a stable URL:
 well-formed 64-character lowercase hex string, and writes
 `data/http-archive-hashes.csv`. No API key is required.
 
+### Build-tool source (nuxt-cos / vite-plugin-cross-origin-storage)
+
+Every other source scrapes bytes that a public URL already serves. This one
+cannot: the artifacts it covers are produced *inside site builds* by
+[`nuxt-cos`](https://github.com/danielroe/cross-origin-storage/tree/main/packages/nuxt-cos)
+and the Vite plugin it wraps, and no CDN hosts them. `nuxt-cos.js` therefore
+**reproduces** them, by installing the real published plugin and running it.
+
+That works because the plugin's output is a pure function of its inputs. It
+extracts each managed package into a standalone chunk, rewrites every dependency
+import to `cos1:<dependency hash>`, and names the file after the SHA-256 of the
+result — hashing bottom-up over the dependency graph. Nothing from the host
+application enters a chunk: not the app's code, not its config, not the build
+directory. That is precisely what makes the chunk shareable across origins, and
+it is also what lets this pipeline regenerate it. Two unrelated sites building
+`vue@3.5.39` under the same recipe emit byte-identical chunks; so do we.
+
+**What pins the recipe.** The plugin embeds a `RECIPE` constant (`cos1`) in every
+specifier, but that constant alone is not the whole story: the emitted bytes also
+depend on the exact rolldown/oxc minifier build. Empirically, `vue@3.5.39` under
+rolldown 1.1.0, 1.1.4 and 1.2.0 yields three *different* chunks, differing only in
+minifier whitespace. This is tractable only because every published plugin version
+pins rolldown to an exact version (`"rolldown": "1.2.0"`, no range), which makes
+
+    (plugin version, package version) → chunk hash
+
+a total, reproducible function. The pipeline enumerates published plugin releases
+from the npm registry rather than hard-coding them, so a new release is picked up
+on the next run — and skips any release whose rolldown dependency is a *range*,
+since such a release produces bytes that depend on when a site happened to
+install and cannot be enumerated at all.
+
+**Which releases are in scope.** Releases from 2.0.3 onwards. That is the first
+one whose COS manifest records which npm package emitted each chunk; attributing
+earlier chunks means scraping the license banner out of the chunk bytes instead,
+which is worth neither the code nor the fragility. Releases before 2.0.0 are not
+candidates at all — they bundled with esbuild and emitted no `cos1:` chunks, a
+different artifact rather than an older recipe for the same one. Of the two
+releases in between, 2.0.1 peers `vite@^5 || ^6 || ^7` and so emits nothing under
+a current Vite, and 2.0.2 pins the same rolldown as 2.0.1 and produces chunks
+byte-identical to it.
+
+**Coverage.** The managed set is the module's default, `[/^(?:vue$|@vue\/)/]` —
+what every `nuxt-cos` site emits unless it opts into more. Widening it here would
+produce hashes almost no site ships. Because Vue releases the whole `@vue/*`
+family in lockstep with exact interdependency pins, installing `vue@X` pins the
+entire managed subgraph to `X`, so the matrix stays linear in the number of
+versions instead of combinatorial. Defaults cover the 4 most recent plugin
+releases × 15 most recent `vue` releases; see [Environment variables](#environment-variables).
+
+**Verification.** The Nuxt module contributes nothing to chunk *content* — it is
+a thin wrapper that passes `packages` and `base` through — so the matrix is built
+with plain Vite, which is an order of magnitude cheaper than a Nuxt build. Set
+`NUXT_COS_NUXT_CHECK=1` to prove that: it builds a real Nuxt app with the actual
+`nuxt-cos` module and reports whether every chunk it emits is already covered.
+Each chunk is also re-hashed from its bytes rather than trusting the plugin's
+filename, and a mismatch is fatal.
+
+Running that check confirms the equivalence: a real Nuxt build with
+`nuxt-cos@2.0.3` emits 5 chunks, all 5 already covered. Running it against
+`nuxt-cos@2.0.1` is also what established that release emits nothing at all under
+a current Nuxt.
+
+**Representative URLs.** Since no URL serves these bytes, the `url` column
+identifies the *source package version* the chunk was built from
+(`https://www.npmjs.com/package/@vue/shared/v/3.5.39`) rather than a download
+location. That is enough to reproduce an entry: install the named package version
+alongside one of the recipes in
+[`nuxt-cos-releases.json`](nuxt-cos-releases.json) and run a
+one-file Vite build. That file records the *inputs* a run used — the recipes and
+the source versions — rather than a per-hash table, since the CSV already names
+each chunk's package and version and there are few enough recipes to just try
+them. It is kept out of `data/` deliberately: that directory is the generated hash
+payload and is stored with Git LFS, whereas this is a small build record that
+wants a plain, legible diff — and it has to survive `index.js` clearing `data/`,
+because the automation below reads it.
+
+**Automation.** This source has no schedule of its own — it runs with the weekly
+[`.github/workflows/public-hash-list.yml`](../../.github/workflows/public-hash-list.yml)
+pipeline, since checking more often than the PHL is published would not get a new
+hash onto the list any sooner. A new plugin release invalidates every hash the
+previous one produced, so the pipeline runs `node nuxt-cos.js --check-recipes`
+first (two registry requests, before the rebuild overwrites the file it compares
+against) and names any new release in the run summary. The commit is the
+notification; `nuxt-cos-releases.json` is committed next to the CSV so that
+change is legible, which an LFS-stored CSV would not be.
+
+**Caveat: ubiquity.** These entries are objectively derived but, unlike the
+popularity-ranked sources, they carry no evidence of *deployment* — the
+integration is experimental and adoption today is minimal, so a chunk's presence
+in a cache is not yet the non-signal the k-anonymity bar asks for. They are
+included in the core section as a deliberate seeding decision: the artifacts are
+deterministically reproducible by anyone from public inputs, they are exactly the
+resources COS sharing is meant to cover, and the integration's own roadmap has
+gating chunk sharing on this list as an open item — which cannot happen while the
+list is empty of them. If that trade is judged wrong, moving them out is a
+one-line change to `CORE_SOURCES` in [`index.js`](index.js).
+
 ### Chromium-extended pipelines
 
 Chromium's pervasive resource list
@@ -400,6 +509,21 @@ cp .env.example .env   # then fill in your keys
 Sources without an API key in `.env` are skipped gracefully with a log
 message; they do not abort the full pipeline.
 
+The `nuxt-cos` source takes no API key, but has three optional knobs. It needs
+`npm` on `PATH` and network access to the registry, since it installs and builds
+the real plugin.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `NUXT_COS_MAX_RECIPES` | `4` | Plugin releases to cover, newest first |
+| `NUXT_COS_VUE_VERSIONS` | `15` | `vue` releases to cover, newest first |
+| `NUXT_COS_NUXT_CHECK` | unset | `1` additionally builds a real Nuxt app with `nuxt-cos` and reports whether every chunk it emits is already covered |
+
+The product of the first two is the number of builds a run performs, so raising
+them widens coverage backwards in time at a roughly linear cost. Both workflows
+deliberately run with the defaults: a narrower run would otherwise shrink the
+committed CSV that a wider one produced.
+
 ## Usage
 
 Requires [Git LFS](https://git-lfs.com/) (`brew install git-lfs` or see the
@@ -427,11 +551,16 @@ npm run chromium
 npm run youtube
 npm run google-fonts   # requires GOOGLE_FONTS_API_KEY in .env
 npm run http-archive  # reads the BigQuery results published directly by the HTTP Archive
+npm run nuxt-cos      # rebuilds the COS chunk matrix (installs and runs the real plugin)
 npm run huggingface   # optional model-hub section
 npm run manual        # process manual-additions.json → data/manual-hashes.csv
+
+# Cheap probe: has a new plugin release appeared since the committed hashes?
+# Exits 0 either way and prints the answer; the weekly workflow runs this first
+node nuxt-cos.js --check-recipes
 ```
 
-Any URL that returns a non-200 status or times out after 6 seconds is silently
+Any URL that returns a non-200 status or times out after 30 seconds is silently
 omitted. For the Google Hosted Libraries CDN, known historical filename changes
 (MooTools, Indefinite Observable) are handled via fallback URL resolution.
 
