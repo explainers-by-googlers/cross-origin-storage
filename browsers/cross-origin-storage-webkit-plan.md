@@ -310,32 +310,53 @@ direct unit tests, and what needs a real browser with two real origins:
   fetch error that looks like a real failure. It is deliberately *not* copied into
   `LayoutTests/imported/`, so that WebKit's normal WPT sync supersedes it cleanly once the PR
   merges.
-- **Cross-origin disclosure: a real two-origin layout test.**
-  `LayoutTests/http/tests/cross-origin-storage/disclosure-scopes.html` exercises what a
-  single-origin suite structurally cannot: same-site-but-different-port disclosure, cross-site
-  refusal, listed versus unlisted origins, wildcard failing closed for a hash that cannot be on
-  the PHL, and a storing origin always reading back its own write. It uses `127.0.0.1` and
-  `localhost` on two ports — different origins, and (since neither has a registrable domain)
-  different sites — and needs no TLS, because loopback is a secure context. The cross-origin
-  frames carry `allow="cross-origin-storage"`, which incidentally covers the policy-controlled
-  feature's `self` default.
+- **Cross-origin disclosure.** This was originally a separate two-origin layout test
+  (`LayoutTests/http/tests/cross-origin-storage/disclosure-scopes.html`) on the reasoning that a
+  single-origin suite structurally cannot reach same-site-but-different-port disclosure, cross-site
+  refusal, or wildcard failing closed. That turned out to be false: `origins-scoping` in the WPT
+  suite grew to cover all of it across real origins, so the layout test was asserting the same
+  things twice and has been deleted. Prefer the suite; a local duplicate of it is a maintenance
+  cost that buys nothing.
 - **PHL membership with a known preimage.** You cannot construct bytes that hash to an arbitrary
-  target, so this needs a real listed resource. The manual-additions section carries exactly one
-  entry with documented provenance and a fetchable source URL, which is the right anchor for this
-  test. Not yet written.
+  target, so this needs a real listed resource. Written, as
+  `cross-origin-storage/public-hash-list.tentative.https.html`: it reads a listed hash and an
+  unlisted one from the same cross-site origin, eight attempts each, so a GREASE'd miss cannot be
+  mistaken for the gate refusing. The resource is jQuery 3.7.1 minified — MIT-licensed, so the
+  test is upstreamable, which an image under fair use would not have been — and its bytes must
+  stay identical, since a licence header appended to the file changes its digest and silently
+  breaks the test.
 
   Note that `origins-scoping`'s wildcard-tier test deliberately does *not* pin this down: it
   asserts only that a non-storer's read is either a correct disclosure or a miss, because whether
   a given hash is on the PHL is implementation-defined. So a passing suite is not evidence the PHL
   gate works — that still needs this test.
-- **Registry logic directly.** Rate-limiter burst exhaustion, eviction ordering, the
-  concurrent-writer race, and staleness are all far easier to drive against the registry's own
-  functions than through a browser — and, per Ladybird's experience, loop-shaped scenarios can be
-  outright unreliable through a test harness whose idle heuristics were not designed for a script
-  still legitimately working. Assert the *shape* of rate-limiter behavior (denial eventually
-  happens; successes fall in `[capacity, capacity + slack]`), never an exact boundary count, since
-  a refill tick landing between two consumes will let one extra request through
-  non-deterministically. These tests are not written yet.
+- **Registry logic directly — but not by reaching into the registry.** Rate-limiter burst
+  exhaustion, eviction ordering, the on-disk record format, GREASE'ing, and the budget arithmetic
+  are all far easier to drive as functions than through a browser — and, per Ladybird's
+  experience, loop-shaped scenarios can be outright unreliable through a test harness whose idle
+  heuristics were not designed for a script still legitimately working.
+
+  There is a WebKit-specific constraint on *how*, and it is worth stating because the obvious
+  approach fails late and expensively. WebKit.framework is built with hidden visibility: it
+  exports its C/Objective-C API and no C++ internals. TestWebKitAPI links against that framework,
+  so a test calling a network-process class's out-of-line method does not fail to compile — it
+  fails at link, after a full build. Marking the method `WTF_EXPORT_DECLARATION` makes the link
+  succeed, but nothing else in the tree exports network-process internals for a test's benefit,
+  and the one apparent precedent (the `DeviceIdHashSaltStorage` test) turns out to exercise an
+  inline function and link nothing at all.
+
+  So the split is deliberate: decision logic lives in `CrossOriginStoragePolicy.h` as pure
+  functions over plain values — `EntryRecord::parse`/`serialize`, `planEviction`, `shouldGrease`,
+  the budget arithmetic, and `PublicHashList::packedListContains` — and is tested with no disk, no
+  process, and no exported symbols. `CrossOriginStorageRateLimiter` is header-only inline for the
+  same reason. What stays in the classes is the part that genuinely needs them: files, locks,
+  handles, IPC. WPT covers that end to end.
+
+  Assert the *shape* of rate-limiter behavior (denial eventually happens; successes fall in
+  `[capacity, capacity + slack]`), never an exact boundary count, since a refill tick landing
+  between two consumes will let one extra request through non-deterministically. The same applies
+  to GREASE'ing: assert that the size ceiling is absolute and that the rate is within a very wide
+  band, never an exact count.
 
 ## Verification results
 
@@ -350,22 +371,31 @@ fetch error that reads like a real failure.
 |---|---:|---:|
 | `idlharness` | 30 + 30 | 0 |
 | `requestFileHandle-validation` | 12 + 12 | 0 |
-| `requestFileHandle-create-and-read` | 12 + 12 | 0 |
+| `requestFileHandle-create-and-read` | 13 + 13 | 0 |
 | `filesystemwritablefilestream-verify` | 4 + 4 | 0 |
-| `origins-scoping` | 12 | 0 |
+| `storage-limits` | 2 + 2 | 0 |
+| `insecure-context` | 1 + 1 | 0 |
+| `origins-scoping` | 16 | 0 |
+| `public-hash-list` | 2 | 0 |
 | `permissions-policy` | 3 | 2 |
 | `declarative-css` (2 files) | 6 | 3 |
 | `declarative-html` (2 files) | 1 | 5 |
 | `import-attribute` (2 files) | 1 | 9 |
-| **Total** | **139** | **19** |
+| `cross-mechanism-interop` | 0 | 4 |
+| **Total** | **153** | **23** |
 
 Every remaining failure is outside this implementation:
 
-* **17** are the HTML `crossoriginstorage` attribute, the CSS `cross-origin-storage()` modifier,
-  and the JavaScript `crossOriginStorage` import attribute. Those are defined in their own host
-  languages, not in the COS specification, and none is implemented here. Several also need
-  `integrity` support the engine lacks independently — dynamic `import()` rejects the `integrity`
-  attribute itself, before COS is reached.
+* **21** are the HTML `crossoriginstorage` attribute, the CSS `cross-origin-storage()` modifier,
+  and the JavaScript `crossOriginStorage` import attribute — plus `cross-mechanism-interop`, which
+  cross-checks all three against the imperative API and so cannot pass while any of them is
+  missing. Those are defined in their own host languages, not in the COS specification, and none is
+  implemented here. Several also need `integrity` support the engine lacks independently — dynamic
+  `import()` rejects the `integrity` attribute itself, before COS is reached.
+
+  This is a real and growing gap rather than a footnote: the declarative surface is where the
+  feature is cheapest for a site to adopt, and the suite has been accumulating tests for it. Worth
+  scoping as its own piece of work rather than folding into this branch.
 * **2** need `Permissions-Policy` *header* support, which WebKit does not have at all: there is
   not one reference to that header anywhere in WebCore or WebKit, only the iframe `allow`
   attribute path. Both failing tests block their context with
@@ -382,9 +412,11 @@ non-functional while every other signal stayed green:
    It was silent: a failed verification aborts the write, discards the temporary file, and
    reclaims the entry as never-written, so every later read is an ordinary-looking
    `NotFoundError`. On disk it showed as a zero-length bytes file with no metadata beside it.
-   **The unit tests could not have caught this** — they cover the PHL, the rate limiter, and
-   request validation, but not `closeWritable`, the one disk-touching path the bug lived on, and
-   one this document already listed as untested.
+   **The unit tests could not have caught this**, and still could not. They cover the PHL, the
+   rate limiter, request validation, the record format, eviction, GREASE'ing and the budget — but
+   the bug lived in `closeWritable`, where the digest meets the file, and that is precisely the
+   disk-and-IPC half that stays in the classes. The split that makes the rest testable does not
+   move this path any closer to reach; only an end-to-end run covers it.
 2. **`close()` could not report failure.** `FileSystemWritableFileStreamSink::close()` resolved
    its promise unconditionally and handed the backend an ignoring callback, so nothing occurring
    while closing could reach script. That both hid bug 1 and made the specification's `DataError`
