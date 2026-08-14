@@ -1,0 +1,11 @@
+I want you to implement the Cross-Origin Storage API in this browser.
+
+See the explainer (https://github.com/WICG/cross-origin-storage/blob/main/README.md) and the spec (https://wicg.github.io/cross-origin-storage/) for details on the API. Re-read both links, your knowledge about them is outdated.
+
+You can find Web Platform Tests at https://github.com/web-platform-tests/wpt/pull/61811.
+
+For some previous browser implementations that could inform the present implementation, see https://github.com/WICG/cross-origin-storage/tree/main/browsers. The same folder also contains general implementation notes that you should take into account.
+
+In your own implementation, consider the "Provenance metadata" section in the spec. Later additions will add Developer Tools and Extensions support.
+
+Note that the Public Hash Lists already exists as a prototype implementation at https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/public-hash-list.dat (its own control hash is at https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/public-hash-list.dat.sha256). Both are Git LFS URLs, so you need to resolve them.
