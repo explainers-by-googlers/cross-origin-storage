@@ -330,6 +330,16 @@ direct unit tests, and what needs a real browser with two real origins:
   asserts only that a non-storer's read is either a correct disclosure or a miss, because whether
   a given hash is on the PHL is implementation-defined. So a passing suite is not evidence the PHL
   gate works — that still needs this test.
+- **Persistence across a restart: a manual test, because nothing else can reach it.**
+  `ManualTests/cross-origin-storage-persists.html`, shaped after the existing
+  `indexeddb-persists.html`. The suite has no way to restart a browser and the unit tests never
+  write a file or start a second process, so without this the single most important property of
+  the feature — that the cache survives — went unverified. Two details make it easy to write a
+  version of this test that proves nothing. The read step must be preceded by a write step that
+  reads its own entry back, because a failed read is a bare `NotFoundError`, indistinguishable
+  from a hash that was never stored. And the tester must *quit* the browser rather than close the
+  window: the registry lives in the network process, so a surviving network process serves the
+  read from memory and the test passes regardless.
 - **Registry logic directly — but not by reaching into the registry.** Rate-limiter burst
   exhaustion, eviction ordering, the on-disk record format, GREASE'ing, and the budget arithmetic
   are all far easier to drive as functions than through a browser — and, per Ladybird's
