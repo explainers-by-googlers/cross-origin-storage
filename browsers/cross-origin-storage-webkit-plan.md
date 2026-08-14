@@ -270,12 +270,20 @@ having to reconstruct it.
   fixing rather than deferring: the failure was *silent and fail-closed*, so wildcard scope simply
   never disclosed anything on those ports and looked indistinguishable from the gate working. The
   release workflow ships a tarball rather than an installed tree, where the compiled-in path does
-  not exist, so it ships the list and sets the runtime override instead. None of this has been
-  built on those ports.
-- **A restart-spanning persistence test.** The notes are emphatic that a passing build and a
-  passing in-process suite can both stay green while the reload-from-disk path is completely
-  broken, since a conformance run never restarts the browser. WebKit's API test infrastructure can
-  drive a real process against a fixed data store directory; that test does not exist yet.
+  not exist, so it ships the list and sets the runtime override instead.
+
+  The GTK port now *builds* with all of this — the release workflow's Linux leg is green — so the
+  CMake changes at least compile and link. But that is a weaker result than it sounds: the build
+  never runs `install`, so the `install(FILES ...)` rule and the compiled-in default path are both
+  still unexercised, and the tarball deliberately sidesteps them via the runtime override. WPE is
+  untouched. The silent, fail-closed failure mode described above therefore remains possible on an
+  actually-installed GTK or WPE build.
+- **A restart-spanning persistence test — now covered, but by hand.**
+  `ManualTests/cross-origin-storage-persists.html` exists and has been run against a packaged
+  build, so the notes' warning that a green build and a green suite can both coexist with a broken
+  reload-from-disk path is no longer unaddressed. What remains deferred is *automating* it:
+  WebKit's API test infrastructure can drive a real process against a fixed data store directory,
+  which would put this in CI rather than relying on someone remembering to run it.
 - **Manually added entries.** The settings-UI path for seeding a file the user already has on
   disk (defaulting to `"*"` scope, with empty storing origins) is not implemented.
 
