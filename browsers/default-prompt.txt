@@ -1,4 +1,4 @@
-I want you to implement the Cross-Origin Storage API in this browser.
+I want you to implement the Cross-Origin Storage API in this browser. Work on a new branch called `cross-origin-storage`.
 
 See the explainer (https://github.com/WICG/cross-origin-storage/blob/main/README.md) and the spec (https://wicg.github.io/cross-origin-storage/) for details on the API. Re-read both links, your knowledge about them is outdated.
 
