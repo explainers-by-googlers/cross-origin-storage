@@ -790,6 +790,25 @@ While this document does not aim to critically assess the precision of these est
 
 To facilitate manual COS management, one approach would be to allow developers to store a human-readable description alongside the resource. Apps could reference to the same file identified by a unique hash using different descriptions. For example, an English site could refer to the [`g-2b-it-gpu-int4.bin`](https://storage.googleapis.com/jmstore/kaggleweb/grader/g-2b-it-gpu-int4.bin) AI model as "Gemma AI model from Google", whereas another Spanish site could refer to it as "modelo de IA grande de Google". Instead, we envision user agents to enrich COS management UI based on the hashes. For example, a user agent could know that a file identified by a given hash is a well-known AI model and optionally surface this information to the user in the user agent settings UI.
 
+### Storing the original URL as part of a COS entry
+
+A related idea is to record, on each COS entry, the URL the file was originally fetched from. It is tempting for much the same reason a description is: it would make a multi-gigabyte blob legible in the browser's storage UI, and it would help a developer debug a `requestFileHandle()` miss. It does not fit the model, for three reasons:
+
+- **It isn't a property of the entry.** A COS entry is shared by every origin that stores those bytes, and the URL belongs to one writer's fetch, not to the entry. Ten origins may store the same file from ten different URLs. First-writer-wins is arbitrary—the first storer is not privileged in any other respect—and keeping a set of URLs grows without bound and can be polluted by any origin that writes the bytes.
+- **It can't be verified.** Bytes are checked against the hash; a URL string is merely a claim by whoever wrote them, and an origin can claim any URL. Placing an unverifiable label inside an otherwise fully verified structure invites it to be read as provenance when it is nothing of the sort.
+- **It leaks far more than an origin does.** COS's disclosure limits—`origins`, [availability gating](https://wicg.github.io/cross-origin-storage/#availability-gating), and the Public Hash List—are calibrated around coarse, origin-level information. A full URL can carry paths, query parameters, tokens, and user identifiers (`https://cdn.example/models/user-1234/weights.bin`), which is a much higher-entropy signal than that calibration accounts for.
+
+The adjacent motivations do not survive scrutiny either. Re-fetching after eviction would mean the user agent issuing a request to a third party's URL with ambient authority, and the calling origin already knows its own URL and can simply fetch it again. Attribution in permission UI does not need it, since the user agent already has the requesting origin at prompt time, and a historical, spoofable URL recorded by some other site would mislead rather than inform. Popularity corroboration belongs to [Public Hash List](public-hash-list/phl-explainer.md) admission, which happens offline, not per user in the browser.
+
+What remains is the debugging and storage-inspection motivation, and that needs no web-exposed field. A user agent is free to keep an **implementation-private provenance record**—say, the URL each storing origin fetched the bytes from, and when—as long as it is treated as browser state rather than as part of the entry:
+
+- It is never exposed to script by any COS API, and a requesting origin cannot observe a record it did not itself produce.
+- It is surfaced only through trusted, non-web surfaces: the browser's own settings and storage inspection UI, developer tools, and extension APIs gated behind an explicit, user-granted permission, on the same footing as other APIs that expose browsing history. See [Browser extension integration points for COS](extensions/extensions-explainer.md) for the extension surfaces under consideration.
+- It is presented as an unverified claim by the writing origin, not as an attestation about the bytes—only the hash guarantees the content. Two origins may record different URLs for the same entry.
+- It is discarded with the entry, and per origin when that origin is removed from the entry's storing origins, including when the user clears that origin's site data.
+
+Because such a record is invisible to content, a site cannot detect whether the browser keeps one, so this stays purely a matter of implementation quality of life. See [Provenance metadata](https://wicg.github.io/cross-origin-storage/#provenance-metadata) in the spec.
+
 ### Storing files without hashing
 
 Storing files by their names rather than using hashes would risk name collisions, especially in a cross-origin environment. The use of hashes guarantees unique identification of each file, ensuring that the contents are consistently recognized and retrieved. Storing files based on their URLs would work if apps reference the same URLs, for example, on the same CDN, but wouldn't work if apps reference the same file stored at different locations.

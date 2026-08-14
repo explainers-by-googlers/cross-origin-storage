@@ -701,6 +701,52 @@ upgrade]] rules apply to it, exactly as they would for any other entry with the 
 [=COS entry/origins=] value — including the [=on the PHL=] check, if the entry ends up "`*`"-scoped,
 which is the default for a manual add but not the only possible outcome.
 
+## Provenance metadata ## {#provenance-metadata}
+
+*This section is non-normative.*
+
+A [=COS entry=] deliberately records nothing about where its bytes came from. Identity is the
+[=COS entry/hash=] alone: the same bytes are the same entry regardless of how many origins stored
+them or how many URLs they were fetched from (see [[#cos-entries]]). A URL is a property of one
+writer's fetch rather than of the entry, so there is no non-arbitrary way to pick one for an entry
+several origins wrote; it is not verifiable the way the bytes are (see [[#resource-integrity]]);
+and it carries considerably more about a user's browsing than the coarse [=/origin=] values in
+[=COS entry/storing origins=] do, since a path or query string can name a specific document,
+account, or session. Recording it on the entry would therefore route a high-entropy signal around
+the disclosure limits that [=COS entry/origins=] and [[#availability-gating]] exist to impose.
+
+The motivation for wanting it is nonetheless real: a user looking at a multi-gigabyte file in the
+settings UI described in [[#eviction]], and a developer debugging why a
+{{CrossOriginStorageManager/requestFileHandle()}} call missed, would both like to know where a file
+came from. A user agent may serve that by keeping an implementation-private provenance record
+alongside an entry — for example, the URL each of its [=COS entry/storing origins=] fetched the
+bytes from, and when — provided the record is treated as user agent state rather than as part of
+the entry:
+
+* It is never exposed to script. Nothing in this specification discloses it, and nothing added
+  later should: neither {{CrossOriginStorageManager/requestFileHandle()}} nor the
+  {{FileSystemFileHandle}} it returns should reveal whether such a record exists, let alone its
+  contents. In particular, a requesting [=/origin=] must not be able to observe a record it did not
+  itself produce.
+* It is surfaced only through trusted, non-web surfaces: the user agent's own settings and storage
+  inspection UI, its developer tools, and — where the user agent has an extension platform —
+  extension APIs gated behind an explicit, user-granted permission, on the same footing as other
+  APIs that expose browsing history. See the
+  [browser extension integration points explainer](extensions/extensions-explainer.md) in this
+  repository for the extension surfaces being considered.
+* It is unverified, and is presented as such. A URL in it is a claim by the origin that wrote the
+  bytes, not an attestation about them — only the [=COS entry/hash=] guarantees the content (see
+  [[#resource-integrity]]). Two origins may record different URLs for the same entry, and either
+  may be inaccurate or deliberately misleading.
+* It shares the lifetime of the entry, and of the origin it is attributed to. It is discarded when
+  the entry is evicted or deleted, and the portion attributable to an origin is discarded when
+  that origin is removed from [=COS entry/storing origins=], including when the user clears that
+  origin's site data (see [[#eviction]]).
+
+Because such a record is invisible to content, whether a user agent keeps one, and how much it
+keeps, is left entirely to implementations. Nothing in this specification depends on it, and its
+presence or absence is not detectable by a site.
+
 # Permissions Policy integration # {#permissions-policy-integration}
 
 This specification defines a [=policy-controlled feature=] [[permissions-policy]] identified by
