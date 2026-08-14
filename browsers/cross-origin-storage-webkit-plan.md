@@ -278,12 +278,26 @@ having to reconstruct it.
   still unexercised, and the tarball deliberately sidesteps them via the runtime override. WPE is
   untouched. The silent, fail-closed failure mode described above therefore remains possible on an
   actually-installed GTK or WPE build.
-- **A restart-spanning persistence test — now covered, but by hand.**
-  `ManualTests/cross-origin-storage-persists.html` exists and has been run against a packaged
-  build, so the notes' warning that a green build and a green suite can both coexist with a broken
-  reload-from-disk path is no longer unaddressed. What remains deferred is *automating* it:
-  WebKit's API test infrastructure can drive a real process against a fixed data store directory,
-  which would put this in CI rather than relying on someone remembering to run it.
+- **A restart-spanning persistence test — now covered, and automated.**
+  `ManualTests/cross-origin-storage-persists.html` covers it by hand against a packaged build, and
+  `Tools/TestWebKitAPI/Tests/WebKit/WKWebView/CrossOriginStoragePersistence.mm` covers it in the
+  API tests, so the notes' warning that a green build and a green suite can coexist with a broken
+  reload-from-disk path is addressed in CI rather than by remembering to run something.
+
+  Three details are load-bearing, and each was arrived at by getting it wrong first. The restart
+  has to be of the *network process* — that is where the registry lives, so terminating only the
+  web process leaves it resident and the read is served from memory. The page is served from
+  `127.0.0.1`, which is a potentially trustworthy origin, so the feature is exposed with no TLS
+  setup at all. And because a failed read is a bare `NotFoundError`, indistinguishable from a hash
+  that was never stored, the test asserts its way to that point — the write returns the expected
+  digest, a pre-restart read matches, and both the bytes file and the metadata record are
+  confirmed on disk — with a second test asserting `NotFoundError` for an entry never written, so
+  a read path that resolved for anything could not masquerade as working persistence.
+
+  It was also verified by sabotage: with the on-disk registry deleted before the restart, the test
+  fails. Worth doing deliberately, because two earlier steps of writing it passed while proving
+  nothing — a build that silently compiled no code, and assertions comparing against empty
+  strings.
 - **Manually added entries.** The settings-UI path for seeding a file the user already has on
   disk (defaulting to `"*"` scope, with empty storing origins) is not implemented.
 
