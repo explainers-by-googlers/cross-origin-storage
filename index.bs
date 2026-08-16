@@ -357,6 +357,7 @@ To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|
 1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
    [=FileSystemHandle/locator=] addresses |disclosableEntry| within the
    [=Cross-Origin Storage file system=], in |realm|.
+1. Set |handle|'s [=FileSystemFileHandle/COS origin=] to |origin|.
 1. Set |handle|'s [=FileSystemFileHandle/may read=] to true.
 
    Note: This handle has already cleared [=apply availability gating=], so the calling origin is
@@ -419,6 +420,8 @@ attempt to [[#resource-visibility-upgrades|upgrade]] the entry's [=COS entry/ori
 handle is successfully written through.
 
 Every {{FileSystemFileHandle}} addressing a [=COS entry=] also has an associated
+<dfn for="FileSystemFileHandle">COS origin</dfn>, the [=/origin=] that obtained it, and an
+associated
 <dfn for="FileSystemFileHandle">may read</dfn> boolean, which governs whether
 {{FileSystemFileHandle/getFile()}} may disclose the entry's bytes through that particular handle.
 It is true for a handle returned by [=complete a read request=], which has already passed
@@ -461,6 +464,8 @@ To <dfn>complete a create request</dfn> given [=a new promise|a promise=] |resul
 1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
    [=FileSystemHandle/locator=] addresses |entry| within the
    [=Cross-Origin Storage file system=], in |realm|.
+1. Set |handle|'s [=FileSystemFileHandle/COS origin=] to |global|'s
+   [=relevant settings object=]'s [=environment settings object/origin=].
 1. Set |handle|'s [=FileSystemFileHandle/requested origins=] to |requestedOrigins|.
 1. Set |handle|'s [=FileSystemFileHandle/may read=] to false.
 
@@ -640,6 +645,41 @@ Once a handle's [=FileSystemFileHandle/may read=] is true, {{FileSystemFileHandl
 called on it returns a {{File}} whose contents are the addressed entry's [=COS entry/bytes=]; this
 is exactly the behavior [[FS]] already defines for a [=file entry=] whose
 [=file entry/binary data=] is those bytes.
+
+## Transferring handles ## {#transferring-handles}
+
+A {{FileSystemFileHandle}} is a [=serializable object=] [[FS]], so one addressing a
+[=COS entry=] can be passed to another [=environment settings object=], for example with
+{{MessagePort/postMessage()}}. That is a second way to come by such a handle, alongside
+{{CrossOriginStorageManager/requestFileHandle()}}, so it is constrained here as well.
+
+The [=serialization steps=] for a {{FileSystemFileHandle}} addressing a [=COS entry=], given
+|value| and |serialized|, additionally:
+
+1. Set |serialized|.\[[COSOrigin]] to |value|'s [=FileSystemFileHandle/COS origin=].
+1. Set |serialized|.\[[COSMayRead]] to |value|'s [=FileSystemFileHandle/may read=].
+
+The [=deserialization steps=], given |serialized|, |value| and |realm|, additionally:
+
+1. If |serialized|.\[[COSOrigin]] is not [=same origin=] with |realm|'s
+   [=environment settings object=]'s [=environment settings object/origin=], then throw a
+   "{{DataCloneError}}" {{DOMException}}.
+1. Set |value|'s [=FileSystemFileHandle/COS origin=] to |serialized|.\[[COSOrigin]].
+1. Set |value|'s [=FileSystemFileHandle/may read=] to |serialized|.\[[COSMayRead]].
+
+Note: Without the [=same origin=] check, transferring would defeat every disclosure control in
+this specification at once. A handle whose [=FileSystemFileHandle/may read=] is true has already
+cleared [=apply availability gating=] *for the origin that requested it*; posting it to another
+origin would hand that origin the entry's bytes without [=COS entry/origins=],
+[=on the PHL|PHL membership=] or [[#greasing|GREASE'ing]] ever being evaluated for it. This
+matches the File System Standard's existing treatment of handles, which are likewise only useful
+to a [=same origin=] recipient.
+
+Note: [=FileSystemFileHandle/may read=] travels with the handle rather than being recomputed,
+so a create-request handle that has not been written through stays unreadable after a transfer,
+and a read-request handle stays readable without being re-gated. Re-gating on arrival would be
+worse, not better: it would let a caller probe availability repeatedly by transferring the same
+handle.
 
 # Storage management # {#storage-management}
 
