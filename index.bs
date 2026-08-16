@@ -357,6 +357,10 @@ To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|
 1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
    [=FileSystemHandle/locator=] addresses |disclosableEntry| within the
    [=Cross-Origin Storage file system=], in |realm|.
+1. Set |handle|'s [=FileSystemFileHandle/may read=] to true.
+
+   Note: This handle has already cleared [=apply availability gating=], so the calling origin is
+   entitled to the entry's bytes.
 1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
    [=/resolve=] |result| with |handle|.
 
@@ -414,6 +418,24 @@ A {{FileSystemFileHandle}} created by [=complete a create request=] has an assoc
 attempt to [[#resource-visibility-upgrades|upgrade]] the entry's [=COS entry/origins=] to once the
 handle is successfully written through.
 
+Every {{FileSystemFileHandle}} addressing a [=COS entry=] also has an associated
+<dfn for="FileSystemFileHandle">may read</dfn> boolean, which governs whether
+{{FileSystemFileHandle/getFile()}} may disclose the entry's bytes through that particular handle.
+It is true for a handle returned by [=complete a read request=], which has already passed
+[[#availability-gating|availability gating]], and false for a handle returned by
+[=complete a create request=] until [=verify and store=] succeeds for that same handle.
+
+Note: This is deliberately a property of the handle rather than of the entry. A create request
+returns a handle whether or not the entry already exists and is already "`written`" (see
+[=complete a create request=]), so a per-entry rule would let any origin call
+{{CrossOriginStorageManager/requestFileHandle()}} with
+{{CrossOriginStorageRequestFileHandleOptions/create}}: true and immediately read an entry it
+never wrote, learning its contents without satisfying [=COS entry/origins=],
+[=on the PHL|PHL membership=], or [[#greasing|GREASE'ing]]. Every disclosure control in this
+specification is applied on the read path, so gating per entry would let a create request walk
+around all of them. Requiring the caller to supply the correct bytes first means a successful
+read through a create-obtained handle discloses nothing the caller did not already have.
+
 <div algorithm>
 To <dfn>complete a create request</dfn> given [=a new promise|a promise=] |result|, a
 [=COS hash=] |hash|, a {{CrossOriginStorageRequestFileHandleOptions}} |options|, a global object
@@ -440,6 +462,7 @@ To <dfn>complete a create request</dfn> given [=a new promise|a promise=] |resul
    [=FileSystemHandle/locator=] addresses |entry| within the
    [=Cross-Origin Storage file system=], in |realm|.
 1. Set |handle|'s [=FileSystemFileHandle/requested origins=] to |requestedOrigins|.
+1. Set |handle|'s [=FileSystemFileHandle/may read=] to false.
 
    Note: |handle| is returned whether or not |entry| already existed, and whether or not it is
    already "`written`". The caller still needs to supply the complete file bytes through
@@ -524,6 +547,10 @@ stream's handle, the complete written [=byte sequence=] |bytes|, and the closing
    1. Decrement |entry|'s [=COS entry/pending writer count=] by 1.
    1. Run [=upgrade resource visibility=] given |entry| and the handle's
       [=FileSystemFileHandle/requested origins=].
+   1. Set the handle's [=FileSystemFileHandle/may read=] to true.
+
+      Note: Only this handle becomes readable. Another handle for the same entry, obtained from a
+      different create request that has not been written through, stays unreadable.
 
 </div>
 
@@ -595,19 +622,24 @@ model: every {{FileSystemFileHandle}} obtained from it has already been fully au
 {{FileSystemFileHandle/getFile()}} or {{FileSystemFileHandle/createWritable()}} on such a handle
 never triggers an additional permission prompt.
 
-A {{FileSystemFileHandle}} addressing a [=COS entry=] |entry| can exist while |entry|'s
-[=COS entry/state=] is still "`pending`" — for example, right after a
-[[#creating-and-writing-files|create request]], before the corresponding write has completed.
-Calling {{FileSystemFileHandle/getFile()}} on such a handle must reject with a
-"{{NotAllowedError}}" {{DOMException}}, for the same reason a concurrent
-{{CrossOriginStorageManager/requestFileHandle()}} call for the same hash does (see
-[[#reading-files]]): even the caller that requested the handle must not be able to observe a
-not-yet-verified placeholder as if it were the file's real contents.
+Calling {{FileSystemFileHandle/getFile()}} on a {{FileSystemFileHandle}} addressing a
+[=COS entry=] whose [=FileSystemFileHandle/may read=] is false must reject with a
+"{{NotAllowedError}}" {{DOMException}}. This covers two distinct cases:
 
-Once |entry|'s [=COS entry/state=] is "`written`", {{FileSystemFileHandle/getFile()}} called on
-such a handle returns a {{File}} whose contents are |entry|'s [=COS entry/bytes=]; this is exactly
-the behavior [[FS]] already defines for a [=file entry=] whose [=file entry/binary data=] is
-|entry|'s [=COS entry/bytes=].
+* A handle from a [[#creating-and-writing-files|create request]] whose entry is still
+  "`pending`", for the same reason a concurrent
+  {{CrossOriginStorageManager/requestFileHandle()}} call for the same hash rejects (see
+  [[#reading-files]]): the caller must not be able to observe a not-yet-verified placeholder as if
+  it were the file's real contents.
+* A handle from a create request for an entry that some *other* origin has already written. The
+  entry's [=COS entry/state=] is "`written`", but this caller has not supplied the bytes and has
+  not passed [[#availability-gating|availability gating]], so it must learn nothing about the
+  entry — including whether it exists.
+
+Once a handle's [=FileSystemFileHandle/may read=] is true, {{FileSystemFileHandle/getFile()}}
+called on it returns a {{File}} whose contents are the addressed entry's [=COS entry/bytes=]; this
+is exactly the behavior [[FS]] already defines for a [=file entry=] whose
+[=file entry/binary data=] is those bytes.
 
 # Storage management # {#storage-management}
 

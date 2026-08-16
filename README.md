@@ -917,6 +917,8 @@ The following tables summarize the response a user agent must return for every c
 
 The "Created, not yet written" row applies both to a fresh `requestFileHandle()` call for that hash and to calling `getFile()` on a `FileSystemFileHandle` that was itself obtained from a still-pending `create: true` request; see [Concurrent writes](#concurrent-writes).
 
+`getFile()` is gated per handle rather than per entry, so a handle obtained from a `create: true` request also rejects with `NotAllowedError` when the entry is *already* `written`—by some other origin—and this handle has not been written through. Otherwise a create request would be a read: any origin could ask for a handle and immediately call `getFile()`, learning an entry's contents without satisfying `origins`, the PHL, or GREASE'ing, all of which are enforced on the read path only.
+
 ##### Write path
 
 | Condition | Written with | Response |

@@ -12,8 +12,8 @@ list, or a PHL/GREASE-gated wildcard); storage-budget and eviction rules; and
 rate-limiting/probing defenses. WPTs exist at
 [web-platform-tests/wpt#61811](https://github.com/web-platform-tests/wpt/pull/61811).
 
-Three independent implementations (Servo, Ladybird, Firefox) came first and left detailed
-engineering notes in `cross-origin-storage-implementation-notes.md`. Those notes were used as
+Three independent prototype implementations (Servo, Ladybird, Firefox) came first and left
+detailed engineering notes in `cross-origin-storage-implementation-notes.md`. Those notes were used as
 prior art throughout, and they earned their keep: the outstanding-writer-count cleanup race
 (§2), the `seek()`/`truncate()` unbounded-claim DoS (§10.2), per-algorithm hash validation as a
 path-traversal defense (§10.1), and re-validation on the trusted side of a process boundary
@@ -23,13 +23,17 @@ This document covers Chromium's first pass: the Blink IDL surface, the Mojo plum
 correct read/write round trip (disk-persisted, budget-accounted, PHL/GREASE-gated, and
 rate-limited) across all three disclosure scopes, in windows and all three worker types.
 
-**Status: not shipped, and not proposed for shipping.** This is a work-in-progress Gerrit CL
-against `chromium/src` ([CL 8256403](https://chromium-review.googlesource.com/c/chromium/src/+/8256403)),
-marked Work in Progress, unreviewed, and not landed. It is not in Chrome, not behind an origin
-trial, and not on any release channel. The `CrossOriginStorage` runtime-enabled feature is set to
-`stable` **on this branch only**, which means nothing more than "on by default for anyone who
-downloads a build produced from this branch." Work happened on a `cross-origin-storage` branch in
-a local `chromium/src` checkout.
+**Status: not shipped.** This is a work-in-progress Gerrit CL against `chromium/src`
+([CL 8256403](https://chromium-review.googlesource.com/c/chromium/src/+/8256403)), marked Work in
+Progress, unreviewed, and not landed. It is not in Chrome, not behind an origin trial, and not on
+any release channel. Unlike the other prototypes described in this directory, Chrome does intend
+to ship Cross-Origin Storage, so this is a first implementation pass on that path rather than an
+experiment for its own sake — but intent is not a ship date, and everything in
+[Deferred / follow-up work](#deferred--follow-up-work) stands between this and anything
+shippable. The `CrossOriginStorage` runtime-enabled feature is set to `stable` **on this branch
+only**, which means nothing more than "on by default for anyone who downloads a build produced
+from this branch." Work happened on a `cross-origin-storage` branch in a local `chromium/src`
+checkout.
 
 ## Key architectural decisions
 
@@ -60,16 +64,18 @@ a local `chromium/src` checkout.
    alternative (a COS-specific error channel) would have meant not reusing
    `FileSystemWritableFileStream`'s closing path.
 4. **A create-request handle may not read the entry back until *that handle's own* write has
-   verified — a per-handle gate, not a per-entry one.** Read literally, the spec's file-system
-   section says `getFile()` on a handle addressing a `written` entry returns its bytes, and
-   `complete a create request` hands out a handle whether or not the entry is already written.
-   Together those permit an oracle: any origin can call
-   `requestFileHandle(hash, {create: true})` then `getFile()` and learn whether the hash is
-   stored, bypassing `origins` scoping, PHL gating and GREASE'ing entirely. The explainer's
-   narrower wording ("until that very handle's `write()`/`close()` has resolved") is the safe
-   reading and is what is implemented: a read-obtained handle is readable immediately, a
-   create-obtained handle only after its own `VerifyAndStore` succeeds. **Any implementation
-   following the spec text alone will have this hole.**
+   verified — a per-handle gate, not a per-entry one.** `FileSystemFileHandle` carries a
+   [`may read`](https://wicg.github.io/cross-origin-storage/#creating-and-writing-files) flag:
+   true for a handle from a read request, which has already passed availability gating, and false
+   for a handle from a create request until `verify and store` succeeds *for that same handle*.
+   Gating per entry instead would make a create request into a read — any origin could ask for a
+   handle and immediately `getFile()` an entry another origin wrote, learning its contents without
+   satisfying `origins`, PHL membership or GREASE'ing, all of which are enforced on the read path
+   only. Requiring the bytes first means a successful read through a create handle discloses
+   nothing the caller did not already have. Worth testing explicitly: a per-entry check passes
+   every ordinary single-origin round trip, because there the handle that wrote the entry is the
+   handle reading it.
+
 5. **Every recognized hash algorithm's digest shape is validated, on both sides of the process
    boundary.** `CrossOriginStorageHash::Create()` canonicalizes the algorithm name and enforces
    the exact hex length for SHA-1/256/384/512, not just SHA-256 (notes §10.1). The renderer
@@ -184,10 +190,6 @@ What is still open, beyond the architecture above:
 
 ## Risks
 
-- **The create-handle read gate (decision 4) is a deliberate divergence from the spec's literal
-  text.** If the spec is later clarified the other way, this is wrong; if it is clarified this
-  way, every implementation that followed the literal text has an availability-gating bypass. This
-  should be resolved in the spec rather than left to implementations.
 - **The Public Hash List is a large binary dependency** whose provenance chain runs through
   GitHub's Git LFS media endpoint. The generator verifies it against the checksum published beside
   it, which turns a corrupted or truncated transfer into a build failure rather than
@@ -236,10 +238,13 @@ What is still open, beyond the architecture above:
 
 ## Rollout
 
-There is no rollout. The change is a Work in Progress Gerrit CL
+There is no rollout yet. The change is a Work in Progress Gerrit CL
 ([8256403](https://chromium-review.googlesource.com/c/chromium/src/+/8256403)) against
 `chromium/src`: public and readable, but explicitly not ready for review, not reviewed, and not
-landed. Nothing about it is in Chrome, on any channel, or behind an origin trial.
+landed. Nothing about it is in Chrome, on any channel, or behind an origin trial. Chrome does
+intend to ship this API, so the eventual path runs through the usual process — landing the CL,
+a Chromium feature entry, and an origin trial before any default-on shipping decision — none of
+which has started.
 
 For testing without building Chromium, a Linux x86_64 build with the feature enabled by default is
 published at [github.com/tomayac/Chromium](https://github.com/tomayac/Chromium). Those are
