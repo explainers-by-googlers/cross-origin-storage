@@ -8,18 +8,19 @@ Contributions to Specifications are made under the
 Contributions to Test Suites are made under the
 [W3C 3-clause BSD License](https://www.w3.org/copyright/3-clause-bsd-license-2008/)
 
-## Exception: the Public Hash List
+## Exception: the Public Hash List implementation and data
 
-The [`public-hash-list/`](public-hash-list/) directory is licensed under the
-[Apache License 2.0](public-hash-list/LICENSE) instead. That covers both the
-generator implementation and the generated list data.
+The [`public-hash-list/implementation/`](public-hash-list/implementation/)
+directory is licensed under the
+[Apache License 2.0](public-hash-list/implementation/LICENSE) instead, per that
+directory's own `LICENSE` file. That covers the generator tooling and the list
+data it produces.
 
-The list is meant to be consumed directly by user agents, so it is licensed on
-the terms browser engines already vendor third-party data under, rather than on
-terms written for specifications and reports. Apache-2.0 is on the license
-allowlists that shipping browsers apply to bundled dependencies; the W3C
-Software and Document License is not, which would otherwise block adoption of
-the very artifact the list exists to provide.
+Those are consumed as software and data rather than read as a report: browsers
+vendor the generated list as a third-party dependency, and Apache-2.0 is on the
+license allowlists engines apply to bundled dependencies, where neither the W3C
+Software and Document License nor the MPL-2.0 this previously used appears.
 
-Nothing else in this repository is affected: the specification, the explainers
-and the implementation notes remain under the terms above.
+Everything else remains under the terms above, including
+[`public-hash-list/phl-explainer.md`](public-hash-list/phl-explainer.md), which
+is a report like the other explainers here.

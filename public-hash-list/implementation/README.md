@@ -579,7 +579,8 @@ distinct from the rest of the
 repository, which is under the
 [W3C Software and Document License](https://www.w3.org/copyright/software-license/)
 (see the repository root [`LICENSE.md`](../../LICENSE.md)) — Apache-2.0 applies
-to the `public-hash-list/` subtree.
+only to this `public-hash-list/implementation/` subtree, not to the sibling
+[explainer](../phl-explainer.md), which is a report.
 
 Apache-2.0 is permissive and carries an explicit patent grant. It replaces an
 earlier MPL-2.0 choice made to mirror the Public Suffix List: browsers vendor
