@@ -1,5 +1,5 @@
 // Copyright 2026 Google LLC
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: Apache-2.0
 
 import fs from 'fs';
 import { fileURLToPath } from 'url';

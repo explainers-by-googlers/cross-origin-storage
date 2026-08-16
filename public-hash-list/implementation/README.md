@@ -1,6 +1,6 @@
 <!--
   Copyright 2026 Google LLC
-  SPDX-License-Identifier: MPL-2.0
+  SPDX-License-Identifier: Apache-2.0
 -->
 
 # Public Hash List
@@ -573,17 +573,20 @@ BigQuery query that powers the `http-archive` pipeline.
 
 This directory — both the **tooling** (scrapers, `index.js`) and the
 **generated data file** (`data/public-hash-list.dat`) — is licensed under
-**[MPL-2.0](LICENSE)**, the same license the
-[Public Suffix List](https://github.com/publicsuffix/list) uses, via its own
-`LICENSE` file. This is distinct from the rest of the
+**[Apache-2.0](LICENSE)**, via this directory's own `LICENSE` file. This is
+distinct from the rest of the
 [WICG/cross-origin-storage](https://github.com/WICG/cross-origin-storage)
 repository, which is under the
 [W3C Software and Document License](https://www.w3.org/copyright/software-license/)
-(see the repository root [`LICENSE.md`](../../LICENSE.md)) — MPL-2.0 applies
-only to this `public-hash-list/implementation/` subtree. MPL-2.0 is weak,
-file-based copyleft that explicitly permits embedding into proprietary
-codebases, which minimizes legal review for any vendor that has already
-cleared the PSL.
+(see the repository root [`LICENSE.md`](../../LICENSE.md)) — Apache-2.0 applies
+to the `public-hash-list/` subtree.
+
+Apache-2.0 is permissive and carries an explicit patent grant. It replaces an
+earlier MPL-2.0 choice made to mirror the Public Suffix List: browsers vendor
+the PHL as third-party data, and on that path neither MPL-2.0 nor the W3C
+license is on the allowlists engines apply to bundled dependencies, whereas
+Apache-2.0 is. See the [PHL explainer](../phl-explainer.md) for the full
+reasoning.
 
 A note on what is being licensed: the individual entries are _facts_ (a file has
 a given hash), which attract no copyright in the US, though a curated compilation

@@ -1,5 +1,5 @@
 // Copyright 2026 Google LLC
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: Apache-2.0
 
 // Load .env if present — native Node.js 20.12+, no package required.
 try { process.loadEnvFile(); } catch {}

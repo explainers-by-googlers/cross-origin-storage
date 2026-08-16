@@ -21,7 +21,7 @@
   },
   "keywords": [],
   "author": "Thomas Steiner <tomac@google.com>",
-  "license": "MPL-2.0",
+  "license": "Apache-2.0",
   "type": "module",
   "dependencies": {
     "axios": "^1.18.1",

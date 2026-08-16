@@ -83,7 +83,7 @@ Concretely:
 // Public Hash List (PHL)
 // VERSION: 2026-06-19T18:30:00Z
 // COMMIT: 9f3c…
-// License: MPL-2.0  https://mozilla.org/MPL/2.0/
+// License: Apache-2.0  https://www.apache.org/licenses/LICENSE-2.0
 //
 // ===BEGIN SHA-256===
 // Ubiquitous, corroborated resources. User agents MUST treat these as eligible.
@@ -168,9 +168,11 @@ A safety property holds throughout: because every entry is a public, demonstrabl
 
 The PHL contains only hashes and public provenance, never user data, so the list itself leaks nothing. The core section's safety rests on its inclusion bar: a file is listed only after clearing multiple independent signals of ubiquity, which is precisely the property that makes its cache presence uninformative about an individual. The hand-curated model-hub section relaxes that bar deliberately for the AI use case, and accepts a different, bounded guarantee: coarse interest inference from public hub artifacts. This is why it is a separate, optional section rather than mixed into the core list. In both cases, presence on the PHL authorizes availability disclosure for that hash *and nothing else*: user agents remain free, and expected, to apply probe-rate limiting, on-device fingerprinting detection, and size-proportionate GREASE'ing per the explainer. The file is signed so consumers can verify integrity and provenance before trusting it, and the reproducible build lets any party independently re-derive and challenge any entry.
 
-**License.** To match the PSL and keep cross-vendor adoption frictionless, the PHL is published under the **Mozilla Public License 2.0 (MPL-2.0)**,  the same license the PSL itself uses. MPL-2.0 is OSI- and FSF-approved, weak (file-based) copyleft, and explicitly permits embedding MPL-licensed components into proprietary codebases (such as a closed-source browser binary) provided the MPL components remain available under the MPL. Using the same license as the precedent the PHL is modeled on minimizes legal review for any vendor that has already cleared the PSL.
+**License.** The PHL — both the generator tooling and the generated list — is published under the **Apache License 2.0**, which is OSI- and FSF-approved, permissive, and carries an explicit patent grant.
 
-A note on what is being licensed: the individual entries are *facts* (a file has a given hash), and facts attract no copyright in the US; a curated compilation can nonetheless attract a thin compilation copyright and, in the EU, a separate *sui generis* database right. Publishing the whole list under MPL-2.0 places both beyond doubt for downstream users. Crucially, the PHL distributes **hashes and (in comments) example URLs only, never the resource bytes**, so it never redistributes jQuery, a font, or a model, and therefore inherits none of those resources' own licenses. It is a list *about* files, not a copy *of* them.
+This was previously MPL-2.0, chosen to match the Public Suffix List on the reasoning that reusing the PSL's license would minimize legal review for any vendor that had already cleared the PSL. That reasoning does not survive contact with how the list is actually consumed. The PSL is not vendored as a third-party dependency in at least one major engine: Chromium carries it in `net/base/registry_controlled_domains/`, compiled into a DAFSA and stamped with Chromium's own BSD header, so it never passes through the license allowlist that governs bundled third-party data. The PHL is meant to be vendored as exactly that kind of data, and on that path MPL-2.0 is not allowlisted — nor is the W3C Software and Document License the rest of this repository uses. Apache-2.0 is. Keeping the PSL's license would have blocked adoption of the artifact the list exists to provide, which is the opposite of frictionless.
+
+A note on what is being licensed: the individual entries are *facts* (a file has a given hash), and facts attract no copyright in the US; a curated compilation can nonetheless attract a thin compilation copyright and, in the EU, a separate *sui generis* database right. Publishing the whole list under Apache-2.0 places both beyond doubt for downstream users. Crucially, the PHL distributes **hashes and (in comments) example URLs only, never the resource bytes**, so it never redistributes jQuery, a font, or a model, and therefore inherits none of those resources' own licenses. It is a list *about* files, not a copy *of* them.
 
 ## Governance
 

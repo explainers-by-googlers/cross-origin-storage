@@ -1,5 +1,5 @@
 // Copyright 2026 Google LLC
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: Apache-2.0
 
 import axios from 'axios';
 import crypto from 'crypto';
@@ -118,7 +118,7 @@ export function formatHashList({ core, huggingface = [], manual = [], version, c
     `// VERSION: ${version}`,
     `// COMMIT: ${commit}`,
     '// Algorithm: SHA-256 (lowercase hex, 64 chars)',
-    '// License: MPL-2.0  https://mozilla.org/MPL/2.0/',
+    '// License: Apache-2.0  https://www.apache.org/licenses/LICENSE-2.0',
     '//',
     '// Availability-gating allowlist for Cross-Origin Storage (COS):',
     '// https://wicg.github.io/cross-origin-storage/',
