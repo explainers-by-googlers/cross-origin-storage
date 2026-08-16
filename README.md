@@ -442,6 +442,22 @@ try {
 }
 ```
 
+#### Transferring a handle
+
+A `FileSystemFileHandle` is serializable, so a handle for a COS entry can be passed to another context with `postMessage()`, a `MessagePort`, or a `BroadcastChannel`, the same way any other file handle can. This is a second way to obtain a handle, so the same disclosure rules apply to it:
+
+- **Same-origin only.** Deserializing a COS handle in a context whose origin differs from the one that obtained it throws a `DataCloneError`. A readable handle cleared [availability gating](#availability-gating) for *the origin that asked*; passing it to another origin would hand over the bytes without `origins`, the Public Hash List, or GREASE'ing ever being evaluated for that origin. Transferring between a page and its own worker, or between same-origin documents, works normally.
+- **Readability travels with the handle.** A handle from a `create: true` request that has not been written through is still not readable after being transferred — `getFile()` keeps rejecting until that handle's own write completes. Conversely, a handle from a successful read stays readable without being re-checked, so transferring a handle can't be used to re-roll [GREASE'ing](#greasing) or otherwise re-probe availability.
+
+```js
+// Same-origin: fine. The worker gets a handle it can read from.
+const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
+worker.postMessage(handle);
+
+// Cross-origin: throws DataCloneError on the receiving side.
+otherOriginFrame.postMessage(handle, 'https://other.example');
+```
+
 #### Storing and retrieving a file across unrelated sites
 
 To illustrate the capabilities of the COS API, consider the following example where two unrelated sites want to interact with the same common large language model. The first site stores the model in COS and makes it globally available, while the second site retrieves it.
@@ -931,6 +947,13 @@ The "Created, not yet written" row applies both to a fresh `requestFileHandle()`
 | Valid hash, declared hash matches computed hash, but exceeds the requesting origin's storage limit | Any | `QuotaExceededError` |
 | Valid hash, declared hash does not match computed hash | Any | `DataError` |
 | Merging `origins` into an existing list-scoped entry would exceed the implementation-defined maximum length | List | Success (excess origins silently dropped) |
+
+##### Transfer path
+
+| Condition | Response |
+| -- | -- |
+| Deserializing a handle in a context same-origin with the one that obtained it | Success, preserving whether it was readable |
+| Deserializing a handle in any other origin | `DataCloneError` |
 
 ##### Policy
 
