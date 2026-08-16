@@ -120,6 +120,22 @@ checkout.
     service workers. In Chromium this is cheap because a per-context `BrowserInterfaceBroker`
     already exists; the notes' §1 warning about worker support being expensive to retrofit applies
     to engines without that route.
+12. **Every storing origin is charged an entry's full size; the global total counts it once.**
+    The notes' §6 flagged multi-origin budget attribution as unresolved and suggested a
+    fractional/shared scheme as the way to resolve it. That scheme is unsafe: if each of *N*
+    storing origins is charged *S/N*, an origin's own charge drops when someone else stores bytes
+    it also stores, and it can detect that by probing its own remaining headroom — learning that
+    another origin stored a given hash, with none of the disclosure controls consulted. Charging
+    each storing origin in full keeps an origin's usage a function of its own writes alone. The
+    per-origin charges then sum to more than the bytes on disk, which is correct: the global cap
+    protects the disk, while the per-origin share bounds what one origin can ask the registry to
+    keep, matching the specification's own framing ("the total number of bytes an origin may
+    contribute to the COS registry through successful writes"). Usage became derivable from an
+    entry's storing origins, so the persisted attributed-origin field was dropped entirely
+    (metadata version 2) and site-scoped clearing stopped needing reattribution logic. The
+    tradeoff taken knowingly: an origin storing many already-popular entries burns its share
+    without adding disk usage, and since it may only evict its own sole-owned entries, it can hit
+    its cap holding little it is allowed to evict.
 
 ## Implementation plan
 
@@ -177,10 +193,6 @@ What is still open, beyond the architecture above:
   the inadequate option the notes name, and it is named as such in the directory's own
   `README.chromium` rather than left implicit. Component Updater is the right end state for a
   browser that ships on a milestone cadence.
-- **Storage-budget attribution for multi-origin entries** is the same unresolved modelling gap the
-  notes describe: an entry's bytes are charged to whichever origin first transitioned it to
-  written, so a second origin storing identical bytes is charged nothing, and a site-scoped clear
-  that removes the attributed origin leaves the charge stale.
 - **One platform.** Only Linux x86_64 has been built. macOS and iOS cannot be cross-compiled from
   Linux at all; Windows needs a toolchain that a stock checkout does not have; Android needs a
   `target_os` sync and produces an APK.
