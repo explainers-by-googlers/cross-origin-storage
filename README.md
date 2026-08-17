@@ -623,7 +623,6 @@ An empty string for `crossOriginStorage` opts the module into COS for same-site 
 
 ```js
 import data from "same-site-resource.ext" with {
-  type: "type",
   integrity: "sha256-abc123...",
   crossOriginStorage: "",
 };
@@ -634,7 +633,6 @@ The same attribute works with dynamic `import()`:
 ```js
 const module = await import("same-site-resource.ext", {
   with: {
-    type: "type",
     integrity: "sha256-abc123...",
     crossOriginStorage: "",
   },
@@ -647,7 +645,6 @@ By passing `"*"`, the module is made available to any origin that requests the s
 
 ```js
 import data from "popular-resource.ext" with {
-  type: "type",
   integrity: "sha256-abc123...",
   crossOriginStorage: "*",
 };
@@ -658,7 +655,6 @@ The same attributes work with dynamic `import()`:
 ```js
 const module = await import("popular-resource.ext", {
   with: {
-    type: "type",
     integrity: "sha256-abc123...",
     crossOriginStorage: "*",
   },
@@ -671,7 +667,6 @@ To restrict the resource to specific origins, `crossOriginStorage` takes a space
 
 ```js
 import data from "acme-inc-corporate.ext" with {
-  type: "type",
   integrity: "sha256-def456...",
   crossOriginStorage: "https://acme-inc.example.com https://acme-cdn.example.com",
 };
