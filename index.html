@@ -6,7 +6,7 @@
   <link href="https://www.w3.org/StyleSheets/TR/2021/cg-draft" rel="stylesheet">
   <meta content="Bikeshed version d113b2e81, updated Tue Jun 9 14:57:55 2026 -0700" name="generator">
   <link href="https://wicg.github.io/cross-origin-storage/" rel="canonical">
-  <meta content="963a71e4e9438a19b8f8e9025e5c1680c0578c87" name="revision">
+  <meta content="165ac3e6cf3fe11f8d0594c853fd1e1a24fe0d2e" name="revision">
   <meta content="dark light" name="color-scheme">
   <link href="https://www.w3.org/StyleSheets/TR/2021/dark.css" media="(prefers-color-scheme: dark)" rel="stylesheet" type="text/css">
 <style>
@@ -785,7 +785,7 @@ var[data-var-color="6"] { --var-vg: #FFBCF2; }
   <div class="head">
    <h1 class="no-ref p-name" id="title">Cross-Origin Storage</h1>
    <p id="w3c-state"><a href="https://www.w3.org/standards/types/#CG-DRAFT">Draft Community Group Report</a>,
-    <time class="dt-updated" datetime="2026-08-17">17 August 2026</time></p>
+    <time class="dt-updated" datetime="2026-08-19">19 August 2026</time></p>
    <div data-fill-with="spec-metadata">
     <dl>
      <dt>This version:
@@ -1074,17 +1074,29 @@ are to return <a data-link-type="dfn" href="https://webidl.spec.whatwg.org/#this
    <p>Each <code class="idl"><a data-link-type="idl" href="#crossoriginstoragemanager" id="ref-for-crossoriginstoragemanager④">CrossOriginStorageManager</a></code> object has an associated <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①">origin</a>, set to
 <a data-link-type="dfn" href="https://webidl.spec.whatwg.org/#this" id="ref-for-this①">this</a>’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object" id="ref-for-relevant-settings-object">relevant settings object</a>’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#concept-settings-object-origin" id="ref-for-concept-settings-object-origin">origin</a> when the object
 is created.</p>
-   <h3 class="heading settled" data-level="3.1" id="requestfilehandle"><span class="secno">3.1. </span><span class="content">The <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle③">requestFileHandle()</a></code> method</span><a class="self-link" href="#requestfilehandle"></a></h3>
+   <p class="note" role="note"><span class="marker">Note:</span> Taking the origin from the <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object" id="ref-for-relevant-settings-object①">relevant settings object</a> rather than from anything about
+the script itself has a consequence worth spelling out for workers. A worker created from a
+<code>blob:</code> URL has the <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin②">origin</a> of the context that created it, so it shares that origin’s
+Cross-Origin Storage view exactly: what such a worker writes, its creating page can read back, and
+what the page stored, the worker can read. The <code>blob:</code> URL is not an origin of its own, and
+revoking it does not detach the worker from that view. A worker created from a <code>data:</code> URL, by
+contrast, has an <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin-opaque" id="ref-for-concept-origin-opaque">opaque origin</a>. This specification does not currently define what
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle③">requestFileHandle()</a></code> does when the <em>calling</em> origin is opaque;
+the <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin-opaque" id="ref-for-concept-origin-opaque①">opaque origin</a> rule in <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request">validate a COS request</a> governs the origins a caller
+<em>names</em>, not the origin it speaks from. An opaque origin has no stable identity to key
+<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins②">storing origins</a> or <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#same-site" id="ref-for-same-site">same site</a> comparisons on, so there is nothing meaningful for
+it to be granted.</p>
+   <h3 class="heading settled" data-level="3.1" id="requestfilehandle"><span class="secno">3.1. </span><span class="content">The <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle④">requestFileHandle()</a></code> method</span><a class="self-link" href="#requestfilehandle"></a></h3>
    <div class="domintro note" role="note">
     <dl>
-     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle④">requestFileHandle</a></code>(<var>hash</var>)
+     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑤">requestFileHandle</a></code>(<var>hash</var>)
      <dd data-md>
       <p>Returns a handle for the file identified by <var>hash</var>, if it is present in, and disclosable
  from, Cross-Origin Storage to the calling origin. Otherwise, this rejects with a
  "<code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#notfounderror" id="ref-for-notfounderror">NotFoundError</a></code>" <code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#idl-DOMException" id="ref-for-idl-DOMException">DOMException</a></code>. A "<code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#notfounderror" id="ref-for-notfounderror①">NotFoundError</a></code>" does not prove the file is
  physically absent from Cross-Origin Storage; see <a href="#availability-gating">§ 7.3 Availability gating</a>. Callers can
  treat it as "fetch this from the network instead."</p>
-     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑤">requestFileHandle</a></code>(<var>hash</var>, { <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-create" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-create">create</a></code>: true })
+     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑥">requestFileHandle</a></code>(<var>hash</var>, { <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-create" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-create">create</a></code>: true })
      <dd data-md>
       <p>Returns a handle that can be used to write the file identified by <var>hash</var> into Cross-Origin
  Storage, creating a new entry if none exists yet, restricted by default to same-site origins.
@@ -1093,14 +1105,14 @@ is created.</p>
  existed; the user agent verifies at that point that the written bytes hash to <var>hash</var>,
  rejecting with a "<code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#dataerror" id="ref-for-dataerror">DataError</a></code>" <code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#idl-DOMException" id="ref-for-idl-DOMException①">DOMException</a></code> otherwise. This requirement prevents an
  origin from using a create request as an oracle for whether <var>hash</var> was already present.</p>
-     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑥">requestFileHandle</a></code>(<var>hash</var>, { <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-create" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-create①">create</a></code>: true, <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-origins" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-origins">origins</a></code>: "*" })
+     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑦">requestFileHandle</a></code>(<var>hash</var>, { <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-create" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-create①">create</a></code>: true, <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-origins" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-origins">origins</a></code>: "*" })
      <dd data-md>
       <p>As above, additionally making the entry disclosable to any origin whose request for <var>hash</var>
  clears <a href="#availability-gating">§ 7.3 Availability gating</a>, once written.</p>
-     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑦">requestFileHandle</a></code>(<var>hash</var>, { <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-create" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-create②">create</a></code>: true, <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-origins" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-origins①">origins</a></code>: ["https://a.example", "https://b.example"] })
+     <dt data-md><var>handle</var> = await navigator . crossOriginStorage . <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑧">requestFileHandle</a></code>(<var>hash</var>, { <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-create" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-create②">create</a></code>: true, <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-origins" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-origins①">origins</a></code>: ["https://a.example", "https://b.example"] })
      <dd data-md>
       <p>As above, restricting disclosure to exactly the listed origins (in addition to the calling
- origin, and any origin already in <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins②">storing origins</a>).</p>
+ origin, and any origin already in <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins③">storing origins</a>).</p>
     </dl>
    </div>
    <div class="algorithm" data-algorithm="requestFileHandle(hash, options)" data-algorithm-for="CrossOriginStorageManager">
@@ -1117,7 +1129,7 @@ steps are:
      <li data-md>
       <p>Let <var>global</var> be <a data-link-type="dfn" href="https://webidl.spec.whatwg.org/#this" id="ref-for-this③">this</a>’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#concept-relevant-global" id="ref-for-concept-relevant-global">relevant global object</a>.</p>
      <li data-md>
-      <p>Let <var>origin</var> be <a data-link-type="dfn" href="https://webidl.spec.whatwg.org/#this" id="ref-for-this④">this</a>’s associated <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin②">origin</a>.</p>
+      <p>Let <var>origin</var> be <a data-link-type="dfn" href="https://webidl.spec.whatwg.org/#this" id="ref-for-this④">this</a>’s associated <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin③">origin</a>.</p>
      <li data-md>
       <p>If <var>global</var>’s associated <code class="idl"><a data-link-type="idl" href="https://dom.spec.whatwg.org/#document" id="ref-for-document">Document</a></code>, if any, is not <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/iframe-embed-object.html#allowed-to-use" id="ref-for-allowed-to-use">allowed to use</a> the
  "<code><a data-link-type="dfn" href="#permissionspolicy-cross-origin-storage" id="ref-for-permissionspolicy-cross-origin-storage">cross-origin-storage</a></code>" <a data-link-type="dfn" href="https://w3c.github.io/webappsec-permissions-policy/#policy-controlled-feature" id="ref-for-policy-controlled-feature">policy-controlled feature</a>, then:</p>
@@ -1129,7 +1141,7 @@ steps are:
         <p>Return <var>result</var>.</p>
       </ol>
      <li data-md>
-      <p>Let <var>validationFailure</var> be the result of running <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request">validate a COS request</a> given <var>hash</var> and
+      <p>Let <var>validationFailure</var> be the result of running <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request①">validate a COS request</a> given <var>hash</var> and
  <var>options</var>.</p>
      <li data-md>
       <p>If <var>validationFailure</var> is not null:</p>
@@ -1195,7 +1207,7 @@ and a <code class="idl"><a data-link-type="idl" href="#dictdef-crossoriginstorag
         <ol>
          <li data-md>
           <p>If the result of running the <a data-link-type="dfn" href="https://url.spec.whatwg.org/#concept-basic-url-parser" id="ref-for-concept-basic-url-parser">basic URL parser</a> on <var>candidate</var> is failure, or if the
- parsed URL’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin③">origin</a> is an <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin-opaque" id="ref-for-concept-origin-opaque">opaque origin</a>, return a new <code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#exceptiondef-typeerror" id="ref-for-exceptiondef-typeerror④">TypeError</a></code>.</p>
+ parsed URL’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin④">origin</a> is an <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin-opaque" id="ref-for-concept-origin-opaque②">opaque origin</a>, return a new <code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#exceptiondef-typeerror" id="ref-for-exceptiondef-typeerror④">TypeError</a></code>.</p>
         </ol>
       </ol>
      <li data-md>
@@ -1206,7 +1218,7 @@ and a <code class="idl"><a data-link-type="idl" href="#dictdef-crossoriginstorag
    <div class="algorithm" data-algorithm="complete a read request">
     
 To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="complete-a-read-request">complete a read request</dfn> given <a data-link-type="dfn" href="https://webidl.spec.whatwg.org/#a-new-promise" id="ref-for-a-new-promise①">a promise</a> <var>result</var>, a <a data-link-type="dfn" href="#cos-hash" id="ref-for-cos-hash⑥">COS hash</a> <var>hash</var>, an
-<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin④">origin</a> <var>origin</var>, a global object <var>global</var>, and a <a data-link-type="dfn" href="https://tc39.es/ecma262/#realm" id="ref-for-realm">Realm</a> <var>realm</var>:
+<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑤">origin</a> <var>origin</var>, a global object <var>global</var>, and a <a data-link-type="dfn" href="https://tc39.es/ecma262/#realm" id="ref-for-realm">Realm</a> <var>realm</var>:
 
 
     <ol>
@@ -1256,7 +1268,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="complete-a-rea
    <div class="algorithm" data-algorithm="determine COS disclosure">
     
 To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="determine-cos-disclosure">determine COS disclosure</dfn> given a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry②">COS entry</a> or null <var>entry</var>, and an
-<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑤">origin</a> <var>origin</var>, return a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry③">COS entry</a> or null:
+<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑥">origin</a> <var>origin</var>, return a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry③">COS entry</a> or null:
 
 
     <ol>
@@ -1265,7 +1277,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="determine-cos-
      <li data-md>
       <p><a data-link-type="dfn" href="https://infra.spec.whatwg.org/#assert" id="ref-for-assert">Assert</a>: <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-state" id="ref-for-cos-entry-state①">state</a> is "<code>written</code>".</p>
      <li data-md>
-      <p>If <var>origin</var> is in <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins③">storing origins</a>, return <var>entry</var>.</p>
+      <p>If <var>origin</var> is in <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins④">storing origins</a>, return <var>entry</var>.</p>
       <p class="note" role="note"><span class="marker">Note:</span> The original storer, and any origin that has itself successfully written the entry,
  can always read it back. See <a href="#original-storer-access">§ 3.4.1 Original storer access</a>.</p>
      <li data-md>
@@ -1295,7 +1307,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="determine-cos-
      <li data-md>
       <p><a data-link-type="dfn" href="https://infra.spec.whatwg.org/#assert" id="ref-for-assert①">Assert</a>: <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins④">origins</a> is null.</p>
      <li data-md>
-      <p>If <var>origin</var> is <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#same-site" id="ref-for-same-site">same site</a> with some item of <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins④">storing origins</a>, return
+      <p>If <var>origin</var> is <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#same-site" id="ref-for-same-site①">same site</a> with some item of <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑤">storing origins</a>, return
  <var>entry</var>.</p>
      <li data-md>
       <p>Return null.</p>
@@ -1304,7 +1316,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="determine-cos-
    <div class="algorithm" data-algorithm="apply availability gating">
     
 To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="apply-availability-gating">apply availability gating</dfn> given a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry④">COS entry</a> or null <var>entry</var>, and an
-<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑥">origin</a> <var>origin</var>, return a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry⑤">COS entry</a> or null:
+<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑦">origin</a> <var>origin</var>, return a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry⑤">COS entry</a> or null:
 
 
     <ol>
@@ -1314,7 +1326,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="apply-availabi
      <li data-md>
       <p>If <var>disclosable</var> is null, return null.</p>
      <li data-md>
-      <p>If <var>origin</var> is in <var>disclosable</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑤">storing origins</a>, return <var>disclosable</var>.</p>
+      <p>If <var>origin</var> is in <var>disclosable</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑥">storing origins</a>, return <var>disclosable</var>.</p>
      <li data-md>
       <p>If the user agent elects to apply <a href="#greasing">GREASE’ing</a> to this request, return null.</p>
      <li data-md>
@@ -1327,7 +1339,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="apply-availabi
 attempt to <a href="#resource-visibility-upgrades">upgrade</a> the entry’s <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins⑤">origins</a> to once the
 handle is successfully written through.</p>
    <p>Every <code class="idl"><a data-link-type="idl" href="https://fs.spec.whatwg.org/#filesystemfilehandle" id="ref-for-filesystemfilehandle④">FileSystemFileHandle</a></code> addressing a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry⑥">COS entry</a> also has an associated
-<dfn class="dfn-paneled" data-dfn-for="FileSystemFileHandle" data-dfn-type="dfn" data-noexport id="filesystemfilehandle-cos-origin">COS origin</dfn>, the <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑦">origin</a> that obtained it, and an
+<dfn class="dfn-paneled" data-dfn-for="FileSystemFileHandle" data-dfn-type="dfn" data-noexport id="filesystemfilehandle-cos-origin">COS origin</dfn>, the <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑧">origin</a> that obtained it, and an
 associated
 <dfn class="dfn-paneled" data-dfn-for="FileSystemFileHandle" data-dfn-type="dfn" data-noexport id="filesystemfilehandle-may-read">may read</dfn> boolean, which governs whether
 <code class="idl"><a data-link-type="idl" href="https://fs.spec.whatwg.org/#dom-filesystemfilehandle-getfile" id="ref-for-dom-filesystemfilehandle-getfile">getFile()</a></code> may disclose the entry’s bytes through that particular handle.
@@ -1337,7 +1349,7 @@ It is true for a handle returned by <a data-link-type="dfn" href="#complete-a-re
    <p class="note" role="note"><span class="marker">Note:</span> This is deliberately a property of the handle rather than of the entry. A create request
 returns a handle whether or not the entry already exists and is already "<code>written</code>" (see
 <a data-link-type="dfn" href="#complete-a-create-request" id="ref-for-complete-a-create-request④">complete a create request</a>), so a per-entry rule would let any origin call
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑧">requestFileHandle()</a></code> with
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑨">requestFileHandle()</a></code> with
 <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-create" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-create④">create</a></code>: true and immediately read an entry it
 never wrote, learning its contents without satisfying <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins⑥">origins</a>,
 <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl②">PHL membership</a>, or <a href="#greasing">GREASE’ing</a>. Every disclosure control in this
@@ -1365,7 +1377,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="complete-a-cre
         <p>Set <var>entry</var> to a new <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry⑧">COS entry</a> whose <a data-link-type="dfn" href="#cos-entry-hash" id="ref-for-cos-entry-hash⑥">hash</a> is <var>hash</var>,
   <a data-link-type="dfn" href="#cos-entry-bytes" id="ref-for-cos-entry-bytes①">bytes</a> is null, <a data-link-type="dfn" href="#cos-entry-state" id="ref-for-cos-entry-state②">state</a> is "<code>pending</code>",
   <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins⑦">origins</a> is <var>requestedOrigins</var>, and
-  <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑥">storing origins</a> is an empty <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#ordered-set" id="ref-for-ordered-set①">set</a>.</p>
+  <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑦">storing origins</a> is an empty <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#ordered-set" id="ref-for-ordered-set①">set</a>.</p>
        <li data-md>
         <p><a data-link-type="dfn" href="https://infra.spec.whatwg.org/#map-set" id="ref-for-map-set">Set</a> the <a data-link-type="dfn" href="#cos-registry" id="ref-for-cos-registry③">COS registry</a>[<var>hash</var>] to <var>entry</var>.</p>
       </ol>
@@ -1382,7 +1394,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="complete-a-cre
  <a data-link-type="dfn" href="#cross-origin-storage-file-system" id="ref-for-cross-origin-storage-file-system①">Cross-Origin Storage file system</a>, in <var>realm</var>.</p>
      <li data-md>
       <p>Set <var>handle</var>’s <a data-link-type="dfn" href="#filesystemfilehandle-cos-origin" id="ref-for-filesystemfilehandle-cos-origin①">COS origin</a> to <var>global</var>’s
- <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object" id="ref-for-relevant-settings-object①">relevant settings object</a>’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#concept-settings-object-origin" id="ref-for-concept-settings-object-origin①">origin</a>.</p>
+ <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object" id="ref-for-relevant-settings-object②">relevant settings object</a>’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#concept-settings-object-origin" id="ref-for-concept-settings-object-origin①">origin</a>.</p>
      <li data-md>
       <p>Set <var>handle</var>’s <a data-link-type="dfn" href="#filesystemfilehandle-requested-origins" id="ref-for-filesystemfilehandle-requested-origins">requested origins</a> to <var>requestedOrigins</var>.</p>
      <li data-md>
@@ -1401,7 +1413,7 @@ To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="complete-a-cre
    <div class="algorithm" data-algorithm="normalize requested origins">
     
 To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="normalize-requested-origins">normalize requested origins</dfn> given a (DOMString or sequence&lt;DOMString>) or
-undefined <var>origins</var>, return "<code>*</code>", a <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list" id="ref-for-list⑤">list</a> of <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑧">origins</a>, or null:
+undefined <var>origins</var>, return "<code>*</code>", a <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list" id="ref-for-list⑤">list</a> of <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑨">origins</a>, or null:
 
 
     <ol>
@@ -1416,9 +1428,9 @@ undefined <var>origins</var>, return "<code>*</code>", a <a data-link-type="dfn"
  one):</p>
       <ol>
        <li data-md>
-        <p>Let <var>candidateOrigin</var> be the <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin⑨">origin</a> resulting from running the <a data-link-type="dfn" href="https://url.spec.whatwg.org/#concept-basic-url-parser" id="ref-for-concept-basic-url-parser①">basic URL parser</a>
+        <p>Let <var>candidateOrigin</var> be the <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⓪">origin</a> resulting from running the <a data-link-type="dfn" href="https://url.spec.whatwg.org/#concept-basic-url-parser" id="ref-for-concept-basic-url-parser①">basic URL parser</a>
   on <var>candidate</var>.</p>
-        <p class="note" role="note"><span class="marker">Note:</span> <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request①">validate a COS request</a> has already confirmed each <var>candidate</var> parses to a
+        <p class="note" role="note"><span class="marker">Note:</span> <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request②">validate a COS request</a> has already confirmed each <var>candidate</var> parses to a
   non-opaque origin.</p>
        <li data-md>
         <p>If <var>list</var> does not <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list-contain" id="ref-for-list-contain">contain</a> <var>candidateOrigin</var>, <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list-append" id="ref-for-list-append">append</a> <var>candidateOrigin</var>
@@ -1443,7 +1455,7 @@ the point a stream becomes closed, and neither does this algorithm.</p>
     
 The <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="verify-and-store">verify and store</dfn> steps, given the <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①⓪">COS entry</a> <var>entry</var> addressed by the closed
 stream’s handle, the complete written <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#byte-sequence" id="ref-for-byte-sequence①">byte sequence</a> <var>bytes</var>, and the closing operation’s
-<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object" id="ref-for-relevant-settings-object②">relevant settings object</a>’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#concept-settings-object-origin" id="ref-for-concept-settings-object-origin②">origin</a> <var>origin</var>, are:
+<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object" id="ref-for-relevant-settings-object③">relevant settings object</a>’s <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#concept-settings-object-origin" id="ref-for-concept-settings-object-origin②">origin</a> <var>origin</var>, are:
 
 
     <ol>
@@ -1467,7 +1479,7 @@ stream’s handle, the complete written <a data-link-type="dfn" href="https://in
  <a data-link-type="dfn" href="#cos-entry-hash" id="ref-for-cos-entry-hash⑦">hash</a> from the <a data-link-type="dfn" href="#cos-registry" id="ref-for-cos-registry④">COS registry</a>.</p>
           <p class="note" role="note"><span class="marker">Note:</span> This is what makes a failed write clean up after itself instead of leaving a
  permanently unreachable "<code>pending</code>" entry behind: a later
- <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle⑨">requestFileHandle()</a></code> call for the same hash, once no other
+ <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⓪">requestFileHandle()</a></code> call for the same hash, once no other
  writer is still outstanding, sees no entry at all and gets an ordinary
  "<code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#notfounderror" id="ref-for-notfounderror③">NotFoundError</a></code>", not an indefinite "<code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#notallowederror" id="ref-for-notallowederror②">NotAllowedError</a></code>". The count guards against
  deleting an entry that another writer, concurrently in flight for the same hash (for
@@ -1491,7 +1503,7 @@ stream’s handle, the complete written <a data-link-type="dfn" href="https://in
        <li data-md>
         <p>Set <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-state" id="ref-for-cos-entry-state⑤">state</a> to "<code>written</code>".</p>
        <li data-md>
-        <p><a data-link-type="dfn" href="https://infra.spec.whatwg.org/#set-append" id="ref-for-set-append①">Append</a> <var>origin</var> to <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑦">storing origins</a>, if not already present.</p>
+        <p><a data-link-type="dfn" href="https://infra.spec.whatwg.org/#set-append" id="ref-for-set-append①">Append</a> <var>origin</var> to <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑧">storing origins</a>, if not already present.</p>
        <li data-md>
         <p>Decrement <var>entry</var>’s <a data-link-type="dfn" href="#cos-entry-pending-writer-count" id="ref-for-cos-entry-pending-writer-count③">pending writer count</a> by 1.</p>
        <li data-md>
@@ -1513,7 +1525,7 @@ future revision is expected to formally integrate with <a data-link-type="biblio
    <div class="algorithm" data-algorithm="upgrade resource visibility">
     
 To <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="upgrade-resource-visibility">upgrade resource visibility</dfn> given a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①②">COS entry</a> <var>entry</var> and "<code>*</code>", a <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list" id="ref-for-list⑦">list</a> of
-<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⓪">origins</a>, or null <var>requestedOrigins</var>:
+<a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①①">origins</a>, or null <var>requestedOrigins</var>:
 
 
     <ol>
@@ -1568,9 +1580,9 @@ long as it also supplies bytes that hash to the entry’s <a data-link-type="dfn
 any site that already possesses the correct bytes for a hash is, by construction, as authoritative
 as the original storer about what that hash denotes.</p>
    <h4 class="heading settled" data-level="3.4.1" id="original-storer-access"><span class="secno">3.4.1. </span><span class="content">Original storer access</span><a class="self-link" href="#original-storer-access"></a></h4>
-   <p>An <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①①">origin</a> that has successfully completed <a data-link-type="dfn" href="#verify-and-store" id="ref-for-verify-and-store⑨">writing</a> a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①③">COS entry</a> — that
-is, any <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①②">origin</a> in the entry’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑧">storing origins</a> — can always subsequently obtain
-a handle for it via <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⓪">requestFileHandle()</a></code>, independent of the entry’s
+   <p>An <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①②">origin</a> that has successfully completed <a data-link-type="dfn" href="#verify-and-store" id="ref-for-verify-and-store⑨">writing</a> a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①③">COS entry</a> — that
+is, any <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①③">origin</a> in the entry’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑨">storing origins</a> — can always subsequently obtain
+a handle for it via <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①①">requestFileHandle()</a></code>, independent of the entry’s
 <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins①⑦">origins</a> value and independent of whether its <a data-link-type="dfn" href="#cos-entry-hash" id="ref-for-cos-entry-hash⑨">hash</a> is <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl③">on the PHL</a>.
 This mirrors the Cache API’s model, in which an origin always has access to what it stored.</p>
    <h2 class="heading settled" data-level="4" id="cos-file-system"><span class="secno">4. </span><span class="content">The Cross-Origin Storage file system</span><a class="self-link" href="#cos-file-system"></a></h2>
@@ -1589,7 +1601,7 @@ never triggers an additional permission prompt.</p>
     <li data-md>
      <p>A handle from a <a href="#creating-and-writing-files">create request</a> whose entry is still
 "<code>pending</code>", for the same reason a concurrent
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①①">requestFileHandle()</a></code> call for the same hash rejects (see
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①②">requestFileHandle()</a></code> call for the same hash rejects (see
 <a href="#reading-files">§ 3.2 Reading files</a>): the caller must not be able to observe a not-yet-verified placeholder as if
 it were the file’s real contents.</p>
     <li data-md>
@@ -1606,7 +1618,7 @@ is exactly the behavior <a data-link-type="biblio" href="#biblio-fs" title="File
    <p>A <code class="idl"><a data-link-type="idl" href="https://fs.spec.whatwg.org/#filesystemfilehandle" id="ref-for-filesystemfilehandle⑦">FileSystemFileHandle</a></code> is a <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/structured-data.html#serializable-objects" id="ref-for-serializable-objects">serializable object</a> <a data-link-type="biblio" href="#biblio-fs" title="File System Standard">[FS]</a>, so one addressing a
 <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①⑥">COS entry</a> can be passed to another <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/webappapis.html#environment-settings-object" id="ref-for-environment-settings-object">environment settings object</a>, for example with
 <code class="idl"><a data-link-type="idl" href="https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-postmessage-options" id="ref-for-dom-messageport-postmessage-options">postMessage()</a></code>. That is a second way to come by such a handle, alongside
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①②">requestFileHandle()</a></code>, so it is constrained here as well.</p>
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①③">requestFileHandle()</a></code>, so it is constrained here as well.</p>
    <p>The <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/structured-data.html#serialization-steps" id="ref-for-serialization-steps">serialization steps</a> for a <code class="idl"><a data-link-type="idl" href="https://fs.spec.whatwg.org/#filesystemfilehandle" id="ref-for-filesystemfilehandle⑧">FileSystemFileHandle</a></code> addressing a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①⑦">COS entry</a>, given
 <var>value</var> and <var>serialized</var>, additionally:</p>
    <ol>
@@ -1640,7 +1652,7 @@ worse, not better: it would let a caller probe availability repeatedly by transf
 handle.</p>
    <h2 class="heading settled" data-level="5" id="storage-management"><span class="secno">5. </span><span class="content">Storage management</span><a class="self-link" href="#storage-management"></a></h2>
    <h3 class="heading settled" data-level="5.1" id="storage-limits"><span class="secno">5.1. </span><span class="content">Storage limits</span><a class="self-link" href="#storage-limits"></a></h3>
-   <p>A user agent must impose a limit on the total number of bytes an <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①③">origin</a> may contribute to the
+   <p>A user agent must impose a limit on the total number of bytes an <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①④">origin</a> may contribute to the
 <a data-link-type="dfn" href="#cos-registry" id="ref-for-cos-registry⑥">COS registry</a> through <a data-link-type="dfn" href="#verify-and-store" id="ref-for-verify-and-store①⓪">successful writes</a>, to prevent a single origin from
 flooding the cache in an attempt to evict other origins' entries. The specific limit is
 <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#implementation-defined" id="ref-for-implementation-defined①">implementation-defined</a>. If an origin’s write would exceed its limit, the user agent must
@@ -1650,8 +1662,8 @@ the console.</p>
 bytes under the same hash does not consume additional quota beyond the first successful write; see
 <a href="#cos-entries">§ 2.2 COS entries</a>.</p>
    <p>A user agent also has an <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#implementation-defined" id="ref-for-implementation-defined②">implementation-defined</a> <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="maximum-origins-list-length">maximum origins list length</dfn>, a
-positive integer bounding how many <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①④">origins</a> a single <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins①⑨">origins</a> <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list" id="ref-for-list⑧">list</a> may
-contain. This is enforced both when a <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list" id="ref-for-list⑨">list</a> is first supplied (see <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request②">validate a COS request</a>)
+positive integer bounding how many <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑤">origins</a> a single <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins①⑨">origins</a> <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list" id="ref-for-list⑧">list</a> may
+contain. This is enforced both when a <a data-link-type="dfn" href="https://infra.spec.whatwg.org/#list" id="ref-for-list⑨">list</a> is first supplied (see <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request③">validate a COS request</a>)
 and when one is later merged into an existing entry (see
 <a href="#resource-visibility-upgrades">upgrade resource visibility</a>), so that neither a single call nor
 the cumulative effect of many calls over time can grow an entry’s <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins②⓪">origins</a> without
@@ -1661,7 +1673,7 @@ undeclared substitute for "<code>*</code>"; see <a href="#cross-site-probing">§
 happen at very different points in an operation:</p>
    <ul>
     <li data-md>
-     <p>In <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request③">validate a COS request</a>, the limit is checked before any file is fetched, hashed, or
+     <p>In <a data-link-type="dfn" href="#validate-a-cos-request" id="ref-for-validate-a-cos-request④">validate a COS request</a>, the limit is checked before any file is fetched, hashed, or
 written. A caller that exceeds it gets an immediate "<code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#exceptiondef-typeerror" id="ref-for-exceptiondef-typeerror⑤">TypeError</a></code>" and nothing else happens —​the same treatment as any other malformed <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-origins" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-origins⑥">origins</a></code>
 value.</p>
     <li data-md>
@@ -1673,34 +1685,34 @@ already-verified — and potentially very large — write over an unrelated book
 would not even be attributable to a single caller’s mistake. The write is therefore left to
 succeed, and only the origins beyond capacity are dropped from <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins②①">origins</a>, with a
 console warning. This mirrors the existing handling of a
-<a href="#resource-visibility-upgrades">permissive-to-more-restricted</a> request: an <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑤">origin</a> request
+<a href="#resource-visibility-upgrades">permissive-to-more-restricted</a> request: an <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑥">origin</a> request
 that cannot be fully honored is silently capped rather than turned into a failure of the write
 that carried it. Consistent with <a href="#availability-gating">§ 7.3 Availability gating</a> elsewhere in this specification, a
-caller has no reliable way to confirm after the fact whether its requested <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑥">origin</a> was
-actually added: a subsequent <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①③">requestFileHandle()</a></code> call as that
+caller has no reliable way to confirm after the fact whether its requested <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑦">origin</a> was
+actually added: a subsequent <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①④">requestFileHandle()</a></code> call as that
 origin can still fail even if the origin was added — for example because of
 <a href="#greasing">GREASE’ing</a> — so its result must not be read as confirmation either way.</p>
    </ul>
    <h3 class="heading settled" data-level="5.2" id="eviction"><span class="secno">5.2. </span><span class="content">Eviction</span><a class="self-link" href="#eviction"></a></h3>
    <p><em>This section is non-normative.</em></p>
    <p>Under storage pressure, a user agent may evict <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①⑧">entries</a> from the <a data-link-type="dfn" href="#cos-registry" id="ref-for-cos-registry⑦">COS registry</a>,
-for example using a least-recently-used policy across the <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins⑨">storing origins</a> that have
+for example using a least-recently-used policy across the <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⓪">storing origins</a> that have
 most recently accessed each entry. A user agent is expected to provide settings UI through which a
 user can inspect which files are stored, which origins have accessed each file, and manually
 delete entries or clear all Cross-Origin Storage data.</p>
    <p>When a user clears an origin’s site data, the user agent should remove that origin from every
-<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⓪">storing origins</a> set it appears in. If, after that removal, a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①⑨">COS entry</a>’s
-<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①①">storing origins</a> is empty, the user agent may consider that entry for deletion.</p>
+<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①①">storing origins</a> set it appears in. If, after that removal, a <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry①⑨">COS entry</a>’s
+<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①②">storing origins</a> is empty, the user agent may consider that entry for deletion.</p>
    <h3 class="heading settled" data-level="5.3" id="manually-added-entries"><span class="secno">5.3. </span><span class="content">Manually added entries</span><a class="self-link" href="#manually-added-entries"></a></h3>
    <p><em>This section is non-normative.</em></p>
    <p>The settings UI described above may let a user directly add a file they already have on disk to
-Cross-Origin Storage — for example, an AI model they downloaded independently of any website —​without any script ever calling <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①④">requestFileHandle()</a></code>. Such an entry
-has no requesting <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑦">origin</a> to attribute the write to, which raises two questions the imperative
+Cross-Origin Storage — for example, an AI model they downloaded independently of any website —​without any script ever calling <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑤">requestFileHandle()</a></code>. Such an entry
+has no requesting <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑧">origin</a> to attribute the write to, which raises two questions the imperative
 API does not answer by itself:</p>
    <ul>
     <li data-md>
      <p>Who is the <em>original storer</em>, for the purposes of
-<a href="#original-storer-access">§ 3.4.1 Original storer access</a>? Nobody: the entry’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①②">storing origins</a> starts out empty,
+<a href="#original-storer-access">§ 3.4.1 Original storer access</a>? Nobody: the entry’s <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①③">storing origins</a> starts out empty,
 rather than containing an origin that performed the write. No origin is therefore exempt from
 the ordinary <a href="#availability-gating">availability gating</a> and <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins②②">origins</a> checks that
 every requesting origin is otherwise subject to — which is the correct outcome, since no origin
@@ -1715,7 +1727,7 @@ visited yet reuse a file the user already has on disk — if other origins can a
 it. A user agent’s settings UI may additionally let the user choose a narrower scope.</p>
    </ul>
    <p>Once added this way, an entry with <a data-link-type="dfn" href="#cos-entry-state" id="ref-for-cos-entry-state⑦">state</a> "<code>written</code>" is otherwise indistinguishable
-from one a website wrote via <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑤">requestFileHandle()</a></code>: the same
+from one a website wrote via <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑥">requestFileHandle()</a></code>: the same
 <a href="#availability-gating">availability gating</a> and <a href="#resource-visibility-upgrades">visibility
 upgrade</a> rules apply to it, exactly as they would for any other entry with the same
 <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins②⑤">origins</a> value — including the <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl⑤">on the PHL</a> check, if the entry ends up "<code>*</code>"-scoped,
@@ -1727,23 +1739,23 @@ which is the default for a manual add but not the only possible outcome.</p>
 them or how many URLs they were fetched from (see <a href="#cos-entries">§ 2.2 COS entries</a>). A URL is a property of one
 writer’s fetch rather than of the entry, so there is no non-arbitrary way to pick one for an entry
 several origins wrote; it is not verifiable the way the bytes are (see <a href="#resource-integrity">§ 7.1 Resource integrity</a>);
-and it carries considerably more about a user’s browsing than the coarse <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑧">origin</a> values in
-<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①③">storing origins</a> do, since a path or query string can name a specific document,
+and it carries considerably more about a user’s browsing than the coarse <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑨">origin</a> values in
+<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①④">storing origins</a> do, since a path or query string can name a specific document,
 account, or session. Recording it on the entry would therefore route a high-entropy signal around
 the disclosure limits that <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins②⑥">origins</a> and <a href="#availability-gating">§ 7.3 Availability gating</a> exist to impose.</p>
    <p>The motivation for wanting it is nonetheless real: a user looking at a multi-gigabyte file in the
 settings UI described in <a href="#eviction">§ 5.2 Eviction</a>, and a developer debugging why a
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑥">requestFileHandle()</a></code> call missed, would both like to know where a file
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑦">requestFileHandle()</a></code> call missed, would both like to know where a file
 came from. A user agent may serve that by keeping an implementation-private provenance record
-alongside an entry — for example, the URL each of its <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①④">storing origins</a> fetched the
+alongside an entry — for example, the URL each of its <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⑤">storing origins</a> fetched the
 bytes from, and when — provided the record is treated as user agent state rather than as part of
 the entry:</p>
    <ul>
     <li data-md>
      <p>It is never exposed to script. Nothing in this specification discloses it, and nothing added
-later should: neither <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑦">requestFileHandle()</a></code> nor the
+later should: neither <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑧">requestFileHandle()</a></code> nor the
 <code class="idl"><a data-link-type="idl" href="https://fs.spec.whatwg.org/#filesystemfilehandle" id="ref-for-filesystemfilehandle⑨">FileSystemFileHandle</a></code> it returns should reveal whether such a record exists, let alone its
-contents. In particular, a requesting <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin①⑨">origin</a> must not be able to observe a record it did not
+contents. In particular, a requesting <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/browsers.html#concept-origin" id="ref-for-concept-origin②⓪">origin</a> must not be able to observe a record it did not
 itself produce.</p>
     <li data-md>
      <p>It is surfaced only through trusted, non-web surfaces: the user agent’s own settings and storage
@@ -1759,7 +1771,7 @@ may be inaccurate or deliberately misleading.</p>
     <li data-md>
      <p>It shares the lifetime of the entry, and of the origin it is attributed to. It is discarded when
 the entry is evicted or deleted, and the portion attributable to an origin is discarded when
-that origin is removed from <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⑤">storing origins</a>, including when the user clears that
+that origin is removed from <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⑥">storing origins</a>, including when the user clears that
 origin’s site data (see <a href="#eviction">§ 5.2 Eviction</a>).</p>
    </ul>
    <p>Because such a record is invisible to content, whether a user agent keeps one, and how much it
@@ -1770,7 +1782,7 @@ presence or absence is not detectable by a site.</p>
 the string "<dfn class="dfn-paneled" data-dfn-for="PermissionsPolicy" data-dfn-type="dfn" data-export id="permissionspolicy-cross-origin-storage">cross-origin-storage</dfn>". Its default allowlist
 is <code>self</code>.</p>
    <p>A <a data-link-type="dfn" href="https://dom.spec.whatwg.org/#concept-document" id="ref-for-concept-document">Document</a> that is not <a data-link-type="dfn" href="https://html.spec.whatwg.org/multipage/iframe-embed-object.html#allowed-to-use" id="ref-for-allowed-to-use①">allowed to use</a> this feature causes every
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑧">requestFileHandle()</a></code> call made from that <a data-link-type="dfn" href="https://dom.spec.whatwg.org/#concept-document" id="ref-for-concept-document①">Document</a> (or from a
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑨">requestFileHandle()</a></code> call made from that <a data-link-type="dfn" href="https://dom.spec.whatwg.org/#concept-document" id="ref-for-concept-document①">Document</a> (or from a
 worker whose owner is that <a data-link-type="dfn" href="https://dom.spec.whatwg.org/#concept-document" id="ref-for-concept-document②">Document</a>) to reject with a "<code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#notallowederror" id="ref-for-notallowederror④">NotAllowedError</a></code>" <code class="idl"><a data-link-type="idl" href="https://webidl.spec.whatwg.org/#idl-DOMException" id="ref-for-idl-DOMException⑨">DOMException</a></code>,
 before any hash validation, registry lookup, or write occurs.</p>
    <h2 class="heading settled" data-level="7" id="privacy-and-security-considerations"><span class="secno">7. </span><span class="content">Privacy and security considerations</span><a class="self-link" href="#privacy-and-security-considerations"></a></h2>
@@ -1779,7 +1791,7 @@ before any hash validation, registry lookup, or write occurs.</p>
    <h3 class="heading settled" data-level="7.1" id="resource-integrity"><span class="secno">7.1. </span><span class="content">Resource integrity</span><a class="self-link" href="#resource-integrity"></a></h3>
    <p>Every <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry②①">COS entry</a> is keyed by, and its bytes are verified against, a cryptographic hash (see
 <a href="#creating-and-writing-files">§ 3.3 Creating and writing files</a>). A site can therefore be sure that a file obtained through
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle①⑨">requestFileHandle()</a></code> has exactly the same bytes it would have gotten
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②⓪">requestFileHandle()</a></code> has exactly the same bytes it would have gotten
 by fetching <var>hash</var> itself. Developers cannot enumerate the contents of Cross-Origin Storage or
 access a file without already knowing its hash.</p>
    <p>A <a data-link-type="dfn" href="#cos-hash" id="ref-for-cos-hash⑧">COS hash</a> is not a secret. It is a content identifier, trivially computable by anyone who
@@ -1794,7 +1806,7 @@ itself (see <a href="#cross-site-probing">§ 7.2 Cross-site probing</a>).</p>
    <h3 class="heading settled" data-level="7.2" id="cross-site-probing"><span class="secno">7.2. </span><span class="content">Cross-site probing</span><a class="self-link" href="#cross-site-probing"></a></h3>
    <p>If a resource is only used by a narrow set of sites, an attacker able to learn that the resource is
 present in Cross-Origin Storage can infer that the user likely visited one of those sites. Because
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②⓪">requestFileHandle()</a></code> is the mechanism for learning presence, each call
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②①">requestFileHandle()</a></code> is the mechanism for learning presence, each call
 is, in effect, a probe. Two independent mechanisms in this specification bound what a probe can
 learn:</p>
    <ul>
@@ -1804,7 +1816,7 @@ disclosure to a chosen set of origins, so a proprietary or low-popularity resour
 globally probeable at all.</p>
     <li data-md>
      <p><a href="#availability-gating">§ 7.3 Availability gating</a> additionally withholds disclosure of a "<code>*</code>"-scoped resource from
-requesting origins outside its <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⑥">storing origins</a> unless the hash is <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl⑥">on the PHL</a>,
+requesting origins outside its <a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⑦">storing origins</a> unless the hash is <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl⑥">on the PHL</a>,
 so that a resource stored with <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragerequestfilehandleoptions-origins" id="ref-for-dom-crossoriginstoragerequestfilehandleoptions-origins⑧">origins</a></code>: "<code>*</code>" is
 not automatically probeable by every origin on the web. This gate applies only to "<code>*</code>"-scoped
 entries; for list- and same-site-scoped entries, the first bullet’s restriction is the sole
@@ -1820,13 +1832,13 @@ deliberate, explicit opt-in that "<code>*</code>" alone requires. The <a data-li
 of "every origin" keeps the restricted-origins form of <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins②⑨">origins</a> from being usable as
 an undeclared substitute for "<code>*</code>".</p>
    <p>A user agent should additionally rate-limit or otherwise throttle repeated
-<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②①">requestFileHandle()</a></code> calls from a single origin, and may apply
+<code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②②">requestFileHandle()</a></code> calls from a single origin, and may apply
 on-device heuristics (for example, detecting a pattern of requests for hashes that appear to be
 generated per-user) to identify and block probing attempts, independent of whether the probed
 hashes are <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl⑦">on the PHL</a>.</p>
    <h3 class="heading settled" data-level="7.3" id="availability-gating"><span class="secno">7.3. </span><span class="content">Availability gating</span><a class="self-link" href="#availability-gating"></a></h3>
-   <p>Whether a <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②②">requestFileHandle()</a></code> read from an origin outside
-<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⑦">storing origins</a> succeeds always depends on whether the requesting origin is
+   <p>Whether a <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②③">requestFileHandle()</a></code> read from an origin outside
+<a data-link-type="dfn" href="#cos-entry-storing-origins" id="ref-for-cos-entry-storing-origins①⑧">storing origins</a> succeeds always depends on whether the requesting origin is
 <em>allowed</em> to read the entry, governed by <a data-link-type="dfn" href="#cos-entry-origins" id="ref-for-cos-entry-origins③⓪">origins</a>. For a "<code>*</code>"-scoped entry, a second,
 independent question also applies: whether the user agent is willing to <em>disclose that the entry
 exists at all</em>, governed by <a data-link-type="dfn" href="#on-the-phl" id="ref-for-on-the-phl⑧">PHL membership</a> and <a href="#greasing">GREASE’ing</a>. Both must
@@ -1861,7 +1873,7 @@ independent of nominal PHL status.</p>
    <h2 class="heading settled" data-level="8" id="integration-with-other-specifications"><span class="secno">8. </span><span class="content">Integration with other specifications</span><a class="self-link" href="#integration-with-other-specifications"></a></h2>
    <p><em>This section is non-normative.</em></p>
    <p>The <a data-link-type="dfn" href="#cos-registry" id="ref-for-cos-registry⑧">COS registry</a> defined here is also reachable from three host languages without going
-through <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②③">requestFileHandle()</a></code> directly. Each
+through <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②④">requestFileHandle()</a></code> directly. Each
 integration is defined in the specification for its own host language, not in this document; this
 specification defines only the shared underlying concepts (<a data-link-type="dfn" href="#cos-hash" id="ref-for-cos-hash⑨">COS hash</a>, <a data-link-type="dfn" href="#cos-entry" id="ref-for-cos-entry②②">COS entry</a>,
 <a href="#availability-gating">availability gating</a>, and the <a data-link-type="dfn" href="#dfn-public-hash-list" id="ref-for-dfn-public-hash-list①">Public Hash List</a>) that those
@@ -1900,7 +1912,7 @@ the authoritative grammar for each form — including how a restricted, non-"<co
 spelled — belongs to its own host-language specification, not to this document.</p>
    <p>All three forms are expected to share the processing model of first consulting the <a data-link-type="dfn" href="#cos-registry" id="ref-for-cos-registry⑨">COS registry</a> for a matching, disclosable entry before falling back to a network fetch, and of
 storing a successfully fetched and integrity-verified resource into the <a data-link-type="dfn" href="#cos-registry" id="ref-for-cos-registry①⓪">COS registry</a> for reuse
-by other origins, exactly as <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②④">requestFileHandle()</a></code> does. Discussion of
+by other origins, exactly as <code class="idl"><a data-link-type="idl" href="#dom-crossoriginstoragemanager-requestfilehandle" id="ref-for-dom-crossoriginstoragemanager-requestfilehandle②⑤">requestFileHandle()</a></code> does. Discussion of
 these integrations belongs in the tracker of the host-language specification that would carry them,
 not in this repository’s issue tracker.</p>
    <h2 class="heading no-num settled" id="acks"><span class="content">Acknowledgments</span><a class="self-link" href="#acks"></a></h2>
@@ -2424,7 +2436,7 @@ let dfnPanelData = {
 "0204d188": {"dfnID":"0204d188","dfnText":"size","external":true,"refSections":[{"refs":[{"id":"ref-for-list-size"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-list-size\u2460"}],"title":"3.4. Resource visibility upgrades"}],"url":"https://infra.spec.whatwg.org/#list-size"},
 "027e3e49": {"dfnID":"027e3e49","dfnText":"clone","external":true,"refSections":[{"refs":[{"id":"ref-for-list-clone"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-list-clone\u2460"}],"title":"3.4. Resource visibility upgrades"}],"url":"https://infra.spec.whatwg.org/#list-clone"},
 "0698d556": {"dfnID":"0698d556","dfnText":"string","external":true,"refSections":[{"refs":[{"id":"ref-for-string"},{"id":"ref-for-string\u2460"}],"title":"2.1. Hashes"},{"refs":[{"id":"ref-for-string\u2461"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-string\u2462"}],"title":"3.3. Creating and writing files"}],"url":"https://infra.spec.whatwg.org/#string"},
-"086e3aff": {"dfnID":"086e3aff","dfnText":"origin","external":true,"refSections":[{"refs":[{"id":"ref-for-concept-origin"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-concept-origin\u2460"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-concept-origin\u2461"},{"id":"ref-for-concept-origin\u2462"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-concept-origin\u2463"},{"id":"ref-for-concept-origin\u2464"},{"id":"ref-for-concept-origin\u2465"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-concept-origin\u2466"},{"id":"ref-for-concept-origin\u2467"},{"id":"ref-for-concept-origin\u2468"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-concept-origin\u2460\u24ea"}],"title":"3.4. Resource visibility upgrades"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2460"},{"id":"ref-for-concept-origin\u2460\u2461"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2462"},{"id":"ref-for-concept-origin\u2460\u2463"},{"id":"ref-for-concept-origin\u2460\u2464"},{"id":"ref-for-concept-origin\u2460\u2465"}],"title":"5.1. Storage limits"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2466"}],"title":"5.3. Manually added entries"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2467"},{"id":"ref-for-concept-origin\u2460\u2468"}],"title":"5.4. Provenance metadata"}],"url":"https://html.spec.whatwg.org/multipage/browsers.html#concept-origin"},
+"086e3aff": {"dfnID":"086e3aff","dfnText":"origin","external":true,"refSections":[{"refs":[{"id":"ref-for-concept-origin"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-concept-origin\u2460"},{"id":"ref-for-concept-origin\u2461"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-concept-origin\u2462"},{"id":"ref-for-concept-origin\u2463"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-concept-origin\u2464"},{"id":"ref-for-concept-origin\u2465"},{"id":"ref-for-concept-origin\u2466"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-concept-origin\u2467"},{"id":"ref-for-concept-origin\u2468"},{"id":"ref-for-concept-origin\u2460\u24ea"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2460"}],"title":"3.4. Resource visibility upgrades"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2461"},{"id":"ref-for-concept-origin\u2460\u2462"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2463"},{"id":"ref-for-concept-origin\u2460\u2464"},{"id":"ref-for-concept-origin\u2460\u2465"},{"id":"ref-for-concept-origin\u2460\u2466"}],"title":"5.1. Storage limits"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2467"}],"title":"5.3. Manually added entries"},{"refs":[{"id":"ref-for-concept-origin\u2460\u2468"},{"id":"ref-for-concept-origin\u2461\u24ea"}],"title":"5.4. Provenance metadata"}],"url":"https://html.spec.whatwg.org/multipage/browsers.html#concept-origin"},
 "0a422d04": {"dfnID":"0a422d04","dfnText":"serializable object","external":true,"refSections":[{"refs":[{"id":"ref-for-serializable-objects"}],"title":"4.1. Transferring handles"}],"url":"https://html.spec.whatwg.org/multipage/structured-data.html#serializable-objects"},
 "0cf3964f": {"dfnID":"0cf3964f","dfnText":"script","external":true,"refSections":[{"refs":[{"id":"ref-for-script"}],"title":"1. Introduction"},{"refs":[{"id":"ref-for-script\u2460"}],"title":"8. Integration with other specifications"}],"url":"https://html.spec.whatwg.org/multipage/scripting.html#script"},
 "0e6b2056": {"dfnID":"0e6b2056","dfnText":"set (for map)","external":true,"refSections":[{"refs":[{"id":"ref-for-map-set"}],"title":"3.3. Creating and writing files"}],"url":"https://infra.spec.whatwg.org/#map-set"},
@@ -2473,7 +2485,7 @@ let dfnPanelData = {
 "889e932f": {"dfnID":"889e932f","dfnText":"Exposed","external":true,"refSections":[{"refs":[{"id":"ref-for-Exposed"}],"title":"3. The CrossOriginStorageManager interface"}],"url":"https://webidl.spec.whatwg.org/#Exposed"},
 "984221ca": {"dfnID":"984221ca","dfnText":"struct","external":true,"refSections":[{"refs":[{"id":"ref-for-struct"}],"title":"2.1. Hashes"},{"refs":[{"id":"ref-for-struct\u2460"}],"title":"2.2. COS entries"}],"url":"https://infra.spec.whatwg.org/#struct"},
 "9b983d83": {"dfnID":"9b983d83","dfnText":"file system root","external":true,"refSections":[{"refs":[{"id":"ref-for-file-system-root"}],"title":"4. The Cross-Origin Storage file system"}],"url":"https://fs.spec.whatwg.org/#file-system-root"},
-"9c4c1e66": {"dfnID":"9c4c1e66","dfnText":"relevant settings object","external":true,"refSections":[{"refs":[{"id":"ref-for-relevant-settings-object"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-relevant-settings-object\u2460"},{"id":"ref-for-relevant-settings-object\u2461"}],"title":"3.3. Creating and writing files"}],"url":"https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object"},
+"9c4c1e66": {"dfnID":"9c4c1e66","dfnText":"relevant settings object","external":true,"refSections":[{"refs":[{"id":"ref-for-relevant-settings-object"},{"id":"ref-for-relevant-settings-object\u2460"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-relevant-settings-object\u2461"},{"id":"ref-for-relevant-settings-object\u2462"}],"title":"3.3. Creating and writing files"}],"url":"https://html.spec.whatwg.org/multipage/webappapis.html#relevant-settings-object"},
 "9cce47fd": {"dfnID":"9cce47fd","dfnText":"sequence","external":true,"refSections":[{"refs":[{"id":"ref-for-idl-sequence"}],"title":"3. The CrossOriginStorageManager interface"}],"url":"https://webidl.spec.whatwg.org/#idl-sequence"},
 "9ed8b710": {"dfnID":"9ed8b710","dfnText":"basic URL parser","external":true,"refSections":[{"refs":[{"id":"ref-for-concept-basic-url-parser"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-concept-basic-url-parser\u2460"}],"title":"3.3. Creating and writing files"}],"url":"https://url.spec.whatwg.org/#concept-basic-url-parser"},
 "9eda9b58": {"dfnID":"9eda9b58","dfnText":"NotFoundError","external":true,"refSections":[{"refs":[{"id":"ref-for-notfounderror"},{"id":"ref-for-notfounderror\u2460"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-notfounderror\u2461"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-notfounderror\u2462"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-notfounderror\u2463"},{"id":"ref-for-notfounderror\u2464"}],"title":"7.3. Availability gating"}],"url":"https://webidl.spec.whatwg.org/#notfounderror"},
@@ -2483,7 +2495,7 @@ let dfnPanelData = {
 "a973e0fe": {"dfnID":"a973e0fe","dfnText":"document","external":true,"refSections":[{"refs":[{"id":"ref-for-concept-document"},{"id":"ref-for-concept-document\u2460"},{"id":"ref-for-concept-document\u2461"}],"title":"6. Permissions Policy integration"}],"url":"https://dom.spec.whatwg.org/#concept-document"},
 "ae8def21": {"dfnID":"ae8def21","dfnText":"contain","external":true,"refSections":[{"refs":[{"id":"ref-for-list-contain"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-list-contain\u2460"}],"title":"3.4. Resource visibility upgrades"}],"url":"https://infra.spec.whatwg.org/#list-contain"},
 "apply-availability-gating": {"dfnID":"apply-availability-gating","dfnText":"apply availability gating","external":false,"refSections":[{"refs":[{"id":"ref-for-apply-availability-gating"},{"id":"ref-for-apply-availability-gating\u2460"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-apply-availability-gating\u2461"}],"title":"4.1. Transferring handles"}],"url":"#apply-availability-gating"},
-"b01b1359": {"dfnID":"b01b1359","dfnText":"opaque origin","external":true,"refSections":[{"refs":[{"id":"ref-for-concept-origin-opaque"}],"title":"3.1. The requestFileHandle() method"}],"url":"https://html.spec.whatwg.org/multipage/browsers.html#concept-origin-opaque"},
+"b01b1359": {"dfnID":"b01b1359","dfnText":"opaque origin","external":true,"refSections":[{"refs":[{"id":"ref-for-concept-origin-opaque"},{"id":"ref-for-concept-origin-opaque\u2460"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-concept-origin-opaque\u2461"}],"title":"3.1. The requestFileHandle() method"}],"url":"https://html.spec.whatwg.org/multipage/browsers.html#concept-origin-opaque"},
 "b262501e": {"dfnID":"b262501e","dfnText":"reject","external":true,"refSections":[{"refs":[{"id":"ref-for-reject"},{"id":"ref-for-reject\u2460"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-reject\u2461"},{"id":"ref-for-reject\u2462"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-reject\u2463"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-reject\u2464"}],"title":"5.1. Storage limits"}],"url":"https://webidl.spec.whatwg.org/#reject"},
 "b42f14a9": {"dfnID":"b42f14a9","dfnText":"getFile()","external":true,"refSections":[{"refs":[{"id":"ref-for-dom-filesystemfilehandle-getfile"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-dom-filesystemfilehandle-getfile\u2460"},{"id":"ref-for-dom-filesystemfilehandle-getfile\u2461"},{"id":"ref-for-dom-filesystemfilehandle-getfile\u2462"}],"title":"4. The Cross-Origin Storage file system"}],"url":"https://fs.spec.whatwg.org/#dom-filesystemfilehandle-getfile"},
 "b75bb3bd": {"dfnID":"b75bb3bd","dfnText":"SecureContext","external":true,"refSections":[{"refs":[{"id":"ref-for-SecureContext"},{"id":"ref-for-SecureContext\u2460"}],"title":"3. The CrossOriginStorageManager interface"}],"url":"https://webidl.spec.whatwg.org/#SecureContext"},
@@ -2503,7 +2515,7 @@ let dfnPanelData = {
 "cos-entry-origins": {"dfnID":"cos-entry-origins","dfnText":"origins","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-entry-origins"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-cos-entry-origins\u2460"}],"title":"2.3. The Public Hash List"},{"refs":[{"id":"ref-for-cos-entry-origins\u2461"},{"id":"ref-for-cos-entry-origins\u2462"},{"id":"ref-for-cos-entry-origins\u2463"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-cos-entry-origins\u2464"},{"id":"ref-for-cos-entry-origins\u2465"},{"id":"ref-for-cos-entry-origins\u2466"},{"id":"ref-for-cos-entry-origins\u2467"},{"id":"ref-for-cos-entry-origins\u2468"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-cos-entry-origins\u2460\u24ea"},{"id":"ref-for-cos-entry-origins\u2460\u2460"},{"id":"ref-for-cos-entry-origins\u2460\u2461"},{"id":"ref-for-cos-entry-origins\u2460\u2462"},{"id":"ref-for-cos-entry-origins\u2460\u2463"},{"id":"ref-for-cos-entry-origins\u2460\u2464"},{"id":"ref-for-cos-entry-origins\u2460\u2465"}],"title":"3.4. Resource visibility upgrades"},{"refs":[{"id":"ref-for-cos-entry-origins\u2460\u2466"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-cos-entry-origins\u2460\u2467"}],"title":"4.1. Transferring handles"},{"refs":[{"id":"ref-for-cos-entry-origins\u2460\u2468"},{"id":"ref-for-cos-entry-origins\u2461\u24ea"},{"id":"ref-for-cos-entry-origins\u2461\u2460"}],"title":"5.1. Storage limits"},{"refs":[{"id":"ref-for-cos-entry-origins\u2461\u2461"},{"id":"ref-for-cos-entry-origins\u2461\u2462"},{"id":"ref-for-cos-entry-origins\u2461\u2463"},{"id":"ref-for-cos-entry-origins\u2461\u2464"}],"title":"5.3. Manually added entries"},{"refs":[{"id":"ref-for-cos-entry-origins\u2461\u2465"}],"title":"5.4. Provenance metadata"},{"refs":[{"id":"ref-for-cos-entry-origins\u2461\u2466"}],"title":"7.1. Resource integrity"},{"refs":[{"id":"ref-for-cos-entry-origins\u2461\u2467"},{"id":"ref-for-cos-entry-origins\u2461\u2468"}],"title":"7.2. Cross-site probing"},{"refs":[{"id":"ref-for-cos-entry-origins\u2462\u24ea"},{"id":"ref-for-cos-entry-origins\u2462\u2460"}],"title":"7.3. Availability gating"}],"url":"#cos-entry-origins"},
 "cos-entry-pending-writer-count": {"dfnID":"cos-entry-pending-writer-count","dfnText":"pending writer count","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-entry-pending-writer-count"},{"id":"ref-for-cos-entry-pending-writer-count\u2460"},{"id":"ref-for-cos-entry-pending-writer-count\u2461"},{"id":"ref-for-cos-entry-pending-writer-count\u2462"}],"title":"3.3. Creating and writing files"}],"url":"#cos-entry-pending-writer-count"},
 "cos-entry-state": {"dfnID":"cos-entry-state","dfnText":"state","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-entry-state"},{"id":"ref-for-cos-entry-state\u2460"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-cos-entry-state\u2461"},{"id":"ref-for-cos-entry-state\u2462"},{"id":"ref-for-cos-entry-state\u2463"},{"id":"ref-for-cos-entry-state\u2464"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-cos-entry-state\u2465"}],"title":"4. The Cross-Origin Storage file system"},{"refs":[{"id":"ref-for-cos-entry-state\u2466"}],"title":"5.3. Manually added entries"}],"url":"#cos-entry-state"},
-"cos-entry-storing-origins": {"dfnID":"cos-entry-storing-origins","dfnText":"storing origins","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-entry-storing-origins"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460"}],"title":"2.3. The Public Hash List"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2461"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2462"},{"id":"ref-for-cos-entry-storing-origins\u2463"},{"id":"ref-for-cos-entry-storing-origins\u2464"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2465"},{"id":"ref-for-cos-entry-storing-origins\u2466"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2467"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2468"},{"id":"ref-for-cos-entry-storing-origins\u2460\u24ea"},{"id":"ref-for-cos-entry-storing-origins\u2460\u2460"}],"title":"5.2. Eviction"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2461"}],"title":"5.3. Manually added entries"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2462"},{"id":"ref-for-cos-entry-storing-origins\u2460\u2463"},{"id":"ref-for-cos-entry-storing-origins\u2460\u2464"}],"title":"5.4. Provenance metadata"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2465"}],"title":"7.2. Cross-site probing"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2466"}],"title":"7.3. Availability gating"}],"url":"#cos-entry-storing-origins"},
+"cos-entry-storing-origins": {"dfnID":"cos-entry-storing-origins","dfnText":"storing origins","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-entry-storing-origins"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460"}],"title":"2.3. The Public Hash List"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2461"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2462"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2463"},{"id":"ref-for-cos-entry-storing-origins\u2464"},{"id":"ref-for-cos-entry-storing-origins\u2465"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2466"},{"id":"ref-for-cos-entry-storing-origins\u2467"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2468"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u24ea"},{"id":"ref-for-cos-entry-storing-origins\u2460\u2460"},{"id":"ref-for-cos-entry-storing-origins\u2460\u2461"}],"title":"5.2. Eviction"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2462"}],"title":"5.3. Manually added entries"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2463"},{"id":"ref-for-cos-entry-storing-origins\u2460\u2464"},{"id":"ref-for-cos-entry-storing-origins\u2460\u2465"}],"title":"5.4. Provenance metadata"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2466"}],"title":"7.2. Cross-site probing"},{"refs":[{"id":"ref-for-cos-entry-storing-origins\u2460\u2467"}],"title":"7.3. Availability gating"}],"url":"#cos-entry-storing-origins"},
 "cos-hash": {"dfnID":"cos-hash","dfnText":"COS hash","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-hash"},{"id":"ref-for-cos-hash\u2460"}],"title":"2.1. Hashes"},{"refs":[{"id":"ref-for-cos-hash\u2461"},{"id":"ref-for-cos-hash\u2462"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-cos-hash\u2463"},{"id":"ref-for-cos-hash\u2464"}],"title":"2.3. The Public Hash List"},{"refs":[{"id":"ref-for-cos-hash\u2465"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-cos-hash\u2466"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-cos-hash\u2467"}],"title":"7.1. Resource integrity"},{"refs":[{"id":"ref-for-cos-hash\u2468"}],"title":"8. Integration with other specifications"}],"url":"#cos-hash"},
 "cos-hash-algorithm": {"dfnID":"cos-hash-algorithm","dfnText":"algorithm","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-hash-algorithm"},{"id":"ref-for-cos-hash-algorithm\u2460"},{"id":"ref-for-cos-hash-algorithm\u2461"},{"id":"ref-for-cos-hash-algorithm\u2462"}],"title":"2.1. Hashes"},{"refs":[{"id":"ref-for-cos-hash-algorithm\u2463"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-cos-hash-algorithm\u2464"}],"title":"3.3. Creating and writing files"}],"url":"#cos-hash-algorithm"},
 "cos-hash-equal": {"dfnID":"cos-hash-equal","dfnText":"equal","external":false,"refSections":[{"refs":[{"id":"ref-for-cos-hash-equal"},{"id":"ref-for-cos-hash-equal\u2460"}],"title":"2.1. Hashes"},{"refs":[{"id":"ref-for-cos-hash-equal\u2461"}],"title":"2.3. The Public Hash List"},{"refs":[{"id":"ref-for-cos-hash-equal\u2462"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-cos-hash-equal\u2463"}],"title":"3.3. Creating and writing files"}],"url":"#cos-hash-equal"},
@@ -2521,7 +2533,7 @@ let dfnPanelData = {
 "dfn-public-hash-list": {"dfnID":"dfn-public-hash-list","dfnText":"Public Hash List","external":false,"refSections":[{"refs":[{"id":"ref-for-dfn-public-hash-list"}],"title":"2.3. The Public Hash List"},{"refs":[{"id":"ref-for-dfn-public-hash-list\u2460"}],"title":"8. Integration with other specifications"}],"url":"#dfn-public-hash-list"},
 "dictdef-crossoriginstoragerequestfilehandlehash": {"dfnID":"dictdef-crossoriginstoragerequestfilehandlehash","dfnText":"CrossOriginStorageRequestFileHandleHash","external":false,"refSections":[{"refs":[{"id":"ref-for-dictdef-crossoriginstoragerequestfilehandlehash"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-dictdef-crossoriginstoragerequestfilehandlehash\u2460"}],"title":"3.1. The requestFileHandle() method"}],"url":"#dictdef-crossoriginstoragerequestfilehandlehash"},
 "dictdef-crossoriginstoragerequestfilehandleoptions": {"dfnID":"dictdef-crossoriginstoragerequestfilehandleoptions","dfnText":"CrossOriginStorageRequestFileHandleOptions","external":false,"refSections":[{"refs":[{"id":"ref-for-dictdef-crossoriginstoragerequestfilehandleoptions"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-dictdef-crossoriginstoragerequestfilehandleoptions\u2460"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-dictdef-crossoriginstoragerequestfilehandleoptions\u2461"}],"title":"3.3. Creating and writing files"}],"url":"#dictdef-crossoriginstoragerequestfilehandleoptions"},
-"dom-crossoriginstoragemanager-requestfilehandle": {"dfnID":"dom-crossoriginstoragemanager-requestfilehandle","dfnText":"requestFileHandle(hash, options)","external":false,"refSections":[{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle"}],"title":"1. Introduction"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2462"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2463"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2464"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2465"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2466"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2467"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2468"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u24ea"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2460"}],"title":"4. The Cross-Origin Storage file system"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2461"}],"title":"4.1. Transferring handles"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2462"}],"title":"5.1. Storage limits"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2463"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2464"}],"title":"5.3. Manually added entries"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2465"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2466"}],"title":"5.4. Provenance metadata"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2467"}],"title":"6. Permissions Policy integration"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2468"}],"title":"7.1. Resource integrity"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u24ea"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2460"}],"title":"7.2. Cross-site probing"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2461"}],"title":"7.3. Availability gating"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2462"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2463"}],"title":"8. Integration with other specifications"}],"url":"#dom-crossoriginstoragemanager-requestfilehandle"},
+"dom-crossoriginstoragemanager-requestfilehandle": {"dfnID":"dom-crossoriginstoragemanager-requestfilehandle","dfnText":"requestFileHandle(hash, options)","external":false,"refSections":[{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle"}],"title":"1. Introduction"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2462"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2463"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2464"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2465"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2466"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2467"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2468"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u24ea"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2460"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2461"}],"title":"4. The Cross-Origin Storage file system"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2462"}],"title":"4.1. Transferring handles"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2463"}],"title":"5.1. Storage limits"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2464"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2465"}],"title":"5.3. Manually added entries"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2466"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2467"}],"title":"5.4. Provenance metadata"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2460\u2468"}],"title":"6. Permissions Policy integration"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u24ea"}],"title":"7.1. Resource integrity"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2460"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2461"}],"title":"7.2. Cross-site probing"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2462"}],"title":"7.3. Availability gating"},{"refs":[{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2463"},{"id":"ref-for-dom-crossoriginstoragemanager-requestfilehandle\u2461\u2464"}],"title":"8. Integration with other specifications"}],"url":"#dom-crossoriginstoragemanager-requestfilehandle"},
 "dom-crossoriginstoragemanager-requestfilehandle-hash-options-hash": {"dfnID":"dom-crossoriginstoragemanager-requestfilehandle-hash-options-hash","dfnText":"hash","external":false,"refSections":[],"url":"#dom-crossoriginstoragemanager-requestfilehandle-hash-options-hash"},
 "dom-crossoriginstoragemanager-requestfilehandle-hash-options-options": {"dfnID":"dom-crossoriginstoragemanager-requestfilehandle-hash-options-options","dfnText":"options","external":false,"refSections":[],"url":"#dom-crossoriginstoragemanager-requestfilehandle-hash-options-options"},
 "dom-crossoriginstoragerequestfilehandlehash-algorithm": {"dfnID":"dom-crossoriginstoragerequestfilehandlehash-algorithm","dfnText":"algorithm","external":false,"refSections":[{"refs":[{"id":"ref-for-dom-crossoriginstoragerequestfilehandlehash-algorithm"}],"title":"2.1. Hashes"},{"refs":[{"id":"ref-for-dom-crossoriginstoragerequestfilehandlehash-algorithm\u2460"},{"id":"ref-for-dom-crossoriginstoragerequestfilehandlehash-algorithm\u2461"}],"title":"3.1. The requestFileHandle() method"}],"url":"#dom-crossoriginstoragerequestfilehandlehash-algorithm"},
@@ -2533,7 +2545,7 @@ let dfnPanelData = {
 "e99bd18e": {"dfnID":"e99bd18e","dfnText":"relevant global object","external":true,"refSections":[{"refs":[{"id":"ref-for-concept-relevant-global"}],"title":"3.1. The requestFileHandle() method"}],"url":"https://html.spec.whatwg.org/multipage/webappapis.html#concept-relevant-global"},
 "f02cd417": {"dfnID":"f02cd417","dfnText":"iterate","external":true,"refSections":[{"refs":[{"id":"ref-for-list-iterate"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-list-iterate\u2460"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-list-iterate\u2461"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-list-iterate\u2462"}],"title":"3.4. Resource visibility upgrades"}],"url":"https://infra.spec.whatwg.org/#list-iterate"},
 "f32dc6c1": {"dfnID":"f32dc6c1","dfnText":"serialization steps","external":true,"refSections":[{"refs":[{"id":"ref-for-serialization-steps"}],"title":"4.1. Transferring handles"}],"url":"https://html.spec.whatwg.org/multipage/structured-data.html#serialization-steps"},
-"feac4ab3": {"dfnID":"feac4ab3","dfnText":"same site","external":true,"refSections":[{"refs":[{"id":"ref-for-same-site"}],"title":"3.2. Reading files"}],"url":"https://html.spec.whatwg.org/multipage/browsers.html#same-site"},
+"feac4ab3": {"dfnID":"feac4ab3","dfnText":"same site","external":true,"refSections":[{"refs":[{"id":"ref-for-same-site"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-same-site\u2460"}],"title":"3.2. Reading files"}],"url":"https://html.spec.whatwg.org/multipage/browsers.html#same-site"},
 "filesystemfilehandle-cos-origin": {"dfnID":"filesystemfilehandle-cos-origin","dfnText":"COS origin","external":false,"refSections":[{"refs":[{"id":"ref-for-filesystemfilehandle-cos-origin"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-filesystemfilehandle-cos-origin\u2460"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-filesystemfilehandle-cos-origin\u2461"},{"id":"ref-for-filesystemfilehandle-cos-origin\u2462"}],"title":"4.1. Transferring handles"}],"url":"#filesystemfilehandle-cos-origin"},
 "filesystemfilehandle-may-read": {"dfnID":"filesystemfilehandle-may-read","dfnText":"may read","external":false,"refSections":[{"refs":[{"id":"ref-for-filesystemfilehandle-may-read"}],"title":"3.2. Reading files"},{"refs":[{"id":"ref-for-filesystemfilehandle-may-read\u2460"},{"id":"ref-for-filesystemfilehandle-may-read\u2461"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-filesystemfilehandle-may-read\u2462"},{"id":"ref-for-filesystemfilehandle-may-read\u2463"}],"title":"4. The Cross-Origin Storage file system"},{"refs":[{"id":"ref-for-filesystemfilehandle-may-read\u2464"},{"id":"ref-for-filesystemfilehandle-may-read\u2465"},{"id":"ref-for-filesystemfilehandle-may-read\u2466"},{"id":"ref-for-filesystemfilehandle-may-read\u2467"}],"title":"4.1. Transferring handles"}],"url":"#filesystemfilehandle-may-read"},
 "filesystemfilehandle-requested-origins": {"dfnID":"filesystemfilehandle-requested-origins","dfnText":"requested origins","external":false,"refSections":[{"refs":[{"id":"ref-for-filesystemfilehandle-requested-origins"},{"id":"ref-for-filesystemfilehandle-requested-origins\u2460"}],"title":"3.3. Creating and writing files"}],"url":"#filesystemfilehandle-requested-origins"},
@@ -2545,7 +2557,7 @@ let dfnPanelData = {
 "permissionspolicy-cross-origin-storage": {"dfnID":"permissionspolicy-cross-origin-storage","dfnText":"cross-origin-storage","external":false,"refSections":[{"refs":[{"id":"ref-for-permissionspolicy-cross-origin-storage"}],"title":"3.1. The requestFileHandle() method"}],"url":"#permissionspolicy-cross-origin-storage"},
 "phl": {"dfnID":"phl","dfnText":"PHL","external":false,"refSections":[],"url":"#phl"},
 "upgrade-resource-visibility": {"dfnID":"upgrade-resource-visibility","dfnText":"upgrade resource visibility","external":false,"refSections":[{"refs":[{"id":"ref-for-upgrade-resource-visibility"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-upgrade-resource-visibility\u2460"}],"title":"5.1. Storage limits"}],"url":"#upgrade-resource-visibility"},
-"validate-a-cos-request": {"dfnID":"validate-a-cos-request","dfnText":"validate a COS request","external":false,"refSections":[{"refs":[{"id":"ref-for-validate-a-cos-request"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-validate-a-cos-request\u2460"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-validate-a-cos-request\u2461"},{"id":"ref-for-validate-a-cos-request\u2462"}],"title":"5.1. Storage limits"}],"url":"#validate-a-cos-request"},
+"validate-a-cos-request": {"dfnID":"validate-a-cos-request","dfnText":"validate a COS request","external":false,"refSections":[{"refs":[{"id":"ref-for-validate-a-cos-request"}],"title":"3. The CrossOriginStorageManager interface"},{"refs":[{"id":"ref-for-validate-a-cos-request\u2460"}],"title":"3.1. The requestFileHandle() method"},{"refs":[{"id":"ref-for-validate-a-cos-request\u2461"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-validate-a-cos-request\u2462"},{"id":"ref-for-validate-a-cos-request\u2463"}],"title":"5.1. Storage limits"}],"url":"#validate-a-cos-request"},
 "verify-and-store": {"dfnID":"verify-and-store","dfnText":"verify and store","external":false,"refSections":[{"refs":[{"id":"ref-for-verify-and-store"},{"id":"ref-for-verify-and-store\u2460"},{"id":"ref-for-verify-and-store\u2461"},{"id":"ref-for-verify-and-store\u2462"}],"title":"2.2. COS entries"},{"refs":[{"id":"ref-for-verify-and-store\u2463"},{"id":"ref-for-verify-and-store\u2464"},{"id":"ref-for-verify-and-store\u2465"},{"id":"ref-for-verify-and-store\u2466"},{"id":"ref-for-verify-and-store\u2467"}],"title":"3.3. Creating and writing files"},{"refs":[{"id":"ref-for-verify-and-store\u2468"}],"title":"3.4.1. Original storer access"},{"refs":[{"id":"ref-for-verify-and-store\u2460\u24ea"}],"title":"5.1. Storage limits"}],"url":"#verify-and-store"},
 };
 
