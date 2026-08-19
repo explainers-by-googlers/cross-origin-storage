@@ -246,6 +246,19 @@ Each {{CrossOriginStorageManager}} object has an associated [=/origin=], set to
 [=this=]'s [=relevant settings object=]'s [=environment settings object/origin=] when the object
 is created.
 
+Note: Taking the origin from the [=relevant settings object=] rather than from anything about
+the script itself has a consequence worth spelling out for workers. A worker created from a
+`blob:` URL has the [=/origin=] of the context that created it, so it shares that origin's
+Cross-Origin Storage view exactly: what such a worker writes, its creating page can read back, and
+what the page stored, the worker can read. The `blob:` URL is not an origin of its own, and
+revoking it does not detach the worker from that view. A worker created from a `data:` URL, by
+contrast, has an [=opaque origin=]. This specification does not currently define what
+{{CrossOriginStorageManager/requestFileHandle()}} does when the <em>calling</em> origin is opaque;
+the [=opaque origin=] rule in [=validate a COS request=] governs the origins a caller
+<em>names</em>, not the origin it speaks from. An opaque origin has no stable identity to key
+[=COS entry/storing origins=] or [=same site=] comparisons on, so there is nothing meaningful for
+it to be granted.
+
 ## The {{CrossOriginStorageManager/requestFileHandle()}} method ## {#requestfilehandle}
 
 <div class="note domintro">

@@ -775,6 +775,14 @@ This also applies to a handle you already hold: calling `getFile()` on a `FileSy
 
 If a write fails—for example, its bytes don't hash to the requested value—the entry it was writing to is cleaned up rather than left stuck: once no other write for that same hash is still outstanding, the user agent removes the entry, and a subsequent `requestFileHandle()` call for that hash gets an ordinary `NotFoundError` instead of an indefinite `NotAllowedError`. This is why the "no other write still outstanding" qualifier matters: if two tabs are racing to write the same hash and one supplies the wrong bytes while the other is still in flight (or has already succeeded), the failing tab's cleanup must not disturb the other tab's write. The user agent tracks this per entry so that a failure only ever cleans up after itself, never after a sibling write it doesn't control. An already-written entry is never affected by this at all—no later failed write, from any origin, can remove an entry that some origin has already successfully stored.
 
+### Workers and origin inheritance
+
+A `CrossOriginStorageManager` is keyed to the origin of the context it lives in, which for a worker is the origin of that worker's environment settings object rather than anything derived from its script URL. Two worker kinds that look similar therefore behave very differently, and it is worth knowing which is which before reaching for one.
+
+A worker created from a `blob:` URL has the origin of the context that created it. It shares one COS view with that page: what the worker writes, the page can read back, and what the page stored, the worker can read. The `blob:` URL is not an origin of its own, and revoking it does not detach the worker from that view. A worker's writes are consequently indistinguishable from its creating page's own writes, which is the intended behavior but is easy to misread as isolation.
+
+A worker created from a `data:` URL has an opaque origin. An opaque origin has no stable identity to key storing origins or same-site comparisons on, so there is nothing meaningful to grant it. This proposal does not currently define what `requestFileHandle()` does for a caller whose own origin is opaque — the opaque-origin rule in "validate a COS request" governs the origins a caller *names* in `origins`, not the origin it speaks from. Implementations should at minimum reject such calls promptly rather than leaving the returned promise pending.
+
 ### Eviction
 
 Under critical storage pressure, user agents could offer a dialog that invites the user to manually free up storage. The user agent could also delete files automatically based on, for example, a least recently used approach.
