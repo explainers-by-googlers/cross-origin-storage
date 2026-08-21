@@ -663,7 +663,7 @@ is exactly the behavior [[FS]] already defines for a [=file entry=] whose
 
 A {{FileSystemFileHandle}} is a [=serializable object=] [[FS]], so one addressing a
 [=COS entry=] can be passed to another [=environment settings object=], for example with
-{{MessagePort/postMessage()}}. That is a second way to come by such a handle, alongside
+{{MessagePort/postMessage(message, options)}}. That is a second way to come by such a handle, alongside
 {{CrossOriginStorageManager/requestFileHandle()}}, so it is constrained here as well.
 
 The [=serialization steps=] for a {{FileSystemFileHandle}} addressing a [=COS entry=], given
@@ -681,14 +681,14 @@ The [=deserialization steps=], given |serialized|, |value| and |realm|, addition
 1. Set |value|'s [=FileSystemFileHandle/may read=] to |serialized|.\[[COSMayRead]].
 
 Note: Without the [=same origin=] check, transferring would defeat every disclosure control in
-this specification at once. A handle whose [=FileSystemFileHandle/may read=] is true has already
+this specification at once. A handle whose <a class=allow-2119 data-link-type=dfn data-link-for=FileSystemFileHandle>may read</a> is true has already
 cleared [=apply availability gating=] *for the origin that requested it*; posting it to another
 origin would hand that origin the entry's bytes without [=COS entry/origins=],
 [=on the PHL|PHL membership=] or [[#greasing|GREASE'ing]] ever being evaluated for it. This
 matches the File System Standard's existing treatment of handles, which are likewise only useful
 to a [=same origin=] recipient.
 
-Note: [=FileSystemFileHandle/may read=] travels with the handle rather than being recomputed,
+Note: <a class=allow-2119 data-link-type=dfn data-link-for=FileSystemFileHandle>may read</a> travels with the handle rather than being recomputed,
 so a create-request handle that has not been written through stays unreadable after a transfer,
 and a read-request handle stays readable without being re-gated. Re-gating on arrival would be
 worse, not better: it would let a caller probe availability repeatedly by transferring the same
@@ -914,6 +914,15 @@ proof that a resource is absent: it may mean the resource does not exist, that t
 origin is out of scope, that a "`*`"-scoped resource's hash is not (yet, or ever) on the PHL, or
 that GREASE'ing suppressed a true positive. Developers must not treat "{{NotFoundError}}" as
 anything more specific than "fall back to the network."
+
+Note: A `"*"`-scoped entry's disclosure is additionally limited to requesting
+[=origins=] that can set or read third-party cookies in the current context; such an
+entry is not disclosed to an origin third-party cookies are unavailable to,
+regardless of [=PHL=] membership. This closes a gap [=PHL=]
+membership alone cannot: an attacker can build a cross-site identifier out of
+otherwise-ordinary, individually PHL-eligible resources by choosing which subset to
+write, and third-party cookie availability is the deciding factor in whether the
+resulting probe is any more informative than an ordinary tracking cookie would be.
 
 ## GREASE'ing ## {#greasing}
 
