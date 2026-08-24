@@ -257,12 +257,11 @@ the script itself has a consequence worth spelling out for workers. A worker cre
 Cross-Origin Storage view exactly: what such a worker writes, its creating page can read back, and
 what the page stored, the worker can read. The `blob:` URL is not an origin of its own, and
 revoking it does not detach the worker from that view. A worker created from a `data:` URL, by
-contrast, has an [=opaque origin=]. This specification does not currently define what
-{{CrossOriginStorageManager/requestFileHandle()}} does when the <em>calling</em> origin is opaque;
-the [=opaque origin=] rule in [=validate a COS request=] governs the origins a caller
-<em>names</em>, not the origin it speaks from. An opaque origin has no stable identity to key
-[=COS entry/storing origins=] or [=same site=] comparisons on, so there is nothing meaningful for
-it to be granted.
+contrast, has an [=opaque origin=], and
+{{CrossOriginStorageManager/requestFileHandle()}} rejects when the <em>calling</em> origin is
+opaque; see [[#requestfilehandle]]. This is separate from the [=opaque origin=] rule in
+[=validate a COS request=], which governs the origins a caller <em>names</em> rather than the
+origin it speaks from.
 
 ## The {{CrossOriginStorageManager/requestFileHandle()}} method ## {#requestfilehandle}
 
@@ -300,6 +299,21 @@ steps are:
 1. Let |realm| be [=this=]'s [=relevant Realm=].
 1. Let |global| be [=this=]'s [=relevant global object=].
 1. Let |origin| be [=this=]'s associated [=/origin=].
+1. If |origin| is an [=opaque origin=], then:
+   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+      [=/reject=] |result| with a "{{NotAllowedError}}" {{DOMException}}.
+   1. Return |result|.
+
+   Note: A context with an [=opaque origin=] — a sandboxed <{iframe}> without
+   `allow-same-origin`, or a worker created from a `data:` URL — has no stable identity, and each
+   such context gets a *fresh* one. Every disclosure control in this specification keys on the
+   calling origin: [=COS entry/storing origins=] and [=COS entry/pending writers=] membership,
+   [=same site=] comparison for the default scope, and the [=cross-origin probe map=]. A fresh
+   opaque origin satisfies none of them, but it does get a fresh
+   [=cross-origin probe record=] — so a page could mint unlimited budget by spawning sandboxed
+   <{iframe}>s and reassembling the bits it read with {{MessagePort/postMessage(message, options)}}.
+   Rejecting outright is the only coherent answer: there is nothing meaningful to grant such a
+   context, and no key under which to bound it. See [[#cross-site-identifiers]].
 1. If |global|'s associated {{Document}}, if any, is not [=allowed to use=] the
    "<code>[=PermissionsPolicy/cross-origin-storage=]</code>" [=policy-controlled feature=], then:
    1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to

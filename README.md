@@ -905,6 +905,8 @@ What bounds it is the count. Each distinct hash a site can resolve cross-origin 
 
 The budget is keyed by site rather than origin on purpose. Subdomains are free, so a per-origin budget would be defeated by minting `01.example.com`, `02.example.com`, and so on, one per bit. A registrable domain costs money, which is what makes the key mean something.
 
+For the same reason, `requestFileHandle()` rejects outright when the calling context has an opaque origin, such as a sandboxed `<iframe>` without `allow-same-origin`. Each such context gets a *fresh* opaque origin, so without this a page could mint unlimited budget by spawning sandboxed frames and `postMessage()`-ing the bits back. There is also nothing meaningful to grant such a context, since it can never be a storing origin or match a same-site comparison.
+
 The budget's shape matters as much as its size:
 
 - **Counted in distinct hashes, not calls.** Re-probing a hash yields no bit the origin doesn't already have, so it costs nothing. A page that reloads, or resolves the same resource on every visit, pays once, ever.
