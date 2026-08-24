@@ -454,10 +454,11 @@ To <dfn>apply availability gating</dfn> given a [=COS entry=] or null |entry|, a
 To <dfn>charge a cross-origin probe</dfn> given an [=/origin=] |origin| and a [=COS hash=] |hash|,
 return a boolean:
 
-1. If |origin|'s [=cross-origin probe set=] [=set/contains=] |hash|, return true.
-1. If |origin|'s [=cross-origin probe budget=] is 0, return false.
-1. Decrement |origin|'s [=cross-origin probe budget=] by 1.
-1. [=set/Append=] |hash| to |origin|'s [=cross-origin probe set=].
+1. Let |record| be the result of running [=get the cross-origin probe record=] given |origin|.
+1. If |record|'s [=cross-origin probe record/probed hashes=] [=set/contains=] |hash|, return true.
+1. If |record|'s [=cross-origin probe record/budget=] is 0, return false.
+1. Decrement |record|'s [=cross-origin probe record/budget=] by 1.
+1. [=set/Append=] |hash| to |record|'s [=cross-origin probe record/probed hashes=].
 1. Return true.
 
 Note: Counting distinct hashes rather than calls means re-probing a hash yields no bit the origin
@@ -469,7 +470,8 @@ it, so it cannot be read repeatedly or held at a chosen value. A
 [[#creating-and-writing-files|create request]] is not charged, since it discloses nothing about
 prior presence.
 
-Note: A user agent can evict entries from a [=cross-origin probe set=] to bound its memory use. The
+Note: A user agent can evict entries from a record's [=cross-origin probe record/probed hashes=] to
+bound its memory use. The
 only effect is that a later probe of an evicted hash becomes chargeable again, which is never more
 permissive than not evicting.
 
@@ -798,15 +800,31 @@ A user agent also has an [=implementation-defined=] <dfn>maximum cross-origin pr
 non-negative integer bounding the number of distinct [=COS hash=] values a single [=/origin=] can
 have resolved against the [=COS registry=] other than those it has itself stored.
 
-Each [=/origin=] has an associated <dfn>cross-origin probe budget</dfn>, a non-negative integer,
-initially the [=maximum cross-origin probe count=], and an associated <dfn>cross-origin probe
-set</dfn>, an initially empty [=set=] of [=COS hash=] values. Both persist across page loads and
-navigations, and both are scoped to the [=/origin=] alone, deliberately *not* partitioned by
-top-level site.
+The user agent maintains a global <dfn>cross-origin probe map</dfn>, a [=map=] from [=/origins=] to
+<dfn>cross-origin probe record</dfn> [=structs=], persisted across page loads and navigations. A
+[=cross-origin probe record=] has the following [=struct/items=]:
+
+: <dfn for="cross-origin probe record">budget</dfn>
+:: A non-negative integer, initially the [=maximum cross-origin probe count=].
+: <dfn for="cross-origin probe record">probed hashes</dfn>
+:: A [=set=] of [=COS hash=] values, initially empty.
+
+The map is keyed by [=/origin=] alone, deliberately *not* partitioned by top-level site.
+
+<div algorithm>
+To <dfn>get the cross-origin probe record</dfn> given an [=/origin=] |origin|, return a
+[=cross-origin probe record=]:
+
+1. If [=cross-origin probe map=][|origin|] does not [=map/exist=], then [=map/set=]
+   [=cross-origin probe map=][|origin|] to a new [=cross-origin probe record=].
+1. Return [=cross-origin probe map=][|origin|].
+
+</div>
 
 Whenever the user agent runs the [=activation notification=] steps [[HTML]] for a [=Document=]
-whose [=/origin=] is |origin|, it should increase |origin|'s [=cross-origin probe budget=] by an
-[=implementation-defined=] amount, to at most the [=maximum cross-origin probe count=].
+whose [=/origin=] is |origin|, it should increase the [=cross-origin probe record/budget=] of the
+result of [=get the cross-origin probe record=] given |origin| by an [=implementation-defined=]
+amount, to at most the [=maximum cross-origin probe count=].
 
 Note: The budget is a rate, not a lifetime allowance. An origin's resource needs change over time —
 a library is upgraded, a model replaced — and replenishment is what lets an origin resolve hashes
@@ -831,8 +849,8 @@ delete entries or clear all Cross-Origin Storage data.
 When a user clears an origin's site data, the user agent should remove that origin from every
 [=COS entry/storing origins=] set it appears in. If, after that removal, a [=COS entry=]'s
 [=COS entry/storing origins=] is empty, the user agent may consider that entry for deletion.
-Clearing an origin's site data should additionally reset that origin's [=cross-origin probe
-budget=] to the [=maximum cross-origin probe count=] and empty its [=cross-origin probe set=].
+Clearing an origin's site data should additionally [=map/remove=] that origin from the
+[=cross-origin probe map=].
 
 ## Manually added entries ## {#manually-added-entries}
 
