@@ -901,7 +901,9 @@ Neither the PHL nor GREASE'ing bounds this:
 - **PHL membership** assumes an attacker learns only "this user encountered one of the many sites using this ubiquitous file". That fails when the attacker wrote the file: the bit means "I marked this user", not "this user uses React". A k-anonymity bar constrains an attacker that can only *observe* state, not one that can *set* it. An attacker is also free to pick the least common entries on the list, minimizing the chance a bit is set by the user's ordinary browsing.
 - **GREASE'ing, eviction, and the user's own browsing** do flip bits, but an attacker compensates with redundancy — encoding the identifier several times over disjoint hash sets, or adding a checksum — at the cost only of more hashes.
 
-What bounds it is the count. Each distinct hash an origin can resolve cross-origin yields at most one bit, so an identifier's width is exactly the number of distinct cross-origin probes the user agent grants that origin. User agents therefore impose a **cross-origin probe budget**: an implementation-defined maximum number of distinct hashes an origin may resolve, other than those it stored itself. Reads over budget return `NotFoundError`, indistinguishable from any other read-path failure.
+What bounds it is the count. Each distinct hash a site can resolve cross-origin yields at most one bit, so an identifier's width is exactly the number of distinct cross-origin probes the user agent grants that site. User agents therefore impose a **cross-origin probe budget**: an implementation-defined maximum number of distinct hashes a site may resolve, other than those it stored itself. Reads over budget return `NotFoundError`, indistinguishable from any other read-path failure.
+
+The budget is keyed by site rather than origin on purpose. Subdomains are free, so a per-origin budget would be defeated by minting `01.example.com`, `02.example.com`, and so on, one per bit. A registrable domain costs money, which is what makes the key mean something.
 
 The budget's shape matters as much as its size:
 

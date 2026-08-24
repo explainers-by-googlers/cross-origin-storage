@@ -797,10 +797,10 @@ happen at very different points in an operation:
   [[#greasing|GREASE'ing]] — so its result must not be read as confirmation either way.
 
 A user agent also has an [=implementation-defined=] <dfn>maximum cross-origin probe count</dfn>, a
-non-negative integer bounding the number of distinct [=COS hash=] values a single [=/origin=] can
+non-negative integer bounding the number of distinct [=COS hash=] values a single [=site=] can
 have resolved against the [=COS registry=] other than those it has itself stored.
 
-The user agent maintains a global <dfn>cross-origin probe map</dfn>, a [=map=] from [=/origins=] to
+The user agent maintains a global <dfn>cross-origin probe map</dfn>, a [=map=] from [=sites=] to
 <dfn>cross-origin probe record</dfn> [=structs=], persisted across page loads and navigations. A
 [=cross-origin probe record=] has the following [=struct/items=]:
 
@@ -809,15 +809,19 @@ The user agent maintains a global <dfn>cross-origin probe map</dfn>, a [=map=] f
 : <dfn for="cross-origin probe record">probed hashes</dfn>
 :: A [=set=] of [=COS hash=] values, initially empty.
 
-The map is keyed by [=/origin=] alone, deliberately *not* partitioned by top-level site.
+The map is keyed by [=site=], not by [=/origin=]. Keying it by origin would leave the bound
+trivially defeated: subdomains are free, so an attacker could mint `01.example.com`,
+`02.example.com`, and so on, and collect a full budget for each. A registrable domain has a cost,
+which is what makes the key meaningful.
 
 <div algorithm>
 To <dfn>get the cross-origin probe record</dfn> given an [=/origin=] |origin|, return a
 [=cross-origin probe record=]:
 
-1. If [=cross-origin probe map=][|origin|] does not [=map/exist=], then [=map/set=]
-   [=cross-origin probe map=][|origin|] to a new [=cross-origin probe record=].
-1. Return [=cross-origin probe map=][|origin|].
+1. Let |site| be the result of [=obtain a site|obtaining a site=] given |origin|.
+1. If [=cross-origin probe map=][|site|] does not [=map/exist=], then [=map/set=]
+   [=cross-origin probe map=][|site|] to a new [=cross-origin probe record=].
+1. Return [=cross-origin probe map=][|site|].
 
 </div>
 
@@ -849,7 +853,7 @@ delete entries or clear all Cross-Origin Storage data.
 When a user clears an origin's site data, the user agent should remove that origin from every
 [=COS entry/storing origins=] set it appears in. If, after that removal, a [=COS entry=]'s
 [=COS entry/storing origins=] is empty, the user agent may consider that entry for deletion.
-Clearing an origin's site data should additionally [=map/remove=] that origin from the
+Clearing an origin's site data should additionally [=map/remove=] that origin's [=site=] from the
 [=cross-origin probe map=].
 
 ## Manually added entries ## {#manually-added-entries}
