@@ -894,7 +894,7 @@ Each call to `requestFileHandle()` is a probe, and user agents are expected to r
 
 [Cross-site probing](#cross-site-probing) covers an attacker that must guess what to probe and learns only what a resource's popularity permits. The inverse threat is an attacker that *chooses* the resources, writes them itself, and treats their presence purely as storage for a value it minted. Such an attacker doesn't care what the resources are, only that it can set them and read them back.
 
-Concretely: a tracker embeds a fixed list of 33 hashes in a script it serves across many sites. On first encounter it mints a random 33-bit identifier and writes the subset of those resources whose bit is 1. On every later site it probes all 33 hashes, and the subset that discloses reconstructs the identifier. Around 33 bits single out an individual user; far fewer sort users into buckets useful for tracking.
+Concretely: a tracker embeds a fixed list of 32 hashes in a script it serves across many sites. On first encounter it mints a random 32-bit identifier and writes the subset of those resources whose bit is 1. On every later site it probes all 32 hashes, and the subset that discloses reconstructs the identifier. A 32-bit identifier comfortably covers most trackers' user bases, and many would settle for 16 bits and absorb the collisions.
 
 Neither the PHL nor GREASE'ing bounds this:
 
