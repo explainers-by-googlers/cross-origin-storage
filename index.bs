@@ -830,6 +830,20 @@ whose [=/origin=] is |origin|, it should increase the [=cross-origin probe recor
 result of [=get the cross-origin probe record=] given |origin| by an [=implementation-defined=]
 amount, to at most the [=maximum cross-origin probe count=].
 
+A <dfn>user-initiated clear</dfn> is a clearing of site data that the user asked for, through the
+user agent's own settings or storage-inspection UI. A [=user-initiated clear=] of an origin's site
+data should [=map/remove=] that origin's [=site=] from the [=cross-origin probe map=].
+
+A clearing of site data that a site asked for itself, such as by sending the `Clear-Site-Data`
+header [[CLEAR-SITE-DATA]], must not modify the [=cross-origin probe map=].
+
+Note: This distinction is load-bearing. `Clear-Site-Data` is under the site's own control, so if it
+reset the [=cross-origin probe map=] a site could clear itself between probes and draw an unbounded
+number of them, defeating [[#cross-site-identifiers]] entirely. Retaining the record costs the site
+nothing it is entitled to: a [=cross-origin probe record=] grants no capability, cannot be read
+except by spending it, and holds no information the site did not itself supply. A user asking to be
+forgotten is still honored in full.
+
 Note: The budget is a rate, not a lifetime allowance. An origin's resource needs change over time —
 a library is upgraded, a model replaced — and replenishment is what lets an origin resolve hashes
 it has never seen before, indefinitely, without any single visit resolving many at once. Tying it
@@ -853,8 +867,9 @@ delete entries or clear all Cross-Origin Storage data.
 When a user clears an origin's site data, the user agent should remove that origin from every
 [=COS entry/storing origins=] set it appears in. If, after that removal, a [=COS entry=]'s
 [=COS entry/storing origins=] is empty, the user agent may consider that entry for deletion.
-Clearing an origin's site data should additionally [=map/remove=] that origin's [=site=] from the
-[=cross-origin probe map=].
+
+A [=user-initiated clear=] of an origin's site data additionally discards that origin's
+[=cross-origin probe record=]; see [[#storage-limits]].
 
 ## Manually added entries ## {#manually-added-entries}
 
