@@ -3,6 +3,7 @@
 
 import axios from 'axios';
 import crypto from 'crypto';
+import fs from 'fs';
 
 export async function getSha256(url) {
   try {
@@ -44,6 +45,35 @@ export async function mapLimit(items, limit, fn) {
 
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
+}
+
+// --- Per-source CSV output ---------------------------------------------------
+// Every source writes the same intermediate artifact: `sha256,url`, one record
+// per line, sorted by hash. The url column is the reason this needs a real
+// writer rather than string interpolation — it carries whatever the upstream
+// publisher named the file, and those names contain commas (`it,en/` locale
+// directories, quantization recipes like `8steps,CFG1,euler`), quotes, and
+// stranger things. An unquoted comma silently splits a row into three fields
+// and corrupts the record for anything that parses it.
+//
+// Fields are escaped per RFC 4180 §2: quote when the value contains a comma,
+// a double quote, CR, or LF, and double any embedded quote. Records stay
+// LF-terminated rather than the RFC's CRLF — every CSV parser accepts LF, these
+// files are diffed and reviewed in git, and CRLF would rewrite all eleven of
+// them for no reader's benefit.
+export function csvField(value) {
+  const s = String(value);
+  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+}
+
+// Write a source's `{ sha256, url }` records to `path` as `sha256,url`.
+// Callers sort before calling; this only formats and writes.
+export function writeHashCsv(path, records) {
+  const out = ['sha256,url'];
+  for (const { sha256, url } of records) {
+    out.push(`${csvField(sha256)},${csvField(url)}`);
+  }
+  fs.writeFileSync(path, out.join('\n') + '\n', 'utf8');
 }
 
 // --- Public Hash List (PHL) formatting ---------------------------------------
