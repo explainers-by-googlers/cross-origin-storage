@@ -47,6 +47,27 @@ export async function mapLimit(items, limit, fn) {
   return results;
 }
 
+// --- Web asset eligibility ---------------------------------------------------
+// Which files the CDN-backed sources hash. The bar is "a page actually loads
+// this": scripts, styles, fonts, images, wasm, and the data files pages fetch
+// at runtime.
+//
+// `package.json` is the one name excluded rather than the one extension. It
+// matches `json` and cdnjs does serve it, but it is npm packaging metadata that
+// no page loads — it describes the package, it is not part of it. JSON in
+// general stays eligible: locale bundles, map styles, and tokenizer configs are
+// all fetched by real pages, so dropping the extension would cost more than it
+// saves. `package-lock.json` is excluded on the same grounds.
+const WEB_ASSET = /\.(js|mjs|cjs|css|wasm|json|woff|woff2|ttf|otf|svg|gz)$/i;
+const PACKAGING_METADATA = /(^|\/)package(-lock)?\.json$/i;
+
+// Accepts either a bare repo-relative path or a full URL; any query string or
+// fragment is ignored so `foo.js?v=2` is judged on `foo.js`.
+export function isWebAsset(pathOrUrl) {
+  const path = String(pathOrUrl).split(/[?#]/)[0];
+  return WEB_ASSET.test(path) && !PACKAGING_METADATA.test(path);
+}
+
 // --- Per-source CSV output ---------------------------------------------------
 // Every source writes the same intermediate artifact: `sha256,url`, one record
 // per line, sorted by hash. The url column is the reason this needs a real

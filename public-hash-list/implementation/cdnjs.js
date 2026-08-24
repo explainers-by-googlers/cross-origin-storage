@@ -4,7 +4,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, writeHashCsv } from './shared.js';
+import { getSha256, isWebAsset, writeHashCsv } from './shared.js';
 
 const STATS_REPO = 'cdnjs/cf-stats';
 export const OUTPUT_CSV = 'data/cdnjs-hashes.csv';
@@ -22,7 +22,6 @@ const MONTHS = [
   'November',
   'December',
 ];
-const HASHABLE = /\.(js|mjs|cjs|css|wasm|json|woff|woff2|ttf|otf|svg|gz)$/i;
 
 function getLast12Months() {
   const result = [];
@@ -51,7 +50,7 @@ function extractUrls(markdown) {
     ),
   ]
     .map((m) => m[0].replace(/[.,;]+$/, ''))
-    .filter((url) => HASHABLE.test(url));
+    .filter(isWebAsset);
 }
 
 export async function run() {

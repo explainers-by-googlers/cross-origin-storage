@@ -343,6 +343,14 @@ The pipeline uses three steps:
    the resolved npm names, sort descending, take the top 100, and hash all
    web-relevant files for each package's latest cdnjs version.
 
+"Web-relevant" is decided by `isWebAsset` in [`shared.js`](shared.js), shared
+with the cdnjs source: scripts, styles, fonts, images, wasm, and the data files
+pages fetch at runtime. `package.json` is excluded by name rather than by
+dropping the `json` extension — cdnjs does serve it, but it is npm packaging
+metadata that describes the package rather than forming part of it, while
+locale bundles, map styles, and tokenizer configs are JSON that real pages do
+load. `package-lock.json` is excluded on the same grounds.
+
 ### Google Fonts
 
 Google Fonts is the dominant public web-font CDN, serving fonts from
