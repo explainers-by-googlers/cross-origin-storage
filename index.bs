@@ -32,6 +32,8 @@ urlPrefix: https://tc39.es/ecma262/; spec: ECMA-262
   type: dfn; text: realm; url: realm
 urlPrefix: https://html.spec.whatwg.org/multipage/browsers.html#; spec: HTML
   type: dfn; text: serialization; for: origin; url: ascii-serialisation-of-an-origin
+urlPrefix: https://html.spec.whatwg.org/multipage/interaction.html#; spec: HTML
+  type: dfn; text: activation notification; url: activation-notification
 </pre>
 
 <style>
@@ -151,11 +153,14 @@ Each user agent has a single <dfn>COS registry</dfn>, a [=map=] from [=COS hash=
 : <dfn for="COS entry">state</dfn>
 :: Either "`pending`" or "`written`". An entry starts out "`pending`" and becomes "`written`"
    exactly once, when [=COS entry/bytes=] is first set.
-: <dfn for="COS entry">pending writer count</dfn>
-:: A non-negative integer, initially 0, counting outstanding writers — {{FileSystemFileHandle}}
-   handles returned by [=complete a create request=] whose [=verify and store|closing write=] has
-   not yet settled. Used only to decide, in [=verify and store=], whether a failed write is safe to
-   clean up; see [[#creating-and-writing-files]].
+: <dfn for="COS entry">pending writers</dfn>
+:: A [=list=] of [=/origins=], initially empty, holding one item per outstanding writer —
+   {{FileSystemFileHandle}} handles returned by [=complete a create request=] whose
+   [=verify and store|closing write=] has not yet settled — recording the [=/origin=] that obtained
+   each. An [=/origin=] appears once per outstanding handle it holds. Used to decide, in
+   [=verify and store=], whether a failed write is safe to clean up, and to exempt an origin with a
+   write of its own in flight from [=charge a cross-origin probe|being charged=] for reading the
+   entry back; see [[#creating-and-writing-files]].
 : <dfn for="COS entry">origins</dfn>
 :: The declared sharing scope: either "`*`" (any origin), a [=list=] of origin strings
    (only those origins), or null (same-site origins only). Set by the first writer and
@@ -352,6 +357,26 @@ To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|
 
 1. Let |entry| be the [=COS entry=] in the [=COS registry=] whose [=COS entry/hash=]
    [=COS hash/equal|equals=] |hash|, if any, or null otherwise.
+1. Let |exempt| be true if |entry| is not null and either |origin| is in |entry|'s
+   [=COS entry/storing origins=] or |entry|'s [=COS entry/pending writers=]
+   [=list/contains=] |origin|, and false otherwise.
+1. If |exempt| is false and the result of running [=charge a cross-origin probe=] given |origin|
+   and |hash| is false:
+   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+      [=/reject=] |result| with a "{{NotFoundError}}" {{DOMException}}.
+   1. Return.
+
+   Note: The charge happens before the "`pending`" check and before [=apply availability gating=]
+   because a probe that finds nothing is charged exactly as one that finds something: absence and
+   presence are each one bit, so charging only for disclosures would leave half an attacker's bit
+   vector free.
+
+   Note: An origin in [=COS entry/pending writers=] is exempt for the same reason one in
+   [=COS entry/storing origins=] is — it learns nothing it did not already know. It obtained a
+   handle for this exact hash from its own [=complete a create request|create request=], so the
+   "{{NotAllowedError}}" it gets back tells it only that its own write is still in flight. An
+   origin with no write of its own outstanding is still charged for that answer, which does
+   disclose that *someone* is writing the hash.
 1. If |entry| is not null and |entry|'s [=COS entry/state=] is "`pending`":
    1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
       [=/reject=] |result| with a "{{NotAllowedError}}" {{DOMException}}.
@@ -425,6 +450,31 @@ To <dfn>apply availability gating</dfn> given a [=COS entry=] or null |entry|, a
 
 </div>
 
+<div algorithm>
+To <dfn>charge a cross-origin probe</dfn> given an [=/origin=] |origin| and a [=COS hash=] |hash|,
+return a boolean:
+
+1. If |origin|'s [=cross-origin probe set=] [=set/contains=] |hash|, return true.
+1. If |origin|'s [=cross-origin probe budget=] is 0, return false.
+1. Decrement |origin|'s [=cross-origin probe budget=] by 1.
+1. [=set/Append=] |hash| to |origin|'s [=cross-origin probe set=].
+1. Return true.
+
+Note: Counting distinct hashes rather than calls means re-probing a hash yields no bit the origin
+has not already obtained, and costs nothing. A page that reloads, or resolves the same resource on
+every visit, pays once, ever.
+
+Note: The budget is not itself a channel: every probe spent reading how much remains also consumes
+it, so it cannot be read repeatedly or held at a chosen value. A
+[[#creating-and-writing-files|create request]] is not charged, since it discloses nothing about
+prior presence.
+
+Note: A user agent can evict entries from a [=cross-origin probe set=] to bound its memory use. The
+only effect is that a later probe of an evicted hash becomes chargeable again, which is never more
+permissive than not evicting.
+
+</div>
+
 ## Creating and writing files ## {#creating-and-writing-files}
 
 A {{FileSystemFileHandle}} created by [=complete a create request=] has an associated
@@ -467,11 +517,12 @@ To <dfn>complete a create request</dfn> given [=a new promise|a promise=] |resul
       [=COS entry/origins=] is |requestedOrigins|, and
       [=COS entry/storing origins=] is an empty [=set=].
    1. [=map/Set=] the [=COS registry=][|hash|] to |entry|.
-1. Increment |entry|'s [=COS entry/pending writer count=] by 1.
+1. [=list/Append=] |global|'s [=relevant settings object=]'s
+   [=environment settings object/origin=] to |entry|'s [=COS entry/pending writers=].
 
    Note: This tracks |handle| as an outstanding writer even if the caller never calls
    {{FileSystemFileHandle/createWritable()}} on it, or never closes the resulting stream. Such an
-   abandoned handle permanently counts against |entry|, exactly as an abandoned in-flight write
+   abandoned handle stays in [=COS entry/pending writers=] indefinitely, exactly as an abandoned in-flight write
    already left |entry| permanently "`pending`" before this mechanism existed; see
    [=verify and store=].
 1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
@@ -538,20 +589,22 @@ stream's handle, the complete written [=byte sequence=] |bytes|, and the closing
    1. [=Reject=] the closing operation's promise with a "{{DataError}}" {{DOMException}}.
    1. [=parallel queue/enqueue the following steps|Enqueue the following steps=] to the
       [=Cross-Origin Storage queue=]:
-      1. Decrement |entry|'s [=COS entry/pending writer count=] by 1.
+      1. [=list/Remove=] one occurrence of |origin| from |entry|'s
+         [=COS entry/pending writers=].
       1. If |entry|'s [=COS entry/state=] is "`pending`" and |entry|'s
-         [=COS entry/pending writer count=] is 0, then [=map/remove=] |entry|'s
+         [=COS entry/pending writers=] [=list/is empty=], then [=map/remove=] |entry|'s
          [=COS entry/hash=] from the [=COS registry=].
 
          Note: This is what makes a failed write clean up after itself instead of leaving a
          permanently unreachable "`pending`" entry behind: a later
          {{CrossOriginStorageManager/requestFileHandle()}} call for the same hash, once no other
          writer is still outstanding, sees no entry at all and gets an ordinary
-         "{{NotFoundError}}", not an indefinite "{{NotAllowedError}}". The count guards against
-         deleting an entry that another writer, concurrently in flight for the same hash (for
-         example, two tabs that both found the hash absent and independently began writing it),
-         might still [=verify and store|successfully write=]: if that writer is still outstanding,
-         or already succeeded, either the count has not yet reached 0 or |entry|'s
+         "{{NotFoundError}}", not an indefinite "{{NotAllowedError}}". Removing only one
+         occurrence, and checking emptiness rather than deleting outright, guards against deleting
+         an entry that another writer, concurrently in flight for the same hash (for example, two
+         tabs that both found the hash absent and independently began writing it), might still
+         [=verify and store|successfully write=]: if that writer is still outstanding, or already
+         succeeded, either [=COS entry/pending writers=] is not yet empty or |entry|'s
          [=COS entry/state=] is no longer "`pending`", and this step is a no-op. An
          already-"`written`" entry can never be removed this way, regardless of how many later
          writers request it and fail: only an entry that has never once been successfully written
@@ -562,7 +615,7 @@ stream's handle, the complete written [=byte sequence=] |bytes|, and the closing
    1. Set |entry|'s [=COS entry/bytes=] to |bytes|.
    1. Set |entry|'s [=COS entry/state=] to "`written`".
    1. [=set/Append=] |origin| to |entry|'s [=COS entry/storing origins=], if not already present.
-   1. Decrement |entry|'s [=COS entry/pending writer count=] by 1.
+   1. [=list/Remove=] one occurrence of |origin| from |entry|'s [=COS entry/pending writers=].
    1. Run [=upgrade resource visibility=] given |entry| and the handle's
       [=FileSystemFileHandle/requested origins=].
    1. Set the handle's [=FileSystemFileHandle/may read=] to true.
@@ -741,6 +794,30 @@ happen at very different points in an operation:
   origin can still fail even if the origin was added — for example because of
   [[#greasing|GREASE'ing]] — so its result must not be read as confirmation either way.
 
+A user agent also has an [=implementation-defined=] <dfn>maximum cross-origin probe count</dfn>, a
+non-negative integer bounding the number of distinct [=COS hash=] values a single [=/origin=] can
+have resolved against the [=COS registry=] other than those it has itself stored.
+
+Each [=/origin=] has an associated <dfn>cross-origin probe budget</dfn>, a non-negative integer,
+initially the [=maximum cross-origin probe count=], and an associated <dfn>cross-origin probe
+set</dfn>, an initially empty [=set=] of [=COS hash=] values. Both persist across page loads and
+navigations, and both are scoped to the [=/origin=] alone, deliberately *not* partitioned by
+top-level site.
+
+Whenever the user agent runs the [=activation notification=] steps [[HTML]] for a [=Document=]
+whose [=/origin=] is |origin|, it should increase |origin|'s [=cross-origin probe budget=] by an
+[=implementation-defined=] amount, to at most the [=maximum cross-origin probe count=].
+
+Note: The budget is a rate, not a lifetime allowance. An origin's resource needs change over time —
+a library is upgraded, a model replaced — and replenishment is what lets an origin resolve hashes
+it has never seen before, indefinitely, without any single visit resolving many at once. Tying it
+to user activation rather than to documents, navigations, or elapsed time is deliberate in both
+directions: a budget an origin can refresh by navigating is not a budget, since a document can
+navigate itself in a loop; and interaction distinguishes a site the user is actually using, which
+accrues budget readily, from a script in a third-party frame, which accrues almost none. Leaving
+the state unpartitioned is likewise deliberate: a per-top-level-site budget would hand a third
+party a fresh allowance on every site it is embedded in.
+
 ## Eviction ## {#eviction}
 
 *This section is non-normative.*
@@ -754,6 +831,8 @@ delete entries or clear all Cross-Origin Storage data.
 When a user clears an origin's site data, the user agent should remove that origin from every
 [=COS entry/storing origins=] set it appears in. If, after that removal, a [=COS entry=]'s
 [=COS entry/storing origins=] is empty, the user agent may consider that entry for deletion.
+Clearing an origin's site data should additionally reset that origin's [=cross-origin probe
+budget=] to the [=maximum cross-origin probe count=] and empty its [=cross-origin probe set=].
 
 ## Manually added entries ## {#manually-added-entries}
 
@@ -868,6 +947,10 @@ itself (see [[#cross-site-probing]]).
 
 ## Cross-site probing ## {#cross-site-probing}
 
+This section addresses an attacker that does not control what is in Cross-Origin Storage and must
+infer something from what it finds. An attacker that writes the entries itself, and treats their
+presence purely as storage for a value it minted, is addressed in [[#cross-site-identifiers]].
+
 If a resource is only used by a narrow set of sites, an attacker able to learn that the resource is
 present in Cross-Origin Storage can infer that the user likely visited one of those sites. Because
 {{CrossOriginStorageManager/requestFileHandle()}} is the mechanism for learning presence, each call
@@ -900,6 +983,69 @@ on-device heuristics (for example, detecting a pattern of requests for hashes th
 generated per-user) to identify and block probing attempts, independent of whether the probed
 hashes are [=on the PHL=].
 
+Rate limiting bounds how fast an origin can probe, which is what this threat model needs: an
+attacker guessing at hashes it did not choose is limited chiefly by how many guesses it can make.
+It does not bound how much an origin can ultimately learn, since entropy accumulates across visits
+and a rate limit resets. Bounding the total is a separate mechanism for a separate attacker; see
+[[#cross-site-identifiers]].
+
+## Cross-site identifier construction ## {#cross-site-identifiers}
+
+[[#cross-site-probing]] addresses an attacker that must guess what to probe and learns only what a
+resource's popularity permits. This section addresses the inverse: an attacker that chooses the
+resources, writes them itself, and treats their presence purely as storage for a value it minted.
+Such an attacker does not care what the resources are, only that it can set them and read them back.
+
+Concretely: a tracker embeds a fixed list of N hashes in a script it serves across many sites. On
+first encounter it mints a random N-bit identifier and writes the subset of those resources whose
+bit is 1. On every later site it probes all N hashes, and the subset that discloses reconstructs
+the identifier. Around 33 bits single out an individual user; far fewer sort users into buckets
+useful for tracking.
+
+Neither the [=Public Hash List=] nor [[#greasing|GREASE'ing]] bounds this:
+
+* [=PHL=] membership assumes an attacker learns only "this user encountered one of the many sites
+  using this ubiquitous file". That fails when the attacker wrote the file: the bit means "I marked
+  this user". A k-anonymity-style bar constrains an attacker that can only observe state, not one
+  that can set it. An attacker may also pick the least common entries on the list, minimizing the
+  chance a bit is set by ordinary browsing.
+* GREASE'ing, [[#eviction]], and the user's own browsing flip bits, but an attacker compensates with
+  redundancy — encoding the identifier several times over disjoint hash sets, or adding a checksum
+  — at the cost only of more hashes.
+
+What bounds it is the count. Each distinct hash an origin can resolve cross-origin yields at most
+one bit, so an identifier's width is exactly the number of distinct cross-origin probes the user
+agent grants that origin. That is what [=maximum cross-origin probe count=] bounds; see
+[[#storage-limits]].
+
+A budget small enough to foreclose this is not, as it might first appear, in conflict with what
+Cross-Origin Storage is for. The budget taxes the <em>number</em> of resources an origin resolves;
+the benefit scales with their <em>size</em>. The resources this specification targets are single,
+very large files — a multi-gigabyte model, a game engine, a font — where one probe saves gigabytes
+of download. A page resolving a handful of such resources fits comfortably in a budget of a
+handful, and the distinct-hash accounting means it pays only once, ever. Sharding one logical
+resource across many hashes is the exception rather than the norm, and it is the only pattern a
+tight budget genuinely constrains.
+
+Nor does a bounded budget freeze an origin's dependencies. Because the budget replenishes with user
+activation, an origin is never charged twice for the same hash, and is never charged at all for one
+it has itself stored (see [[#original-storer-access]]), a site can follow its resources through
+upgrades and replacements indefinitely. What it cannot do is resolve many previously unseen hashes
+in one sitting — the shape of the attack, and not the shape of ordinary use.
+
+A user agent that still supports third-party cookies gains little from a tight budget: a tracker
+there already has a cheaper, more reliable identifier, so constraining Cross-Origin Storage removes
+no capability it does not already have. A user agent that has removed third-party cookies should
+choose a budget at the strict end. The mechanism is the same in both; only the value differs, so
+the API remains available regardless of a user agent's cookie policy rather than being contingent
+on it.
+
+Issue: Because the budget starts full, [=maximum cross-origin probe count=] is also exactly the
+number of bits a third party that has never been interacted with obtains on first contact. That
+makes the value, rather than the mechanism, the whole of the design: small enough that this width
+is uninteresting, large enough for a page's genuine resource count. There is not yet cross-vendor
+agreement on where that lands, or on how much entropy is tolerable here at all.
+
 ## Availability gating ## {#availability-gating}
 
 Whether a {{CrossOriginStorageManager/requestFileHandle()}} read from an origin outside
@@ -915,14 +1061,9 @@ origin is out of scope, that a "`*`"-scoped resource's hash is not (yet, or ever
 that GREASE'ing suppressed a true positive. Developers must not treat "{{NotFoundError}}" as
 anything more specific than "fall back to the network."
 
-Note: A `"*"`-scoped entry's disclosure is additionally limited to requesting
-[=origins=] that can set or read third-party cookies in the current context; such an
-entry is not disclosed to an origin third-party cookies are unavailable to,
-regardless of [=PHL=] membership. This closes a gap [=PHL=]
-membership alone cannot: an attacker can build a cross-site identifier out of
-otherwise-ordinary, individually PHL-eligible resources by choosing which subset to
-write, and third-party cookie availability is the deciding factor in whether the
-resulting probe is any more informative than an ordinary tracking cookie would be.
+Note: A separate limit bounds how many distinct hashes an origin resolves cross-origin at all,
+independent of [=PHL=] membership and of [=COS entry/origins=]; see
+[[#cross-site-identifiers]]. A read refused for that reason is likewise a "{{NotFoundError}}".
 
 ## GREASE'ing ## {#greasing}
 
