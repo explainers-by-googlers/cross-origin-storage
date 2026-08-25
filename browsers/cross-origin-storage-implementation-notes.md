@@ -37,6 +37,7 @@ Terms as used in this document — some are spec terms, some are implementation 
 - **Storing origin(s)** — the set of origins that have each independently completed a successful write (`close()`) for a given hash. Distinct from disclosure scope: a storing origin can always read its own write regardless of scope; disclosure scope governs everyone *else*. See [§2](#sec-2).
 - **Streaming (write)** — sending a large write's bytes to the registry in a sequence of smaller chunks rather than one giant message, so the registry never holds an entire large payload in memory at once. Independent of whether the writable stream's own buffer (the thing being streamed *from*) is backed by memory or disk — see [§3](#sec-3).
 - **Token bucket** — a standard rate-limiting algorithm: a per-key counter that holds up to some maximum number of "tokens," refills continuously over time, and is decremented by one on each allowed action; once empty, further actions are denied until enough time passes to refill at least one token. Used here per requesting origin, separately for reads and writes. See [§5](#sec-5).
+- **Cross-origin probe budget** — distinct from a token bucket, and easy to conflate with one. A token bucket limits the *rate* of calls; a probe budget limits the *total number of distinct hashes* a site may ever resolve cross-origin, because each such hash is worth at most one bit to an attacker assembling a cross-site identifier. Its shape and value are under discussion, see [§5](#sec-5).
 
 ---
 
@@ -203,15 +204,28 @@ The spec constrains this qualitatively: **"must NOT GREASE responses for files w
 
 ## 5. Rate limiting / abuse resistance
 
-**Every read is a probe.** The explainer says this explicitly: "each call to `requestFileHandle()` can be considered a probe." A found/not-found/still-pending outcome is directly observable by the calling script, so an origin could otherwise brute-force many hashes to fingerprint what's cross-origin-cached (i.e., infer what sites a user has visited, indirectly, via what shared resources are present). **Rate-limit reads per requesting origin** with a token bucket. Reasonable starting values (used by both Servo's and Ladybird's implementations):
-- Burst capacity: 2000 (sized around large sharded-AI-model loading — some architectures ship weights as ~25 MiB shards, so 2000 covers roughly a 50 GiB model's worth of shards in one burst — comfortably past any realistic model size, while still bounding worst-case memory for the token-bucket map).
-- Steady-state refill: 20/second (fast enough that a legitimate page's staggered probes never notice it even after exhausting a burst; slow enough that an attacker enumerating hashes to fingerprint a victim is throttled to a trickle indefinitely, not just made to wait out one cooldown).
-- **When over budget, respond exactly as if the entry were absent (a genuine miss), not with a distinct "rate limited" signal.** Hitting the limit must not itself be an observable, distinguishable event — otherwise the rate limiter becomes its own oracle (a caller could binary-search for the limit itself, or use "am I being rate-limited yet" as a side channel).
+> [!IMPORTANT]
+> **The concrete read-probe numbers that used to be here have been removed.** They specified a
+> per-origin token bucket with a burst capacity of 2000 and a refill of 20/second, sized around
+> legitimate sharded-AI-model loading. Those numbers were a *throughput* limit, and they were being
+> read as this proposal's privacy defense, which they were never derived to be: 2000 binary queries
+> is ample to identify a user. That critique, and the replacement, are being worked out in
+> [#72](https://github.com/WICG/cross-origin-storage/issues/72) and
+> [#73](https://github.com/WICG/cross-origin-storage/pull/73). Do not implement a number from this
+> file until that settles.
 
-**Writes need their own, separate, smaller/slower budget.** A `create()` call has no return value at all (per spec — it's fire-and-forget from script's perspective), so it isn't a *fingerprinting* oracle the way reads are. But it's still real, unbounded registry churn and disk I/O if flooded — every `create()` that needs a fresh pending entry persists a file. Share one write-probe budget between `create()` and the eventual write-verification step (`close()`), since `create()` is just the first step of a write attempt: spending the budget on `create()` calls correspondingly reduces what's left for the write that would normally follow, so the abuse is still bounded either way without needing two separate counters.
-- 200 capacity, 2/second refill is a reasonable choice — smaller and slower than the read budget, because a write is inherently more expensive for a caller to mount (it has to actually transmit and hash real bytes), and a legitimate cold-cache load only needs to write each missing shard *once*, not repeatedly.
+**Every read is a probe.** The explainer says this explicitly: "each call to `requestFileHandle()` can be considered a probe." A found/not-found/still-pending outcome is directly observable by the calling script, so an origin could otherwise brute-force many hashes to fingerprint what's cross-origin-cached.
 
-**Cap the rate-limiter's own memory.** This is the kind of thing that's easy to miss on a first pass, because it's not part of the spec at all — it's purely an implementation detail that can still become a real, unbounded memory leak. If your token-bucket map is keyed by requesting origin with no eviction, a long-running browser session that visits many different sites will grow that map by one entry per distinct origin **forever**, for the life of the process — unlike the registry itself, which the spec-mandated (and self-imposed budget) caps already bound. Cap the map at some generous-but-bounded number of distinct origins (10,000 is a reasonable choice), and when a genuinely new origin arrives at capacity, evict whichever bucket was least recently touched (a bucket's own "last refill" timestamp already doubles as a recency signal for free, since every consumption attempt — success or denial — updates it). Worst case for an evicted origin is a reset burst, equivalent to what it'd see after a process restart — not a correctness problem, just a memory bound.
+Two distinct limits are in play, and conflating them is what went wrong here:
+
+- **Rate limiting** bounds how *fast* an origin can probe. It is worth having as ordinary abuse resistance, and a per-origin token bucket is the right shape for it. It does not bound how *much* an origin ultimately learns, because entropy accumulates across visits and a rate limit resets.
+- **A probe budget** bounds the *total* number of distinct hashes a site can resolve cross-origin, which is the quantity that determines how wide an identifier an attacker can build. This is the privacy mechanism. Its shape and value are under active discussion in the issues linked above.
+
+Whichever is being enforced, one rule holds in both cases: **when over budget, respond exactly as if the entry were absent (a genuine miss), not with a distinct "rate limited" signal.** Hitting the limit must not itself be an observable, distinguishable event, or the limiter becomes its own oracle (a caller could binary-search for the limit itself, or use "am I being rate-limited yet" as a side channel).
+
+**Writes need their own, separate budget.** A `create()` call has no return value at all (per spec — it's fire-and-forget from script's perspective), so it isn't a *fingerprinting* oracle the way reads are, and it is not charged against the probe budget. But it's still real, unbounded registry churn and disk I/O if flooded — every `create()` that needs a fresh pending entry persists a file. Share one write budget between `create()` and the eventual write-verification step (`close()`), since `create()` is just the first step of a write attempt: spending it on `create()` calls correspondingly reduces what's left for the write that would normally follow, so the abuse is still bounded either way without needing two separate counters. This budget is ordinary flood protection rather than a privacy mechanism, so it can be sized generously.
+
+**Cap the limiter's own memory.** This is the kind of thing that's easy to miss on a first pass, because it's not part of the spec at all — it's purely an implementation detail that can still become a real, unbounded memory leak. If your bucket map is keyed by requesting origin with no eviction, a long-running browser session that visits many different sites will grow that map by one entry per distinct origin **forever**, for the life of the process — unlike the registry itself, which the spec-mandated (and self-imposed budget) caps already bound. Cap the map at some generous-but-bounded number of distinct origins, and when a genuinely new origin arrives at capacity, evict whichever bucket was least recently touched (a bucket's own "last refill" timestamp already doubles as a recency signal for free, since every consumption attempt — success or denial — updates it). Worst case for an evicted origin is a reset burst, equivalent to what it'd see after a process restart — not a correctness problem, just a memory bound. Note that this reasoning does **not** transfer to a probe budget, whose state must persist rather than being evictable at the implementation's convenience.
 
 ---
 
@@ -407,11 +421,9 @@ Worth a dedicated security-focused review pass specifically for these — normal
 | Constant | Reasonable value | Purpose |
 |---|---|---|
 | Pending-entry staleness timeout | 5 minutes | When an unfinished write is treated as abandoned |
-| Read-probe burst capacity | 2000 tokens | Per-origin read rate limit burst |
-| Read-probe refill rate | 20/second | Per-origin read rate limit steady-state |
-| Write-probe burst capacity | 200 tokens | Per-origin write rate limit burst (shared by `create()` + `close()`) |
-| Write-probe refill rate | 2/second | Per-origin write rate limit steady-state |
-| Rate-limiter map cap | 10,000 distinct origins | Bounds rate-limiter memory over a long session |
+| Read-probe limits | **Removed, see [§5](#sec-5)** | The former 2000-burst / 20-per-second figures were a throughput limit being mistaken for a privacy defense; the replacement is under discussion in [#72](https://github.com/WICG/cross-origin-storage/issues/72) / [#73](https://github.com/WICG/cross-origin-storage/pull/73) |
+| Write budget | Generous; flood protection only | Not a privacy mechanism, since `create()` discloses nothing about prior presence |
+| Rate-limiter map cap | Bounded, LRU-evicted | Bounds rate-limiter memory over a long session. Does not apply to probe-budget state, which must persist |
 | List-scope max length | 100 origins | Both single-call rejection and merge-time silent truncation |
 | GREASE probability | 1% | Chance an eligible found entry is reported absent anyway |
 | GREASE size ceiling | 500 KiB | Entries at/above this are never GREASEd |
@@ -429,7 +441,7 @@ Worth a dedicated security-focused review pass specifically for these — normal
 
 1. Data model + persistence (per-entry files or equivalent, atomic writes) + the pending/written state machine, with staleness handling. Get this solid before anything else — everything builds on it.
 2. Same-site-only disclosure only (simplest scope, reuses existing same-site logic). Full read/write round-trip, single-origin, working end to end through your real IPC/script boundary before adding anything else. **If your engine has genuinely separate script-hosting process types** (not just Window vs. Worker as a JS-level distinction — see [§1](#sec-1)), decide explicitly and early whether this step is scoped to just the main script-hosting process or all of them; deferring Worker/SharedWorker support is only cheap to retrofit later if a per-worker-process route to shared browser state already exists for something else.
-3. Rate limiting (both budgets) — bounded from day one, not retrofitted.
+3. Rate limiting for reads and writes — bounded from day one, not retrofitted. Note this is abuse resistance, **not** the privacy defense; the cross-origin probe budget that bounds identifier width is a separate mechanism still being settled, see [§5](#sec-5).
 4. Storage budget + eviction, including the running-totals/incremental-index performance work from the start — don't ship the O(n)/O(n log n) version even temporarily if you can avoid it; it's a straightforward rewrite later but easy to forget once it "works."
 5. List scope + LRU merge behavior.
 6. Wildcard scope: PHL integration first (get the fetch/verify/refresh pipeline solid and automated, or a placeholder that fails closed if you're deferring it), then GREASE'ing.
