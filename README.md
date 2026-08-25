@@ -155,7 +155,7 @@ Each resource stored in COS is conceptually represented as an entry with the fol
 
 1. Hash the contents of the file using SHA-256 (or an equivalent secure algorithm, see [Appendix&nbsp;B](#appendixb-blob-hash-with-the-web-crypto-api)). The hash algorithm used is communicated as a string naming a hash algorithm recognized by the [Web Crypto API](https://w3c.github.io/webcrypto/).
 1. Request a `FileSystemFileHandle` object for the file, specifying the file's hash.
-1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. Data can be written with one or more `write()` calls, or streamed in with `sourceStream.pipeTo(writableStream)` — which, by default, closes `writableStream` automatically once `sourceStream` is exhausted, unless called with `preventClose: true`. Whenever the stream closes, whether via an explicit `writableStream.close()` call or implicitly through `pipeTo()`, the user agent must verify that the hash of the complete written bytes matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must reject the closing operation's promise with a `DataError` `DOMException` and must not store the data in COS.
+1. Write the file's data to the `FileSystemFileHandle` object and store it in Cross-Origin Storage. Data can be written with one or more `write()` calls, or streamed in with `sourceStream.pipeTo(writableStream)` — which, by default, closes `writableStream` automatically once `sourceStream` is exhausted, unless called with `preventClose: true` (see [Streaming a file into COS while using it](#example-streaming-a-file-into-cos-while-using-it) for the recommended pattern on large resources). Whenever the stream closes, whether via an explicit `writableStream.close()` call or implicitly through `pipeTo()`, the user agent must verify that the hash of the complete written bytes matches the declared hash, using the algorithm specified in `hash.algorithm`. If the hashes do not match, the user agent must reject the closing operation's promise with a `DataError` `DOMException` and must not store the data in COS.
 
 > [!NOTE]
 > A hash-mismatched write does not leave a stuck placeholder behind. Once no other write for that same hash is still in progress, the user agent removes the entry entirely, so a subsequent `requestFileHandle()` call for that hash behaves exactly as if it had never been requested (`NotFoundError`), rather than being stuck returning `NotAllowedError` forever. This never applies to a hash some origin has already successfully written before: that entry is never removed by a later, unrelated write's failure, no matter how many times it's attempted. See [Concurrent writes](#concurrent-writes).
@@ -219,6 +219,70 @@ try {
   console.log('Cross-Origin Storage is blocked by Permissions Policy.');
 }
 ```
+
+##### Example: Streaming a file into COS while using it
+
+The example above waits for the whole file to arrive before writing it, which is fine for small resources but throws away the download/consume overlap that streaming APIs such as `WebAssembly.instantiateStreaming()` provide. For large resources, the recommended pattern on a cache miss is to `tee()` the network response body: one branch is consumed immediately, the other is piped into COS in the background. Because `pipeTo()` closes the writable stream when the source is exhausted, and the user agent verifies the hash on close, no explicit `write()` or `close()` call is needed. On a cache hit, `File.stream()` gives the same streaming shape from the stored bytes.
+
+```js
+/**
+ * Example usage to stream a Wasm module into COS while compiling it.
+ */
+
+const hash = {
+  algorithm: 'SHA-256',
+  value: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+};
+const wasmHeaders = { headers: { 'Content-Type': 'application/wasm' } };
+
+try {
+  // Cache hit: stream from the stored file. The bytes were hash-verified when
+  // they were written, so a fixed MIME type is safe.
+  const handle = await navigator.crossOriginStorage.requestFileHandle(hash);
+  const file = await handle.getFile();
+  const { instance } = await WebAssembly.instantiateStreaming(
+    new Response(file.stream(), wasmHeaders),
+    imports,
+  );
+  return instance;
+} catch (err) {
+  if (err.name !== 'NotFoundError') {
+    throw err;
+  }
+}
+
+// Cache miss: split the body so compilation and storage proceed in parallel.
+const response = await fetch('/model.wasm');
+if (!response.ok) {
+  throw new Error(`HTTP ${response.status}`);
+}
+const [compileStream, storeStream] = response.body.tee();
+
+// Fire-and-forget store; never block on the write.
+(async () => {
+  try {
+    const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
+      create: true,
+      origins: '*',
+    });
+    const writableStream = await handle.createWritable();
+    // Closes `writableStream` on completion; rejects with a `DataError` if the
+    // bytes don't match `hash`.
+    await storeStream.pipeTo(writableStream);
+  } catch (err) {
+    // Release the unconsumed branch so the body isn't buffered indefinitely.
+    storeStream.cancel().catch(() => {});
+  }
+})();
+
+const { instance } = await WebAssembly.instantiateStreaming(
+  new Response(compileStream, wasmHeaders),
+  imports,
+);
+return instance;
+```
+
+The same shape works for any consumer that accepts a `ReadableStream`, for example a model loader that parses safetensors headers as bytes arrive, or `new Response(stream).blob()` if the consumer ultimately needs a `Blob`. Note that a `tee()`'d stream buffers whatever the slower branch has not yet read, so a store branch that never consumes must be cancelled, as shown above.
 
 ##### Example: Restricting resources to specific origins
 
