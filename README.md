@@ -844,6 +844,10 @@ Different origins can manually open the same file on disk, either using the File
 
 On the server, cross-origin isolation is not really a problem. At the same time, server runtimes like Node.js, Bun, or Deno implement `fetch()` as well. To avoid fragmentation and to keep the present `fetch()` API simple, it does not make sense to add COS to `fetch()`. Since `fetch()` is URL-based, this would also not solve the case where the same file is stored at different locations.
 
+Integrating with `fetch()` would also couple storing a resource in COS to a network request that `fetch()` itself performs, which this proposal deliberately avoids. Managing downloads is out of scope (see [Appendix&nbsp;C](#appendixc-frequently-asked-questions-faq)), so bytes can reach COS from a [Background Fetch](https://wicg.github.io/background-fetch/), from `Range` requests for a sharded file that the site reassembles itself, from a file the user picked from their local disk, or from another storage API. Conversely, a lookup that only asks whether COS already holds a given hash has no URL to offer at all. In `requestFileHandle()`, naming a resource by hash and acquiring its bytes are separate steps, whereas a `fetch()`-shaped API can only express the case where the two happen together.
+
+Finally, the returned `FileSystemFileHandle` supports random access into a multi-gigabyte entry via `getFile()` and [`Blob.slice()`](https://w3c.github.io/FileAPI/#dfn-slice), without materializing the entire file the way consuming a `Response` body would.
+
 ### Integrating cross-origin storage in the Cache API
 
 The Cache API is fundamentally modeled around the concepts of `Request` or URL strings, and `Response`, for example, `Cache.match()` or `Cache.put()`. In contrast, what makes COS unique is that it uses file hashes as the keys to files to avoid duplicates.
