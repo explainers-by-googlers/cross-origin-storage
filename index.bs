@@ -367,19 +367,17 @@ and a {{CrossOriginStorageRequestFileHandleOptions}} |options|, return null or a
 ## Reading files ## {#reading-files}
 
 <div algorithm>
-To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|, a [=COS hash=] |hash|, an
-[=/origin=] |origin|, a global object |global|, and a [=/Realm=] |realm|:
+To <dfn export>resolve a COS lookup</dfn> given a [=COS hash=] |hash| and an [=/origin=] |origin|,
+return a [=COS entry=], "`refused`", "`pending`", or "`unavailable`":
 
+1. If |origin| is an [=opaque origin=], return "`refused`".
 1. Let |entry| be the [=COS entry=] in the [=COS registry=] whose [=COS entry/hash=]
    [=COS hash/equal|equals=] |hash|, if any, or null otherwise.
 1. Let |exempt| be true if |entry| is not null and either |origin| is in |entry|'s
    [=COS entry/storing origins=] or |entry|'s [=COS entry/pending writers=]
    [=list/contains=] |origin|, and false otherwise.
 1. If |exempt| is false and the result of running [=charge a cross-origin probe=] given |origin|
-   and |hash| is false:
-   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
-      [=/reject=] |result| with a "{{NotFoundError}}" {{DOMException}}.
-   1. Return.
+   and |hash| is false, return "`unavailable`".
 
    Note: The charge happens before the "`pending`" check and before [=apply availability gating=]
    because a probe that finds nothing is charged exactly as one that finds something: absence and
@@ -389,13 +387,10 @@ To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|
    Note: An origin in [=COS entry/pending writers=] is exempt for the same reason one in
    [=COS entry/storing origins=] is — it learns nothing it did not already know. It obtained a
    handle for this exact hash from its own [=complete a create request|create request=], so the
-   "{{NotAllowedError}}" it gets back tells it only that its own write is still in flight. An
-   origin with no write of its own outstanding is still charged for that answer, which does
-   disclose that *someone* is writing the hash.
-1. If |entry| is not null and |entry|'s [=COS entry/state=] is "`pending`":
-   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
-      [=/reject=] |result| with a "{{NotAllowedError}}" {{DOMException}}.
-   1. Return.
+   "`pending`" it gets back tells it only that its own write is still in flight. An origin with no
+   write of its own outstanding is still charged for that answer, which does disclose that
+   *someone* is writing the hash.
+1. If |entry| is not null and |entry|'s [=COS entry/state=] is "`pending`", return "`pending`".
 
    Note: A hash with a write in progress deliberately does not behave like a hash that is
    absent, so that a caller does not mistake an in-progress write for a genuine cache miss
@@ -403,10 +398,47 @@ To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|
    writing it. See [[#creating-and-writing-files]].
 1. Let |disclosableEntry| be the result of running [=apply availability gating=] given |entry|
    and |origin|.
-1. If |disclosableEntry| is null:
+1. If |disclosableEntry| is null, return "`unavailable`".
+1. Return |disclosableEntry|.
+
+</div>
+
+This algorithm is the single entry point for every read of the [=COS registry=], and it is
+exported so that the host integrations in [[#integration-with-other-specifications]] use it rather
+than consulting the registry themselves. Everything that bounds a read lives here: the
+[=opaque origin=] refusal, the [=COS entry/storing origins=] and [=COS entry/pending writers=]
+exemptions, the [=charge a cross-origin probe|probe charge=], and
+[=apply availability gating|availability gating=].
+
+Note: A lookup is a lookup regardless of which surface issued it. An integration that consulted
+the [=COS registry=] directly would obtain the same single bit as
+{{CrossOriginStorageManager/requestFileHandle()}} without paying for it, which would leave the
+[=maximum cross-origin probe count=] trivially avoidable: a `crossOriginStorage` [[FETCH]] request
+is as scriptable in a loop as an imperative call is. See [[#cross-site-identifiers]].
+
+A caller that is not returning a {{FileSystemFileHandle}} must treat "`refused`", "`pending`", and
+"`unavailable`" alike, as "not available from Cross-Origin Storage", and must not surface the
+distinction between them. A host integration so answered falls back to a network fetch.
+
+Note: The three values exist only so that {{CrossOriginStorageManager/requestFileHandle()}} can
+reject with the {{DOMException}} each case calls for. Distinguishing them anywhere else would hand
+a caller a finer-grained signal than the imperative API offers, which is the opposite of what
+[[#availability-gating]] is for.
+
+<div algorithm>
+To <dfn>complete a read request</dfn> given [=a new promise|a promise=] |result|, a [=COS hash=] |hash|, an
+[=/origin=] |origin|, a global object |global|, and a [=/Realm=] |realm|:
+
+1. Let |outcome| be the result of running [=resolve a COS lookup=] given |hash| and |origin|.
+1. If |outcome| is "`refused`" or "`pending`":
+   1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
+      [=/reject=] |result| with a "{{NotAllowedError}}" {{DOMException}}.
+   1. Return.
+1. If |outcome| is "`unavailable`":
    1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
       [=/reject=] |result| with a "{{NotFoundError}}" {{DOMException}}.
    1. Return.
+1. Let |disclosableEntry| be |outcome|.
 1. Let |handle| be the result of <a>creating a new `FileSystemFileHandle`</a> [[FS]] whose
    [=FileSystemHandle/locator=] addresses |disclosableEntry| within the
    [=Cross-Origin Storage file system=], in |realm|.
@@ -1164,8 +1196,10 @@ The [=COS registry=] defined here is also reachable from four host integrations 
 through {{CrossOriginStorageManager/requestFileHandle()}} directly. Each
 integration is defined in its own host specification, not in this document; this
 specification defines only the shared underlying concepts ([=COS hash=], [=COS entry=],
-[[#availability-gating|availability gating]], and the [=Public Hash List=]) that those
-integrations are expected to build on.
+[[#availability-gating|availability gating]], the [=Public Hash List=], and the
+[=maximum cross-origin probe count|cross-origin probe budget=]) that those integrations are
+expected to build on, along with the [=resolve a COS lookup=] algorithm through which they reach
+them.
 
 * **HTML**: a `crossoriginstorage` attribute on <{link}> and <{script}> elements that already
   carry `integrity` [[SRI]], proposed to the WHATWG in
@@ -1218,12 +1252,14 @@ differ: a `RequestInit` member can take a `sequence<DOMString>`, matching
 {{CrossOriginStorageRequestFileHandleOptions/origins}} exactly, while an attribute value, an
 import attribute value, and a CSS modifier argument can only carry text.
 
-All four forms are expected to share the processing model of first consulting the [=COS
-registry=] for a matching, disclosable entry before falling back to a network fetch, and of
-storing a successfully fetched and integrity-verified resource into the [=COS registry=] for reuse
-by other origins, exactly as {{CrossOriginStorageManager/requestFileHandle()}} does. Discussion of
-these integrations belongs in the tracker of the host specification that would carry them,
-not in this repository's issue tracker.
+All four forms are expected to share the processing model of first running [=resolve a COS lookup=]
+for a matching, disclosable entry before falling back to a network fetch, and of storing a
+successfully fetched and integrity-verified resource into the [=COS registry=] for reuse by other
+origins, exactly as {{CrossOriginStorageManager/requestFileHandle()}} does. Reaching the
+[=COS registry=] by any other route would skip the bounds that algorithm applies, and in
+particular would leave the [=maximum cross-origin probe count=] avoidable; see
+[[#cross-site-identifiers]]. Discussion of these integrations belongs in the tracker of the host
+specification that would carry them, not in this repository's issue tracker.
 
 <h2 class="no-num" id="acks">Acknowledgments</h2>
 
