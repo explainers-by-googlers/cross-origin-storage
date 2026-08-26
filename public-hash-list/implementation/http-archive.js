@@ -21,6 +21,7 @@ import axios from 'axios';
 import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { writeHashCsv } from './shared.js';
 
 export const OUTPUT_CSV = 'data/http-archive-hashes.csv';
 // Published HTTP Archive report. CSV with columns:
@@ -62,10 +63,7 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
-  const ws = fs.createWriteStream(OUTPUT_CSV, { encoding: 'utf8' });
-  ws.write('sha256,url\n');
-  for (const { sha256, url } of records) ws.write(`${sha256},${url}\n`);
-  ws.end();
+  writeHashCsv(OUTPUT_CSV, records);
   console.log(`[http-archive] Saved ${records.length} records to '${OUTPUT_CSV}'.`);
   return records;
 }

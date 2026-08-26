@@ -4,7 +4,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256 } from './shared.js';
+import { getSha256, isWebAsset, writeHashCsv } from './shared.js';
 
 export const OUTPUT_CSV = 'data/npm-popular-hashes.csv';
 const CDNJS_API = 'https://api.cdnjs.com/libraries';
@@ -15,7 +15,6 @@ const CDNJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs';
 const TOP_N = 100;
 const NPM_BATCH = 100;
 const PACKAGES_BATCH = 50;
-const HASHABLE = /\.(js|mjs|cjs|css|wasm|json|woff|woff2|ttf|otf|svg|gz)$/i;
 
 async function getCdnjsNames() {
   const { data } = await axios.get(`${CDNJS_API}?fields=name&limit=1000`);
@@ -93,7 +92,7 @@ async function getCdnjsFiles(cdnjsName) {
   const { data: ver } = await axios.get(
     `${CDNJS_API}/${cdnjsName}/${version}?fields=files`
   );
-  const files = (ver.files ?? []).filter((f) => HASHABLE.test(f));
+  const files = (ver.files ?? []).filter(isWebAsset);
   return { version, files };
 }
 
@@ -170,12 +169,7 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
-  const writeStream = fs.createWriteStream(OUTPUT_CSV, { encoding: 'utf8' });
-  writeStream.write('sha256,url\n');
-  for (const { url, sha256 } of records) {
-    writeStream.write(`${sha256},${url}\n`);
-  }
-  writeStream.end();
+  writeHashCsv(OUTPUT_CSV, records);
   console.log(
     `[npm-popular] Saved ${records.length} records to '${OUTPUT_CSV}'.`
   );

@@ -44,6 +44,11 @@ jobs:
       - name: Run the PHL pipeline
         env:
           GOOGLE_FONTS_API_KEY: ${{ secrets.GOOGLE_FONTS_API_KEY }}
+          # Optional. The model-hub source makes one Hub request per model, and
+          # the Hub rate-limits anonymous traffic per IP — shared runner IPs all
+          # the more so. Without this the source still completes, but warns that
+          # it dropped models to 429s.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: npm start
 
       - name: Commit and push regenerated data

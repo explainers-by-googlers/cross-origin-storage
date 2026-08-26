@@ -8,6 +8,7 @@ import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { writeHashCsv } from './shared.js';
 
 // Build-tool source: content-addressed COS chunks emitted by the Nuxt/Vite
 // integration at https://github.com/danielroe/cross-origin-storage.
@@ -503,10 +504,7 @@ export async function run() {
   rows.sort((a, b) => a.sha256.localeCompare(b.sha256) || a.url.localeCompare(b.url));
 
   fs.mkdirSync('data', { recursive: true });
-  const ws = fs.createWriteStream(OUTPUT_CSV, { encoding: 'utf8' });
-  ws.write('sha256,url\n');
-  for (const { sha256, url } of rows) ws.write(`${sha256},${url}\n`);
-  ws.end();
+  writeHashCsv(OUTPUT_CSV, rows);
 
   // The build record: which recipes and which source versions this CSV came
   // from. Deliberately just the inputs, not a per-hash table — the CSV's `url`

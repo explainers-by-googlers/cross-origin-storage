@@ -4,7 +4,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256 } from './shared.js';
+import { getSha256, isWebAsset, writeHashCsv } from './shared.js';
 
 const STATS_REPO = 'cdnjs/cf-stats';
 export const OUTPUT_CSV = 'data/cdnjs-hashes.csv';
@@ -22,7 +22,6 @@ const MONTHS = [
   'November',
   'December',
 ];
-const HASHABLE = /\.(js|mjs|cjs|css|wasm|json|woff|woff2|ttf|otf|svg|gz)$/i;
 
 function getLast12Months() {
   const result = [];
@@ -51,7 +50,7 @@ function extractUrls(markdown) {
     ),
   ]
     .map((m) => m[0].replace(/[.,;]+$/, ''))
-    .filter((url) => HASHABLE.test(url));
+    .filter(isWebAsset);
 }
 
 export async function run() {
@@ -90,12 +89,7 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
-  const writeStream = fs.createWriteStream(OUTPUT_CSV, { encoding: 'utf8' });
-  writeStream.write('sha256,url\n');
-  for (const { url, sha256 } of records) {
-    writeStream.write(`${sha256},${url}\n`);
-  }
-  writeStream.end();
+  writeHashCsv(OUTPUT_CSV, records);
   console.log(`[cdnjs] Saved ${records.length} records to '${OUTPUT_CSV}'.`);
   return records;
 }

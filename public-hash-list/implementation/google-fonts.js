@@ -7,7 +7,7 @@ try { process.loadEnvFile(); } catch {}
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, mapLimit } from './shared.js';
+import { getSha256, mapLimit, writeHashCsv } from './shared.js';
 
 // Hashes every woff2 font file served by fonts.gstatic.com for all font
 // families in the Google Fonts catalog, discovered via the CSS2 API.
@@ -160,10 +160,7 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
-  const ws = fs.createWriteStream(OUTPUT_CSV, { encoding: 'utf8' });
-  ws.write('sha256,url\n');
-  for (const { sha256, url } of records) ws.write(`${sha256},${url}\n`);
-  ws.end();
+  writeHashCsv(OUTPUT_CSV, records);
 
   console.log(
     `[google-fonts] Saved ${records.length} records to '${OUTPUT_CSV}'.`,

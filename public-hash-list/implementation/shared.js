@@ -3,6 +3,7 @@
 
 import axios from 'axios';
 import crypto from 'crypto';
+import fs from 'fs';
 
 export async function getSha256(url) {
   try {
@@ -44,6 +45,56 @@ export async function mapLimit(items, limit, fn) {
 
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
+}
+
+// --- Web asset eligibility ---------------------------------------------------
+// Which files the CDN-backed sources hash. The bar is "a page actually loads
+// this": scripts, styles, fonts, images, wasm, and the data files pages fetch
+// at runtime.
+//
+// `package.json` is the one name excluded rather than the one extension. It
+// matches `json` and cdnjs does serve it, but it is npm packaging metadata that
+// no page loads — it describes the package, it is not part of it. JSON in
+// general stays eligible: locale bundles, map styles, and tokenizer configs are
+// all fetched by real pages, so dropping the extension would cost more than it
+// saves. `package-lock.json` is excluded on the same grounds.
+const WEB_ASSET = /\.(js|mjs|cjs|css|wasm|json|woff|woff2|ttf|otf|svg|gz)$/i;
+const PACKAGING_METADATA = /(^|\/)package(-lock)?\.json$/i;
+
+// Accepts either a bare repo-relative path or a full URL; any query string or
+// fragment is ignored so `foo.js?v=2` is judged on `foo.js`.
+export function isWebAsset(pathOrUrl) {
+  const path = String(pathOrUrl).split(/[?#]/)[0];
+  return WEB_ASSET.test(path) && !PACKAGING_METADATA.test(path);
+}
+
+// --- Per-source CSV output ---------------------------------------------------
+// Every source writes the same intermediate artifact: `sha256,url`, one record
+// per line, sorted by hash. The url column is the reason this needs a real
+// writer rather than string interpolation — it carries whatever the upstream
+// publisher named the file, and those names contain commas (`it,en/` locale
+// directories, quantization recipes like `8steps,CFG1,euler`), quotes, and
+// stranger things. An unquoted comma silently splits a row into three fields
+// and corrupts the record for anything that parses it.
+//
+// Fields are escaped per RFC 4180 §2: quote when the value contains a comma,
+// a double quote, CR, or LF, and double any embedded quote. Records stay
+// LF-terminated rather than the RFC's CRLF — every CSV parser accepts LF, these
+// files are diffed and reviewed in git, and CRLF would rewrite all eleven of
+// them for no reader's benefit.
+export function csvField(value) {
+  const s = String(value);
+  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+}
+
+// Write a source's `{ sha256, url }` records to `path` as `sha256,url`.
+// Callers sort before calling; this only formats and writes.
+export function writeHashCsv(path, records) {
+  const out = ['sha256,url'];
+  for (const { sha256, url } of records) {
+    out.push(`${csvField(sha256)},${csvField(url)}`);
+  }
+  fs.writeFileSync(path, out.join('\n') + '\n', 'utf8');
 }
 
 // --- Public Hash List (PHL) formatting ---------------------------------------

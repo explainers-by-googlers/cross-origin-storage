@@ -4,7 +4,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256 } from './shared.js';
+import { getSha256, writeHashCsv } from './shared.js';
 
 // Primary: discovers the current player ID from the iframe API bootstrap, which
 // contains an escaped URL like '...\/s\/player\/445213fb\/...'.
@@ -113,12 +113,7 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
-  const writeStream = fs.createWriteStream(OUTPUT_CSV, { encoding: 'utf8' });
-  writeStream.write('sha256,url\n');
-  for (const { url, sha256 } of records) {
-    writeStream.write(`${sha256},${url}\n`);
-  }
-  writeStream.end();
+  writeHashCsv(OUTPUT_CSV, records);
   console.log(`[youtube] Saved ${records.length} records to '${OUTPUT_CSV}'.`);
   return records;
 }

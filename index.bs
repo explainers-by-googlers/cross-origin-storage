@@ -96,10 +96,11 @@ infrastructure from the File System Standard [[FS]], scoped to a dedicated, cros
 file system rather than to a single origin's private or user-visible file system.
 
 This specification defines the imperative JavaScript API only. Related proposals integrate the
-same underlying cache into other host languages — an HTML `crossoriginstorage` attribute on
-<{link}> and <{script}>, a `crossOriginStorage` JavaScript import attribute, and a CSS
-`cross-origin-storage()` `<request-url-modifier>` — each defined in its host language's own
-specification; see [[#integration-with-other-specifications]].
+same underlying cache into other host specifications — an HTML `crossoriginstorage` attribute on
+<{link}> and <{script}>, a `crossOriginStorage` JavaScript import attribute, a CSS
+`cross-origin-storage()` `<request-url-modifier>`, and a `crossOriginStorage` {{RequestInit}}
+option for `fetch()` — each defined in its own host specification; see
+[[#integration-with-other-specifications]].
 
 # Concepts # {#concepts}
 
@@ -1040,6 +1041,18 @@ It does not bound how much an origin can ultimately learn, since entropy accumul
 and a rate limit resets. Bounding the total is a separate mechanism for a separate attacker; see
 [[#cross-site-identifiers]].
 
+<div class=note>
+A lookup performed by one of the host integrations in [[#integration-with-other-specifications]]
+is equally a probe, even though it surfaces no error to the page: a site can observe whether its
+own server received the fallback request, which carries the same single bit that a "not found"
+outcome carries here. Such a lookup discloses nothing this specification's gates would not, and
+those gates apply to it unchanged. Both bounds are only effective if lookups from those surfaces
+are counted alongside {{CrossOriginStorageManager/requestFileHandle()}} calls: a hash first
+resolved through the `fetch()` integration has to be rate-limited, and charged against
+[=maximum cross-origin probe count=], exactly as one resolved imperatively is. A scriptable
+integration can issue such lookups in a loop just as readily.
+</div>
+
 ## Cross-site identifier construction ## {#cross-site-identifiers}
 
 [[#cross-site-probing]] addresses an attacker that must guess what to probe and learns only what a
@@ -1147,9 +1160,9 @@ independent of nominal PHL status.
 
 *This section is non-normative.*
 
-The [=COS registry=] defined here is also reachable from three host languages without going
+The [=COS registry=] defined here is also reachable from four host integrations without going
 through {{CrossOriginStorageManager/requestFileHandle()}} directly. Each
-integration is defined in the specification for its own host language, not in this document; this
+integration is defined in its own host specification, not in this document; this
 specification defines only the shared underlying concepts ([=COS hash=], [=COS entry=],
 [[#availability-gating|availability gating]], and the [=Public Hash List=]) that those
 integrations are expected to build on.
@@ -1164,9 +1177,14 @@ integrations are expected to build on.
 * **CSS**: a `cross-origin-storage()` `<request-url-modifier>`, usable alongside `integrity()`,
   proposed to the CSS Working Group in
   [w3c/csswg-drafts#14056](https://github.com/w3c/csswg-drafts/issues/14056).
+* **Fetch**: a `crossOriginStorage` {{RequestInit}} option, usable alongside
+  {{RequestInit/integrity}}, planned to be proposed to the WHATWG in the Fetch Standard [[FETCH]].
+  Unlike the three declarative forms, this one has no host-defined destination, so how a
+  {{Response}} served from the [=COS registry=] reports its MIME type, status, and other metadata
+  is an open question for that specification; a [=COS entry=] stores [=COS entry/bytes=] only.
 
 For illustration only, here is the same globally-shared resource opted into Cross-Origin Storage
-through each of the three forms:
+through each of the four forms:
 
 <pre class="example" id="example-integration-html" highlight="html">
 &lt;script src="popular-library.js" integrity="sha256-abc123..." crossoriginstorage="*"&gt;&lt;/script&gt;
@@ -1186,15 +1204,25 @@ import data from "popular-resource.ext" with {
 }
 </pre>
 
+<pre class="example" id="example-integration-fetch" highlight="js">
+const response = await fetch("popular-resource.ext", {
+  integrity: "sha256-abc123...",
+  crossOriginStorage: "*",
+});
+</pre>
+
 These snippets are illustrative only. None of this syntax is defined by this specification, and
 the authoritative grammar for each form — including how a restricted, non-"`*`" origins value is
-spelled — belongs to its own host-language specification, not to this document.
+spelled — belongs to its own host specification, not to this document. The spellings deliberately
+differ: a `RequestInit` member can take a `sequence<DOMString>`, matching
+{{CrossOriginStorageRequestFileHandleOptions/origins}} exactly, while an attribute value, an
+import attribute value, and a CSS modifier argument can only carry text.
 
-All three forms are expected to share the processing model of first consulting the [=COS
+All four forms are expected to share the processing model of first consulting the [=COS
 registry=] for a matching, disclosable entry before falling back to a network fetch, and of
 storing a successfully fetched and integrity-verified resource into the [=COS registry=] for reuse
 by other origins, exactly as {{CrossOriginStorageManager/requestFileHandle()}} does. Discussion of
-these integrations belongs in the tracker of the host-language specification that would carry them,
+these integrations belongs in the tracker of the host specification that would carry them,
 not in this repository's issue tracker.
 
 <h2 class="no-num" id="acks">Acknowledgments</h2>

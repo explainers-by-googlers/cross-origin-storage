@@ -5,7 +5,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256 } from './shared.js';
+import { getSha256, writeHashCsv } from './shared.js';
 
 const TARGET_URL = 'https://developers.google.com/speed/libraries';
 export const OUTPUT_CSV = 'data/google-hosted-libraries-hashes.csv';
@@ -127,13 +127,7 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
-  const writeStream = fs.createWriteStream(OUTPUT_CSV, { encoding: 'utf8' });
-  writeStream.write('sha256,url\n');
-  for (const { url, sha256 } of records) {
-    const escaped = url.includes(',') ? `"${url}"` : url;
-    writeStream.write(`${sha256},${escaped}\n`);
-  }
-  writeStream.end();
+  writeHashCsv(OUTPUT_CSV, records);
   console.log(`[google] Saved ${records.length} records to '${OUTPUT_CSV}'.`);
   return records;
 }
