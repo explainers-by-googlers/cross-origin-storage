@@ -901,6 +901,16 @@ on-device heuristics (for example, detecting a pattern of requests for hashes th
 generated per-user) to identify and block probing attempts, independent of whether the probed
 hashes are [=on the PHL=].
 
+<div class=note>
+A lookup performed by one of the host integrations in [[#integration-with-other-specifications]]
+is equally a probe, even though it surfaces no error to the page: a site can observe whether its
+own server received the fallback request, which carries the same single bit that a "not found"
+outcome carries here. Such a lookup discloses nothing this specification's gates would not, and
+those gates apply to it unchanged. A rate limit, however, is only effective if lookups from those
+surfaces are counted alongside {{CrossOriginStorageManager/requestFileHandle()}} calls, since a
+scriptable integration can issue them in a loop just as readily.
+</div>
+
 ## Availability gating ## {#availability-gating}
 
 Whether a {{CrossOriginStorageManager/requestFileHandle()}} read from an origin outside

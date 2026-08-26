@@ -1112,6 +1112,8 @@ Beyond the `origins` field, user agents apply [availability gating](#availabilit
 
 User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandle()` can be considered a probe, and user agents can limit the number of probes per site or even block probes from sites known to be malicious.
 
+A lookup performed by one of the [host integrations](#additional-integration-surfaces) counts as a probe on the same terms. Such a lookup returns no error to the page, but a site learns its outcome anyway by observing whether its own server receives the fallback request, which is the same single bit a `NotFoundError` carries. This discloses nothing the imperative API would not, and the same `origins` scoping, availability gating, and GREASE'ing apply. It does mean a probe limit must count all four surfaces: the [fetch integration](#fetch-integration) in particular is as scriptable in a loop as `requestFileHandle()` is, so counting only imperative calls would leave the limit trivially avoidable.
+
 #### Availability gating
 
 Two independent mechanisms can control whether a `requestFileHandle()` call returns a file handle or a `NotFoundError`:
