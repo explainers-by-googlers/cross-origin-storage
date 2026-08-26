@@ -511,7 +511,7 @@ try {
 A `FileSystemFileHandle` is serializable, so a handle for a COS entry can be passed to another context with `postMessage()`, a `MessagePort`, or a `BroadcastChannel`, the same way any other file handle can. This is a second way to obtain a handle, so the same disclosure rules apply to it:
 
 - **Same-origin only.** Deserializing a COS handle in a context whose origin differs from the one that obtained it throws a `DataCloneError`. A readable handle cleared [availability gating](#availability-gating) for *the origin that asked*; passing it to another origin would hand over the bytes without `origins`, the Public Hash List, or GREASE'ing ever being evaluated for that origin. Transferring between a page and its own worker, or between same-origin documents, works normally.
-- **Readability travels with the handle.** A handle from a `create: true` request that has not been written through is still not readable after being transferred — `getFile()` keeps rejecting until that handle's own write completes. Conversely, a handle from a successful read stays readable without being re-checked, so transferring a handle can't be used to re-roll [GREASE'ing](#greasing) or otherwise re-probe availability.
+- **Readability travels with the handle.** A handle from a `create: true` request that has not been written through is still not readable after being transferred — `getFile()` keeps rejecting until that handle's own write completes. Conversely, a handle from a successful read stays readable without being re-checked, so transferring a handle can't be used to re-roll [GREASE'ing](#greaseing) or otherwise re-probe availability.
 
 ```js
 // Same-origin: fine. The worker gets a handle it can read from.
@@ -617,7 +617,7 @@ The imperative JavaScript API in the previous section covers the general case, b
 
 #### Declarative HTML integration
 
-`<link>` and `<script>` elements that already carry [`integrity`](https://w3c.github.io/webappsec-subresource-integrity/#integrity-element) can opt in to COS with a new `crossoriginstorage` attribute, proposed to the WHATWG in [whatwg/html#12770](https://github.com/whatwg/html/issues/12770). As in the JavaScript and CSS forms, the `integrity` hash identifies the file in COS, and `crossoriginstorage` specifies which origins may retrieve it.
+`<link>` and `<script>` elements that already carry [`integrity`](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata) can opt in to COS with a new `crossoriginstorage` attribute, proposed to the WHATWG in [whatwg/html#12770](https://github.com/whatwg/html/issues/12770). As in the JavaScript and CSS forms, the `integrity` hash identifies the file in COS, and `crossoriginstorage` specifies which origins may retrieve it.
 
 ##### Example: Same-site only stylesheet and script
 
@@ -827,7 +827,7 @@ const hash = {
 
 ### Handling multiple files
 
-`requestFileHandle()` operates on one file at a time. For concurrent requests across multiple files and per-file error handling, see the [FAQ on why the API is singular](#why-does-the-api-use-requestfilehandle-singular-rather-than-requestfilehandles-plural).
+`requestFileHandle()` operates on one file at a time. For concurrent requests across multiple files and per-file error handling, see the [FAQ entry on why the API is singular](#appendixc-frequently-asked-questions-faq).
 
 ### Concurrent writes
 
@@ -865,7 +865,7 @@ In the context of [evaluating carbon emissions in digital data usage](https://we
 While this document does not aim to critically assess the precision of these estimates, it is an established principle that minimizing redundant data downloads and storage is inherently beneficial for sustainability. The [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/) specifically highlight that the Web [_"is an environmentally sustainable platform"_](https://w3ctag.github.io/ethical-web-principles/#sustainable) and suggest _"lowering carbon emissions by minimizing data storage and processing requirements"_ as measures to achieve this. Consequently, one of the key objectives of the COS API is to enhance Web sustainability by reducing redundant large file downloads when such files are possibly already stored locally on the user's device.
 
 > [!IMPORTANT]
-> In the context of AI, its implications for sustainability efforts are undeniable. It's essential to adhere to [Web Sustainability Guidelines](https://w3c.github.io/sustainableweb-wsg/) when integrating AI solutions. Prior to implementing AI, it's recommended to [assess and research visitor needs](https://w3c.github.io/sustainableweb-wsg/#assess-and-research-visitor-needs) to ensure that AI is a justifiable and effective solution that truly improves the experience. For example, by increasing user privacy of video calls by applying AI-based background blurring.
+> In the context of AI, its implications for sustainability efforts are undeniable. It's essential to adhere to [Web Sustainability Guidelines](https://w3c.github.io/sustainableweb-wsg/) when integrating AI solutions. Prior to implementing AI, it's recommended to [assess and research visitor needs](https://w3c.github.io/sustainableweb-wsg/#audience-evaluation) to ensure that AI is a justifiable and effective solution that truly improves the experience. For example, by increasing user privacy of video calls by applying AI-based background blurring.
 
 ## Considered alternatives
 
@@ -965,7 +965,7 @@ For a resource stored with `origins: '*'`, both mechanisms apply and both must b
 
 **Availability gating in detail.** For a `'*'`-scoped resource, user agents implement availability gating using the PHL:
 
-- **On the PHL:** The user agent may answer truthfully, returning a handle if the file is present, or a `NotFoundError` `DOMException` if it is absent. ([GREASE'ing](#greasing) may still introduce occasional false negatives even for PHL-listed resources.)
+- **On the PHL:** The user agent may answer truthfully, returning a handle if the file is present, or a `NotFoundError` `DOMException` if it is absent. ([GREASE'ing](#greaseing) may still introduce occasional false negatives even for PHL-listed resources.)
 - **Not on the PHL:** The user agent must always return a `NotFoundError` `DOMException`, regardless of whether the file is physically present in COS. The response must be identical whether the file is absent or present, so that cache state cannot be inferred by observing the response or its timing.
 
 The PHL covers well-known resources, such as popular open-source libraries, widely used Wasm modules, web fonts served by major font CDNs, and AI model weights published by recognized model hubs, that are unconditionally eligible for cross-origin availability disclosure because independent, corroborated evidence of their ubiquity — for example, appearing byte-identical across a large number of independently crawled origins — makes cache presence uninformative about any individual user (a form of **k-anonymity**, where _k_ is that minimum corroborating-origin count). This ubiquity check happens once, offline, as part of how a hash is admitted to the PHL; it is not a separate check the user agent repeats at query time. A hash is either on the current PHL snapshot or it isn't; a hash that never clears that bar is treated as permanently absent at the API surface, and the user agent returns a `NotFoundError` `DOMException` as if the file were not stored in COS at all.
