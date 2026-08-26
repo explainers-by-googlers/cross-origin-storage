@@ -284,6 +284,9 @@ return instance;
 
 The same shape works for any consumer that accepts a `ReadableStream`, for example a model loader that parses safetensors headers as bytes arrive, or `new Response(stream).blob()` if the consumer ultimately needs a `Blob`. Note that a `tee()`'d stream buffers whatever the slower branch has not yet read, so a store branch that never consumes must be cancelled, as shown above.
 
+> [!NOTE]
+> This is the amount of code the pattern costs when written by hand. Where the resource is a plain URL-plus-hash fetch, as it is here, the [fetch integration](#fetch-integration) collapses the entire example into a single `fetch()` call and leaves the stream splitting to the user agent.
+
 ##### Example: Restricting resources to specific origins
 
 The `origins` field is useful for sharing resources between a set of related origins without making them globally available. **This option is recommended for proprietary resources or resources for which global COS cache hits are not anticipated.** For example, if a company has two related sites, `write.example.com` and `calculate.example.com`, that both use the same AI model for proofreading, they can store the model in COS and restrict access to just these two origins. This way, the model is not globally available to all sites that use COS, but only to the two related sites that need it.
@@ -506,6 +509,74 @@ try {
 }
 ```
 
+##### Example: Choosing among interchangeable resources
+
+The example above assumes the caller needs every file it asks for. A second pattern inverts this: the hashes are *alternatives*, and the caller wants whichever one the user already has. This is the everyday situation for AI models, which are published as families of interchangeable variants that differ in size and quality but expose the same interface. An app may be built around `whisper-tiny` because that is the smallest download it can justify, but it would rather transcribe with `whisper-large-v3` if the user already downloaded that one on some other site. Downloading the small model while a better one already sits on the device is the worst of both worlds: the user pays for bytes and gets worse transcriptions.
+
+Expressing this means asking COS a question before committing to any download: *which of these do you already have?*
+
+```js
+/**
+ * Example usage to pick the best locally available variant of a model.
+ */
+
+// Candidates, most capable first.
+const candidates = [
+  {
+    name: 'whisper-large-v3',
+    hash: {
+      algorithm: 'SHA-256',
+      value:
+        '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+    },
+  },
+  {
+    name: 'whisper-medium',
+    hash: {
+      algorithm: 'SHA-256',
+      value:
+        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    },
+  },
+  {
+    name: 'whisper-tiny',
+    hash: {
+      algorithm: 'SHA-256',
+      value:
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    },
+  },
+];
+
+for (const candidate of candidates) {
+  try {
+    const handle = await navigator.crossOriginStorage.requestFileHandle(
+      candidate.hash
+    );
+    // Found one, so nothing needs to be downloaded at all.
+    console.log('Using locally available model', candidate.name);
+    return { name: candidate.name, file: await handle.getFile() };
+  } catch (err) {
+    if (err.name !== 'NotFoundError') {
+      // 'NotAllowedError': Permissions Policy blocks COS in this context.
+      throw err;
+    }
+    // Not available, so try the next candidate.
+  }
+}
+
+// None of them is available, so fall back to downloading the smallest variant
+// that satisfies the app's requirements.
+const fallback = candidates.at(-1);
+const fileBlob = await loadFileFromNetwork(fallback.name);
+console.log('Obtained model from network', fallback.name);
+```
+
+Every step of this is a read with no URL attached. The app has no download URL to offer for `whisper-large-v3`, since it never intended to fetch that variant, and the whole point of asking is to avoid a network request rather than to condition one. A [fetch integration](#fetch-integration) cannot express this, which is one of the reasons it complements the imperative API instead of replacing it (see [Replacing the imperative API with a `fetch()` integration](#replacing-the-imperative-api-with-a-fetch-integration)).
+
+> [!NOTE]
+> Each `requestFileHandle()` call counts as a probe against the user agent's [cross-site probing](#cross-site-probing) safeguards, so candidate lists are expected to be short, in the order of the handful of variants a model family actually ships. A `NotFoundError` for a candidate may also be [availability gating](#availability-gating) rather than a genuine absence, which is why the loop must end in a real network fallback rather than in an assumption that nothing is cached.
+
 #### Transferring a handle
 
 A `FileSystemFileHandle` is serializable, so a handle for a COS entry can be passed to another context with `postMessage()`, a `MessagePort`, or a `BroadcastChannel`, the same way any other file handle can. This is a second way to obtain a handle, so the same disclosure rules apply to it:
@@ -613,7 +684,18 @@ try {
 
 ### Additional integration surfaces
 
-The imperative JavaScript API in the previous section covers the general case, but several use cases, namely markup-driven resource loading, module imports, and CSS-referenced assets like web fonts, are more naturally expressed without a dedicated imperative call. Markup-driven resource loading and CSS-referenced assets can opt in declaratively; module imports can opt in via JavaScript's import attributes. COS is designed to be reachable from all three, consistently keyed off the same `origins`-style value space used by `requestFileHandle()`: omitted for Same-Site only, a list of origin strings for a specific set of origins, or `*` for global availability.
+The imperative JavaScript API in the previous section covers the general case, but a large share of real-world resource loading already happens through constructs that carry a URL and, increasingly, an [`integrity`](https://w3c.github.io/webappsec-subresource-integrity/) hash. Routing those through `requestFileHandle()` means hand-writing a cache check, a fallback fetch, and a store, which is boilerplate the user agent can just as well perform itself. COS is therefore designed to be reachable from four host integrations:
+
+| Surface | Opt-in | Reaches |
+| --- | --- | --- |
+| [HTML](#declarative-html-integration) | `crossoriginstorage` attribute | `<link>` and `<script>` subresources |
+| [JavaScript imports](#javascript-import-attribute-integration) | `crossOriginStorage` import attribute | static and dynamic module imports |
+| [CSS](#declarative-css-integration) | `cross-origin-storage()` URL modifier | CSS-referenced assets such as web fonts |
+| [Fetch](#fetch-integration) | `crossOriginStorage` request option | imperative fetches of a known URL |
+
+All four are keyed off the same `origins`-style value space used by `requestFileHandle()`: omitted or empty for same-site only, a list of origins for a specific set of origins, or `*` for global availability. All four are defined in their respective host specifications rather than in this one.
+
+What the four have in common is that the caller holds both a URL and a hash, and wants the bytes. The imperative API remains the surface for everything that does not fit that shape: writes whose bytes did not come from a single `fetch()`, reads that have no URL to offer at all, and lookups across a set of interchangeable candidates (see [Choosing among interchangeable resources](#example-choosing-among-interchangeable-resources)). See [Replacing the imperative API with a `fetch()` integration](#replacing-the-imperative-api-with-a-fetch-integration) for why the last row of the table does not subsume `requestFileHandle()`.
 
 #### Declarative HTML integration
 
@@ -794,19 +876,89 @@ Passing a list of origins limits COS retrieval to only those origins. All other 
 > [!NOTE]
 > `cross-origin-storage()` is unrelated to the CSS [`cross-origin()`](https://drafts.csswg.org/css-values-5/#typedef-request-url-modifier-cross-origin-modifier) modifier despite the similar name. The `cross-origin()` modifier controls the CORS request mode, which is an orthogonal concern.
 
-#### Processing flow common to all three integrations
+#### Fetch integration
 
-The HTML, JavaScript, and CSS forms above share the same underlying model as the imperative API: a resource is identified by its integrity hash, and a COS lookup is attempted before falling back to the network.
+The three integrations above cover resources referenced from markup, from module graphs, and from stylesheets. The remaining case is the imperative one: a script that already knows the URL and the hash of a resource and fetches it itself. That is how most Wasm modules, asset bundles, and other large binaries are loaded today, and it is currently the case that costs the most code to move onto COS.
+
+A `crossOriginStorage` option on [`RequestInit`](https://fetch.spec.whatwg.org/#requestinit), used alongside the existing [`integrity`](https://fetch.spec.whatwg.org/#dom-requestinit-integrity) option, closes that gap. As in the other three forms, the `integrity` hash identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it. This is planned to be proposed to the WHATWG in the [Fetch Standard](https://fetch.spec.whatwg.org/), where it would be defined as:
+
+```webidl
+partial dictionary RequestInit {
+  (DOMString or sequence<DOMString>) crossOriginStorage;
+};
+```
+
+##### Example: Fetching through COS
+
+An empty string opts the resource into COS for same-site access only, `*` makes it globally available, and an array of origins restricts it to those origins, mirroring the values the imperative `origins` option accepts:
+
+```js
+// Same-site only, mirroring an omitted `origins` in the imperative API.
+const sameSite = await fetch('same-site-resource.ext', {
+  integrity: 'sha256-abc123...',
+  crossOriginStorage: '',
+});
+
+// Globally available.
+const global = await fetch('popular-resource.ext', {
+  integrity: 'sha256-abc123...',
+  crossOriginStorage: '*',
+});
+
+// Restricted to specific origins.
+const restricted = await fetch('acme-inc-corporate.ext', {
+  integrity: 'sha256-def456...',
+  crossOriginStorage: [
+    'https://acme-inc.example.com',
+    'https://acme-cdn.example.com',
+  ],
+});
+```
+
+Omitting `crossOriginStorage` while keeping `integrity` preserves today's behavior: the response is fetched and verified, but COS is never consulted or written. This is why same-site scope is spelled as an empty string rather than as an omitted member, unlike the imperative API: `fetch()` has no `create: true` to carry the opt-in separately, so the member's presence is what opts the request into COS and its value is what scopes the result.
+
+> [!NOTE]
+> The list form is an array here, whereas the HTML attribute and the import attribute use a space-separated string and the CSS modifier a comma-separated list of `<string>`s. This is deliberate rather than an inconsistency. A `RequestInit` member is an ordinary JavaScript value, so a `sequence<DOMString>` is the idiomatic spelling, and it matches the imperative `origins` option exactly, down to the IDL type. The three other surfaces have no such choice to make: HTML content attribute values are text, import attribute values are restricted to strings by [TC39](https://github.com/tc39/proposal-import-attributes), and CSS has no array type, so each takes the closest list syntax its host already provides. All four resolve to the same `origins` value space.
+
+##### Example: The streaming example, without the plumbing
+
+The [streaming example](#example-streaming-a-file-into-cos-while-using-it) above is the recommended way to write a cache-miss path by hand today, and it is around 30 lines of `tee()`, `pipeTo()`, and cancellation for what is conceptually a single fetch. The common case is easy to get wrong, and getting it wrong silently costs the download and compile overlap that `WebAssembly.instantiateStreaming()` exists to provide. With the fetch integration, the whole example collapses to:
+
+```js
+const { instance } = await WebAssembly.instantiateStreaming(
+  fetch('module.wasm', {
+    integrity: 'sha256-abc123...',
+    crossOriginStorage: '*',
+  }),
+  imports,
+);
+```
+
+The user agent performs the COS lookup, serves the bytes from storage on a hit, fetches and stores them on a miss, and does the stream splitting internally.
+
+> [!NOTE]
+> Server runtimes such as Node.js, Deno, and Bun implement `fetch()` but have no cross-origin boundary and no user to protect, so COS does not exist there. They ignore `crossOriginStorage` the way they ignore other browser-specific request options, and isomorphic code keeps working unchanged.
+
+##### Open design questions
+
+Two questions are specific to this integration and need answers in the Fetch Standard discussion:
+
+- **Response fidelity on a cache hit.** A COS entry carries bytes only, with no MIME type, status, or headers, deliberately so (see [Storing the original URL as part of a COS entry](#storing-the-original-url-as-part-of-a-cos-entry) for why unverifiable metadata stays out). A `Response` synthesized from a hit therefore has no `Content-Type` unless the integration invents one. The three other integrations sidestep this because the element, the module type, or the CSS property defines the destination, whereas a bare `fetch()` has none. This matters concretely: `WebAssembly.instantiateStreaming()` refuses anything that is not `application/wasm`, which is exactly why the hand-written example above has to supply that header itself. Candidate answers include deriving the type from the request's [destination](https://fetch.spec.whatwg.org/#concept-request-destination), letting the caller declare it, or storing a user-agent-computed type alongside the bytes.
+- **Header stripping.** A response served from COS must not reveal whether the bytes came from storage or from the network, so it cannot carry the response headers of a fetch that never happened. As a privacy matter this is smaller than it first appears: cache hits are timing-observable regardless, and disclosure is already gated by `origins`, the [Public Hash List](#availability-gating), and [GREASE'ing](#greaseing) on the read step, so this integration discloses no more than `requestFileHandle()` does. The open question is one of fidelity, that is, which `status`, `Content-Length`, and `type` a hit-served `Response` should report, not one of leakage.
+
+#### Processing flow common to all four integrations
+
+The HTML, import attribute, CSS, and fetch forms above share the same underlying model as the imperative API: a resource is identified by its integrity hash, and a COS lookup is attempted before falling back to the network.
 
 1. The user agent checks COS for a file matching the `integrity` hash. If found and the requesting origin is allowed per the declared `origins`-style value, the resource is served from COS, and no network request is made.
 2. Otherwise, the resource is fetched from the declared URL as usual. If the fetched content matches the `integrity` hash and the declared origins permit it, the user agent stores it in COS for future use by this or other origins. If the hash does not match, the resource is rejected per existing `integrity` behavior and is not stored in COS.
 
 Step 1's COS lookup is subject to the same [availability gating](#availability-gating) as the imperative API. A resource declared with the global (`*`) origins-style value is only found by a requester outside its storing origins if its hash also clears the Public Hash List (and GREASE'ing doesn't suppress it); a same-site- or list-scoped resource needs no such additional clearance once the requesting origin is in scope. Either way, a lookup that doesn't succeed simply falls through to step 2's network fetch — it is indistinguishable from a genuine cache miss, exactly as `requestFileHandle()`'s `NotFoundError` is.
 
-Because all three forms piggyback on `integrity`, they inherit its existing failure semantics: a hash mismatch is always treated as a fetch failure, independent of whether COS is involved.
+Because all four forms piggyback on `integrity`, they inherit its existing failure semantics: a hash mismatch is always treated as a fetch failure, independent of whether COS is involved.
 
 > [!NOTE]
-> The hash format differs between these three integrations and the imperative form, intentionally so. The `integrity` attribute and `integrity()` CSS modifier follow the [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/) convention and express hashes as base64-encoded strings (e.g., `sha256-abc123…`). The imperative `requestFileHandle()` API uses lowercase hexadecimal strings (e.g., `8f434346…`), which matches the format used by AI model hubs such as [Hugging Face](https://huggingface.co/) when publishing model checksums. The user agent normalizes both representations internally; they identify the same underlying bytes.
+> The hash format differs between these four integrations and the imperative form, intentionally so. The `integrity` attribute, the `integrity` import attribute, the `integrity()` CSS modifier, and the `integrity` request option all follow the [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/) convention and express hashes as base64-encoded strings (e.g., `sha256-abc123…`). The imperative `requestFileHandle()` API uses lowercase hexadecimal strings (e.g., `8f434346…`), which matches the format used by AI model hubs such as [Hugging Face](https://huggingface.co/) when publishing model checksums. The user agent normalizes both representations internally; they identify the same underlying bytes.
 
 ## Detailed design discussion
 
@@ -904,11 +1056,17 @@ One approach would be to require a minimum file size for a resource to be eligib
 
 Different origins can manually open the same file on disk, either using the File System Access API's `showOpenFilePicker()` method or using the classic `<input type="file">` approach. This requires the file to be stored once, and access to the file can then be shared as explained in [Cache AI models in the browser](https://developer.chrome.com/docs/ai/cache-models#special_case_use_a_model_on_a_hard_disk). While this works, it's manual and error-prone, as it requires the user to know what file to choose from their hard drive in the file picker.
 
-### Integrating cross-origin storage in the `fetch()` API
+### Replacing the imperative API with a `fetch()` integration
 
-On the server, cross-origin isolation is not really a problem. At the same time, server runtimes like Node.js, Bun, or Deno implement `fetch()` as well. To avoid fragmentation and to keep the present `fetch()` API simple, it does not make sense to add COS to `fetch()`. Since `fetch()` is URL-based, this would also not solve the case where the same file is stored at different locations.
+COS is reachable from `fetch()` (see [Fetch integration](#fetch-integration)), so the question is not whether `fetch()` should reach COS, but whether it should be the *only* way to reach it, with `navigator.crossOriginStorage.requestFileHandle()` dropped in favor of a `RequestInit` option. That was considered and rejected, because the two express different things: a fetch couples naming a resource to downloading it, while the imperative API keeps those steps separate.
 
-Integrating with `fetch()` would also couple storing a resource in COS to a network request that `fetch()` itself performs, which this proposal deliberately avoids. Managing downloads is out of scope (see [Appendix&nbsp;C](#appendixc-frequently-asked-questions-faq)), so bytes can reach COS from a [Background Fetch](https://wicg.github.io/background-fetch/), from `Range` requests for a sharded file that the site reassembles itself, from a file the user picked from their local disk, or from another storage API. Conversely, a lookup that only asks whether COS already holds a given hash has no URL to offer at all. In `requestFileHandle()`, naming a resource by hash and acquiring its bytes are separate steps, whereas a `fetch()`-shaped API can only express the case where the two happen together.
+**Bytes reach COS from places `fetch()` does not own.** Managing downloads is explicitly out of scope for this proposal (see [Appendix&nbsp;C](#appendixc-frequently-asked-questions-faq)), and in practice the bytes stored in COS often did not come from one `fetch()` call. They may arrive from a [Background Fetch](https://wicg.github.io/background-fetch/), from `Range` requests for a sharded resource that the site reassembles itself, from a file the user picked off their local disk, or from another storage API entirely. The sharded case cannot be expressed through a fetch integration at all, because the COS entry is a shard that no single URL serves.
+
+**A read may have no URL to offer.** A lookup that only asks whether COS already holds a given hash has no URL attached, and the caller may have nothing to download if the answer is no. The motivating case is AI models, which ship as families of interchangeable variants: an app built around `whisper-tiny` should transcribe with `whisper-large-v3` if the user already has it, rather than downloading a smaller and worse model on top of a better one that is already on the device. Expressing that means probing several hashes and committing to a download only after all of them come back empty, as shown in [Choosing among interchangeable resources](#example-choosing-among-interchangeable-resources). A fetch-shaped API cannot ask this question, since every probe would have to name a URL the app has no intention of fetching, and a probe whose whole purpose is to *avoid* a network request would be spelled as a request.
+
+**Handles are not responses.** A `FileSystemFileHandle` can be [transferred to another context](#transferring-a-handle), reused across several reads, and written through with the same File System Standard machinery developers already use for [OPFS](https://fs.spec.whatwg.org/#sandboxed-filesystem). A `Response` is a single, one-shot consumption of a body. Store-only writes in particular have no natural spelling in `fetch()`: there is no request to make, only bytes to hand over.
+
+The imperative API is therefore the general surface, and the four [host integrations](#additional-integration-surfaces) are ergonomic shortcuts for the common special case where a URL and a hash are both known up front and the bytes are wanted immediately.
 
 ### Integrating cross-origin storage in the Cache API
 
@@ -1048,6 +1206,7 @@ The knowledge an attacker can gain about a user depends heavily on the popularit
 - [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/)
 - [Import Attributes](https://github.com/tc39/proposal-import-attributes)
 - [CSS Values and Units Module Level 5](https://drafts.csswg.org/css-values-5/)
+- [Fetch Living Standard](https://fetch.spec.whatwg.org/)
 - [Cache Digests for HTTP/2](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cache-digest)
 - [Web Sustainability Guidelines (WSG)](https://w3c.github.io/sustainableweb-wsg/)
 - [Ethical Web Principles](https://w3ctag.github.io/ethical-web-principles/)
