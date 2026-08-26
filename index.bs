@@ -984,7 +984,8 @@ integrations are expected to build on.
   proposed to the CSS Working Group in
   [w3c/csswg-drafts#14056](https://github.com/w3c/csswg-drafts/issues/14056).
 * **Fetch**: a `crossOriginStorage` {{RequestInit}} option, usable alongside
-  {{RequestInit/integrity}}, planned to be proposed to the WHATWG in the Fetch Standard [[FETCH]].
+  {{RequestInit/integrity}} [[FETCH]], proposed to the WHATWG in
+  [whatwg/fetch#1954](https://github.com/whatwg/fetch/issues/1954).
   Unlike the three declarative forms, this one has no host-defined destination, so how a
   {{Response}} served from the [=COS registry=] reports its MIME type, status, and other metadata
   is an open question for that specification; a [=COS entry=] stores [=COS entry/bytes=] only.

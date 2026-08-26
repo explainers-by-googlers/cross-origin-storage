@@ -880,7 +880,7 @@ Passing a list of origins limits COS retrieval to only those origins. All other 
 
 The three integrations above cover resources referenced from markup, from module graphs, and from stylesheets. The remaining case is the imperative one: a script that already knows the URL and the hash of a resource and fetches it itself. That is how most Wasm modules, asset bundles, and other large binaries are loaded today, and it is currently the case that costs the most code to move onto COS.
 
-A `crossOriginStorage` option on [`RequestInit`](https://fetch.spec.whatwg.org/#requestinit), used alongside the existing [`integrity`](https://fetch.spec.whatwg.org/#dom-requestinit-integrity) option, closes that gap. As in the other three forms, the `integrity` hash identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it. This is planned to be proposed to the WHATWG in the [Fetch Standard](https://fetch.spec.whatwg.org/), where it would be defined as:
+A `crossOriginStorage` option on [`RequestInit`](https://fetch.spec.whatwg.org/#requestinit), used alongside the existing [`integrity`](https://fetch.spec.whatwg.org/#dom-requestinit-integrity) option, closes that gap. As in the other three forms, the `integrity` hash identifies the file in COS, and `crossOriginStorage` specifies which origins may retrieve it. This is proposed to the WHATWG in [whatwg/fetch#1954](https://github.com/whatwg/fetch/issues/1954), where it would be defined as:
 
 ```webidl
 partial dictionary RequestInit {
@@ -941,7 +941,7 @@ The user agent performs the COS lookup, serves the bytes from storage on a hit, 
 
 ##### Open design questions
 
-Two questions are specific to this integration and need answers in the Fetch Standard discussion:
+Two questions are specific to this integration and need answers in the [Fetch Standard discussion](https://github.com/whatwg/fetch/issues/1954):
 
 - **Response fidelity on a cache hit.** A COS entry carries bytes only, with no MIME type, status, or headers, deliberately so (see [Storing the original URL as part of a COS entry](#storing-the-original-url-as-part-of-a-cos-entry) for why unverifiable metadata stays out). A `Response` synthesized from a hit therefore has no `Content-Type` unless the integration invents one. The three other integrations sidestep this because the element, the module type, or the CSS property defines the destination, whereas a bare `fetch()` has none. This matters concretely: `WebAssembly.instantiateStreaming()` refuses anything that is not `application/wasm`, which is exactly why the hand-written example above has to supply that header itself. Candidate answers include deriving the type from the request's [destination](https://fetch.spec.whatwg.org/#concept-request-destination), letting the caller declare it, or storing a user-agent-computed type alongside the bytes.
 - **Header stripping.** A response served from COS must not reveal whether the bytes came from storage or from the network, so it cannot carry the response headers of a fetch that never happened. As a privacy matter this is smaller than it first appears: cache hits are timing-observable regardless, and disclosure is already gated by `origins`, the [Public Hash List](#availability-gating), and [GREASE'ing](#greaseing) on the read step, so this integration discloses no more than `requestFileHandle()` does. The open question is one of fidelity, that is, which `status`, `Content-Length`, and `type` a hit-served `Response` should report, not one of leakage.
