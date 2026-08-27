@@ -662,6 +662,17 @@ model: every {{FileSystemFileHandle}} obtained from it has already been fully au
 {{FileSystemFileHandle/getFile()}} or {{FileSystemFileHandle/createWritable()}} on such a handle
 never triggers an additional permission prompt.
 
+`queryPermission()` and `requestPermission()` on such a handle must therefore never report
+"`prompt`", since no prompt can appear. They must report "`denied`" for a write mode on a handle
+that was not obtained by a [[#creating-and-writing-files|create request]], and "`granted`"
+otherwise.
+
+Note: Writing is the one capability a handle can genuinely lack. Only a create request yields a
+handle that can be written through, so reporting "`granted`" for a write mode on any other handle
+would claim a capability {{FileSystemFileHandle/createWritable()}} will refuse. Reading stays
+"`granted`", since a caller holding a readable handle can read through it. Requesting cannot change
+either answer, as there is no prompt to show and no state a grant could be recorded in.
+
 Calling {{FileSystemFileHandle/getFile()}} on a {{FileSystemFileHandle}} addressing a
 [=COS entry=] whose [=FileSystemFileHandle/may read=] is false must reject with a
 "{{NotAllowedError}}" {{DOMException}}. This covers two distinct cases:
@@ -681,6 +692,16 @@ called on it returns a {{File}} whose contents are the addressed entry's [=COS e
 is exactly the behavior [[FS]] already defines for a [=file entry=] whose
 [=file entry/binary data=] is those bytes.
 
+A {{FileSystemFileHandle}} addressing a [=COS entry=] has a [=/file system locator=] whose
+[=file system locator/path=] is a [=/list=] containing a single [=/string=], the entry's
+[=COS hash=]'s [=COS hash/value=], and whose [=file system locator/root=] is the
+[=Cross-Origin Storage file system=].
+
+Note: [[FS]] defines {{FileSystemHandle/name}} as the last path component of the handle's
+locator's path, so this settles {{FileSystemHandle/name}} rather than leaving it to be chosen: it
+is the hash. An entry has no name of its own, and the hash is the only identity it has, so
+reporting it carries information the empty string would discard.
+
 An entry has no name and no containing directory, so most of [[FS]]'s structural surface has
 nothing to act on. Identity is the exception, and it is the one question a content-addressed entry
 can always answer: the [=COS registry=] holds at most one [=COS entry=] per [=COS hash=], so two
@@ -699,6 +720,22 @@ or one addressing a file system other than the [=Cross-Origin Storage file syste
 Note: Returning false in that case would assert that the two handles address different entries,
 which is a claim about a handle the calling origin is not entitled to inspect. Rejecting says only
 that the comparison could not be made.
+
+<code>move()</code> and <code>remove()</code> called on a
+{{FileSystemFileHandle}} addressing a [=COS entry=] must reject with a "{{NotAllowedError}}"
+{{DOMException}}, and must leave the entry unchanged.
+
+Note: An entry is shared by every origin in its [=COS entry/storing origins=], so honoring a
+removal would let one site destroy data other sites depend on; deletion belongs to
+[[#eviction|eviction]] and to the user's own storage controls. A rename or a reparent has nothing
+to act on, since an entry is named by its [=COS hash=] and has no containing directory.
+
+Note: Neither method is defined by [[FS]] or by the File System Access API at the time of writing
+(<a href="https://github.com/WICG/file-system-access/issues/214">WICG/file-system-access#214</a>),
+so the error name follows {{FileSystemDirectoryHandle/removeEntry()}}, the operation [[FS]] does
+define for deleting an entry: it rejects with the access result's error name when readwrite access
+is not granted. Refused rather than absent is the accurate reading here — the operations are
+meaningful and denied.
 
 {{FileSystemFileHandle/createSyncAccessHandle()}} needs no rule here: its steps reject with an
 "{{InvalidStateError}}" {{DOMException}} whenever the handle is not in a [=/bucket file system=],
