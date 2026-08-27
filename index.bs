@@ -700,6 +700,16 @@ Note: Returning false in that case would assert that the two handles address dif
 which is a claim about a handle the calling origin is not entitled to inspect. Rejecting says only
 that the comparison could not be made.
 
+{{FileSystemFileHandle/createSyncAccessHandle()}} needs no rule here: its steps reject with an
+"{{InvalidStateError}}" {{DOMException}} whenever the handle is not in a [=/bucket file system=],
+and the [=Cross-Origin Storage file system=] is a [=/file system root=] distinct from any origin's,
+so [[FS]] already determines both the refusal and its name.
+
+Note: That is also the outcome this specification would want independently. A
+{{FileSystemSyncAccessHandle}} hands the caller a writable file descriptor, which would let it
+change an entry's [=COS entry/bytes=] out from under the [=COS hash=] they are stored against,
+and every other origin the entry is disclosable to reads those same bytes.
+
 ## Transferring handles ## {#transferring-handles}
 
 A {{FileSystemFileHandle}} is a [=serializable object=] [[FS]], so one addressing a
