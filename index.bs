@@ -573,6 +573,27 @@ stream's handle, the complete written [=byte sequence=] |bytes|, and the closing
 
 </div>
 
+{{FileSystemFileHandle/createWritable()}} called on a {{FileSystemFileHandle}} addressing a
+[=COS entry=] must produce a {{FileSystemWritableFileStream}} whose contents start empty,
+regardless of the value of {{FileSystemCreateWritableOptions/keepExistingData}} and regardless of
+the addressed entry's [=COS entry/state=].
+
+Note: [[FS]] otherwise defines {{FileSystemCreateWritableOptions/keepExistingData}} as seeding the
+stream with the existing file's contents. Honoring that here would let a caller become a storing
+origin for bytes it never possessed. A create request returns a handle whether or not the entry
+already exists, so a caller could open a writable for a hash another origin stored, close it
+having written nothing, and have the carried-over bytes hash to the requested value. That would
+grant it read access with [=COS entry/origins=], the [=Public Hash List=] and
+[[#greasing|GREASE'ing]] never consulted — an [[#availability-gating|availability gating]] bypass
+assembled out of two individually permitted operations. It is the same reasoning that makes
+[=verify and store=] require the complete contents on every create request.
+
+Note: A writable closed without any write therefore holds the empty byte sequence, which will not
+hash to the requested value for any entry a caller would want, so [=verify and store=] rejects
+with a "{{DataError}}" {{DOMException}} as it does for any other mismatch. An implementation that
+instead reports a storage or I/O failure for that case hides a verification result behind an
+unrelated error.
+
 Issue: The File System Standard [[FS]] does not yet define an extension point for a dependent
 specification to hook additional per-write validation into {{FileSystemWritableFileStream}}'s
 closing steps. Until such a hook exists, this section describes the required behavior directly; a
@@ -659,6 +680,25 @@ Once a handle's [=FileSystemFileHandle/may read=] is true, {{FileSystemFileHandl
 called on it returns a {{File}} whose contents are the addressed entry's [=COS entry/bytes=]; this
 is exactly the behavior [[FS]] already defines for a [=file entry=] whose
 [=file entry/binary data=] is those bytes.
+
+An entry has no name and no containing directory, so most of [[FS]]'s structural surface has
+nothing to act on. Identity is the exception, and it is the one question a content-addressed entry
+can always answer: the [=COS registry=] holds at most one [=COS entry=] per [=COS hash=], so two
+handles address the same entry exactly when their hashes are equal.
+
+{{FileSystemHandle/isSameEntry()}} called on a {{FileSystemFileHandle}} addressing a
+[=COS entry=], with an argument that also addresses a [=COS entry=] and was obtained by the same
+[=/origin=], must return true if the two handles' [=COS hash=] items are equal, and false
+otherwise.
+
+Note: Refusing this would discard information the user agent already holds.
+
+{{FileSystemHandle/isSameEntry()}} called with an argument the calling [=/origin=] did not obtain,
+or one addressing a file system other than the [=Cross-Origin Storage file system=], must reject.
+
+Note: Returning false in that case would assert that the two handles address different entries,
+which is a claim about a handle the calling origin is not entitled to inspect. Rejecting says only
+that the comparison could not be made.
 
 ## Transferring handles ## {#transferring-handles}
 
