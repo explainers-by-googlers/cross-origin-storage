@@ -429,7 +429,7 @@ The visibility of a resource in COS can be upgraded but never downgraded:
 1. Retrieve the `FileSystemFileHandle` object after the user agent has granted access.
 
 > [!NOTE]
-> A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#availability-gating)). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
+> A `NotFoundError` `DOMException` does not necessarily mean the file is absent from COS. User agents may suppress availability of a file for privacy reasons (see [Availability gating](#availability-gating)), or because the calling origin is over its [cross-origin probe budget](#cross-site-identifier-construction). Callers should handle `NotFoundError` by falling back to a network fetch, regardless of the cause.
 
 ##### Example: Retrieving a single file
 
@@ -1116,9 +1116,11 @@ Sites are prevented from flooding the cache in an attempt to evict other sites' 
 
 ### Privacy considerations
 
-In browsers that still support third-party cookies, user agents are expected to make this API available only in contexts where third-party cookies are enabled.
+COS exposes two distinct privacy risks, addressed separately below. The first is **inference**: an attacker learning that a resource it did not put there is present, and drawing conclusions about where the user has been ([Cross-site probing](#cross-site-probing)). The second is **identifier construction**: an attacker writing resources itself and using their presence purely as storage for a value it minted ([Cross-site identifier construction](#cross-site-identifier-construction)). The mitigations differ, and a mitigation for one is generally not a mitigation for the other.
 
 #### Cross-site probing
+
+This section covers an attacker that does not control what is in COS and must infer something from what it finds. An attacker that writes the entries itself is covered in [Cross-site identifier construction](#cross-site-identifier-construction).
 
 If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource is not globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
 
@@ -1126,9 +1128,42 @@ This mitigation only holds if a "specific set of trusted origins" stays meaningf
 
 Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
 
-User agents are expected to implement safeguards against such attacks, for example, by limiting the number of probes, or by returning false negatives when a site known to be malicious is probing. Each call to `requestFileHandle()` can be considered a probe, and user agents can limit the number of probes per site or even block probes from sites known to be malicious.
+Each call to `requestFileHandle()` is a probe, and user agents are expected to rate-limit probes per origin and to apply on-device heuristics to detect and block probing patterns. Rate limiting bounds how *fast* an origin can probe, which is what this threat model needs: an attacker guessing at hashes it did not choose is limited chiefly by how many guesses it can make. It does not bound how *much* an origin ultimately learns, since entropy accumulates across visits and a rate limit resets. Bounding the total is a separate mechanism for a separate attacker; see [Cross-site identifier construction](#cross-site-identifier-construction).
 
-A lookup performed by one of the [host integrations](#additional-integration-surfaces) counts as a probe on the same terms. Such a lookup returns no error to the page, but a site learns its outcome anyway by observing whether its own server receives the fallback request, which is the same single bit a `NotFoundError` carries. This discloses nothing the imperative API would not, and the same `origins` scoping, availability gating, and GREASE'ing apply. It does mean a probe limit must count all four surfaces: the [fetch integration](#fetch-integration) in particular is as scriptable in a loop as `requestFileHandle()` is, so counting only imperative calls would leave the limit trivially avoidable.
+A lookup performed by one of the [host integrations](#additional-integration-surfaces) is equally a probe. Such a lookup surfaces no error to the page, but a site learns its outcome anyway by observing whether its own server receives the fallback request, which is the same single bit a `NotFoundError` carries. This discloses nothing the imperative API would not, and the same `origins` scoping, availability gating, and GREASE'ing apply to it unchanged. What it does mean is that both bounds have to take all four surfaces into account: a hash first resolved through the [fetch integration](#fetch-integration) has to be rate-limited, and charged to the [cross-origin probe budget](#cross-site-identifier-construction), exactly as one resolved through `requestFileHandle()` is. That integration is as scriptable in a loop as the imperative API, so counting only imperative calls would leave either bound trivially avoidable.
+
+#### Cross-site identifier construction
+
+[Cross-site probing](#cross-site-probing) covers an attacker that must guess what to probe and learns only what a resource's popularity permits. The inverse threat is an attacker that *chooses* the resources, writes them itself, and treats their presence purely as storage for a value it minted. Such an attacker doesn't care what the resources are, only that it can set them and read them back.
+
+Concretely: a tracker embeds a fixed list of 32 hashes in a script it serves across many sites. On first encounter it mints a random 32-bit identifier and writes the subset of those resources whose bit is 1. On every later site it probes all 32 hashes, and the subset that discloses reconstructs the identifier. A 32-bit identifier comfortably covers most trackers' user bases, and many would settle for 16 bits and absorb the collisions.
+
+Neither the PHL nor GREASE'ing bounds this:
+
+- **PHL membership** assumes an attacker learns only "this user encountered one of the many sites using this ubiquitous file". That fails when the attacker wrote the file: the bit means "I marked this user", not "this user uses React". A k-anonymity bar constrains an attacker that can only *observe* state, not one that can *set* it. An attacker is also free to pick the least common entries on the list, minimizing the chance a bit is set by the user's ordinary browsing.
+- **GREASE'ing, eviction, and the user's own browsing** do flip bits, but an attacker compensates with redundancy — encoding the identifier several times over disjoint hash sets, or adding a checksum — at the cost only of more hashes.
+
+What bounds it is the count. Each distinct hash a site can resolve cross-origin yields at most one bit, so an identifier's width is exactly the number of distinct cross-origin probes the user agent grants that site. User agents therefore impose a **cross-origin probe budget**: an implementation-defined maximum number of distinct hashes a site may resolve, other than those it stored itself. Reads over budget return `NotFoundError`, indistinguishable from any other read-path failure.
+
+The budget is keyed by site rather than origin on purpose. Subdomains are free, so a per-origin budget would be defeated by minting `01.example.com`, `02.example.com`, and so on, one per bit. A registrable domain costs money, which is what makes the key mean something.
+
+For the same reason, `requestFileHandle()` rejects outright when the calling context has an opaque origin, such as a sandboxed `<iframe>` without `allow-same-origin`. Each such context gets a *fresh* opaque origin, so without this a page could mint unlimited budget by spawning sandboxed frames and `postMessage()`-ing the bits back. There is also nothing meaningful to grant such a context, since it can never be a storing origin or match a same-site comparison.
+
+The budget's shape matters as much as its size:
+
+- **Counted in distinct hashes, not lookups.** Re-probing a hash yields no bit the origin doesn't already have, so it costs nothing. A page that reloads, or resolves the same resource on every visit, pays once, ever.
+- **Charged whether or not the file is found.** Absence and presence are each one bit, so charging only for hits would leave half the attacker's vector free.
+- **Not partitioned by top-level site.** Partitioning is the usual default, but here it would hand a third party a fresh allowance on every site it's embedded in — exactly the capability being bounded.
+- **Replenished on user activation**, not per document, navigation, or elapsed time. A budget an origin can refresh by navigating is not a budget. Interaction also distinguishes a site the user is actually using, which accrues budget readily, from a script in a third-party frame, which accrues almost none.
+- **Charged on every surface that reaches COS**, not only `requestFileHandle()`. The three declarative integrations and the `crossOriginStorage` option on `fetch()` all resolve a hash against the registry, and all yield the same single bit. Counting imperative calls alone would make the budget avoidable, since a `fetch()` lookup is as scriptable in a loop as an imperative one. See [Cross-site probing](#cross-site-probing).
+- **Cleared only when the *user* clears site data**, through the browser's own settings or storage UI. A clearing the site asked for itself, such as via the `Clear-Site-Data` header, must leave the budget untouched. Otherwise a site could clear itself between probes and draw an unbounded number of them, which would defeat the whole mechanism. Retaining it costs the site nothing it is entitled to: the budget grants no capability, cannot be read except by spending it, and holds no information the site did not itself supply.
+
+**This doesn't constrain what COS is for.** The budget taxes the *number* of resources an origin resolves; the benefit scales with their *size*. The resources this proposal targets are single, large files — a multi-gigabyte model, a game engine, a large font — where a single probe can save a download of anywhere from megabytes to gigabytes. A page resolving a handful of such resources fits comfortably in a budget of a handful, and pays only once, ever. Sharding one logical resource across many hashes is the exception rather than the norm, and it is the only pattern a tight budget genuinely constrains. Nor does a bounded budget freeze a site's dependencies: because the budget replenishes with user activation, an origin is never charged twice for the same hash, and is never charged at all for one it stored itself or is in the middle of writing, a site can follow its resources through upgrades and replacements indefinitely. What it can't do is resolve many previously unseen hashes in one sitting — the shape of the attack, not the shape of ordinary use.
+
+**On third-party cookies.** A user agent that still supports them gains little from a tight budget: a tracker there already has a cheaper, more reliable identifier, so constraining COS removes no capability it doesn't already have. A user agent that has removed third-party cookies should choose a budget at the strict end. The mechanism is the same in both; only the value differs, so COS remains available regardless of a user agent's cookie policy rather than being contingent on it.
+
+> [!NOTE]
+> Because the budget starts full, the maximum is also exactly the number of bits a third party that has never been interacted with obtains on first contact. That makes the value, rather than the mechanism, the whole of the design: small enough that this width is uninteresting, large enough for a page's genuine resource count. There is not yet cross-vendor agreement on where that lands, or on how much entropy is tolerable here at all.
 
 #### Availability gating
 
@@ -1164,6 +1199,7 @@ The following tables summarize the response a user agent must return for every c
 
 | On PHL? | In COS? | Written with | Requesting origin | GREASEd? | Response |
 | -- | -- | -- | -- | -- | -- |
+| — | Any | Any | Not a storing origin or pending writer, over probe budget | — | `NotFoundError` |
 | — | Created, not yet written | — | — | — | `NotAllowedError` |
 | — | Yes | Any | Storing origin | — | Success |
 | Yes | Yes | `*` | Not a storing origin | No | Success |
@@ -1175,6 +1211,8 @@ The following tables summarize the response a user agent must return for every c
 | — | No | — | — | — | `NotFoundError` |
 
 "On PHL?" only ever matters for a `*`-written entry: a same-site- or list-scoped entry never consults the PHL, so its rows show "—" regardless of whether the hash happens to be on it. A storing origin always succeeds too, independent of PHL, `origins`, or GREASE'ing — see [Original storer access](#resource-visibility-upgrades).
+
+The probe-budget row comes first because the charge happens before any registry state is consulted — including the pending check — so an origin over budget cannot distinguish a pending entry, a gated one, or a genuine miss. Neither a storing origin nor an origin with a write of its own still in flight is ever charged; see [Cross-site identifier construction](#cross-site-identifier-construction).
 
 The "Created, not yet written" row applies both to a fresh `requestFileHandle()` call for that hash and to calling `getFile()` on a `FileSystemFileHandle` that was itself obtained from a still-pending `create: true` request; see [Concurrent writes](#concurrent-writes).
 
@@ -1210,7 +1248,7 @@ The "Created, not yet written" row applies both to a fresh `requestFileHandle()`
 
 User agents are also expected to use (on-device) machine learning to identify possible fingerprinting attempts. For example, if a site crafts unique hashes for each user (which hints at fingerprinting), user agents can detect this and block the COS probing attempt. Some user agents have [successfully applied this technique](https://blog.google/products/chrome/building-a-more-helpful-browser-with-machine-learning/#:~:text=More%20peace%20of%20mind%2C%20less%20annoying%20prompts) to silence notification spam.
 
-The knowledge an attacker can gain about a user depends heavily on the popularity of the resources stored in COS. If a user has a very popular resource stored, such as a common AI model, a large Wasm module, or a popular JavaScript library, the attacker can only learn that the user visited one of the many sites that use this resource, which is not very useful information. If a user has a very uncommon or even unique resource stored, the attacker can learn that the user visited one of the few sites (or the only site) that use this resource, which is more useful information. However, user agents are expected to implement safeguards against such attacks, as described above.
+The knowledge an attacker can gain about a user depends heavily on the popularity of the resources stored in COS. If a user has a very popular resource stored, such as a common AI model, a large Wasm module, or a popular JavaScript library, the attacker can only learn that the user visited one of the many sites that use this resource, which is not very useful information. If a user has a very uncommon or even unique resource stored, the attacker can learn that the user visited one of the few sites (or the only site) that use this resource, which is more useful information. However, user agents are expected to implement safeguards against such attacks, as described above. This holds for an attacker inferring something from resources it did not choose. It does not hold for one that writes the resources itself, where popularity is irrelevant and the bound is the probe budget instead; see [Cross-site identifier construction](#cross-site-identifier-construction).
 
 ## Stakeholder feedback / opposition
 
