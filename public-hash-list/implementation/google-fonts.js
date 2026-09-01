@@ -7,7 +7,14 @@ try { process.loadEnvFile(); } catch {}
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, mapLimit, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Cached,
+  loadHashCache,
+  mapLimit,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 // Hashes every woff2 font file served by fonts.gstatic.com for all font
 // families in the Google Fonts catalog, discovered via the CSS2 API.
@@ -103,9 +110,9 @@ async function fetchBatchUrls(families) {
 }
 
 // Hash all URLs with bounded concurrency.
-async function hashAll(urls) {
+async function hashAll(urls, cache) {
   const results = await mapLimit(urls, HASH_CONCURRENCY, async (url, i) => {
-    const sha256 = await getSha256(url);
+    const sha256 = await getSha256Cached(cache, url);
     if ((i + 1) % 500 === 0 || i + 1 === urls.length) {
       console.log(`[google-fonts]   hashed ${i + 1}/${urls.length}`);
     }
@@ -156,7 +163,12 @@ export async function run() {
     `[google-fonts] Hashing ${allUrls.size} font files ` +
       `(concurrency=${HASH_CONCURRENCY})...`,
   );
-  const records = await hashAll([...allUrls]);
+  const cache = loadHashCache('google-fonts');
+  const records = await hashAll([...allUrls], cache);
+  console.log(
+    `[google-fonts] Hash cache: ${saveHashCache('google-fonts', cache)} entries in ` +
+    `'${CACHE_DIR}/google-fonts.csv'.`,
+  );
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });

@@ -4,7 +4,13 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Revalidated,
+  loadHashCache,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 // Fetches all historically available Maps JavaScript API versions and hashes
 // the JS files served for each. This is the Maps equivalent of youtube-player.js.
@@ -164,6 +170,7 @@ export async function run() {
     `[google-maps] ${unique.length} unique builds × ${MAPS_FILES.length} file types = ${totalUrls} URLs to hash...`
   );
 
+  const cache = loadHashCache('google-maps');
   const records = [];
 
   for (let i = 0; i < unique.length; i++) {
@@ -171,7 +178,7 @@ export async function run() {
     const results = await Promise.all(
       MAPS_FILES.map(async (fn) => {
         const url = fn(v1, v2);
-        const sha256 = await getSha256(url);
+        const sha256 = await getSha256Revalidated(cache, url);
         return sha256 ? { url, sha256 } : null;
       })
     );
@@ -188,6 +195,10 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
+  console.log(
+    `[google-maps] Hash cache: ${saveHashCache('google-maps', cache)} entries in ` +
+    `'${CACHE_DIR}/google-maps.csv'.`,
+  );
   writeHashCsv(OUTPUT_CSV, records);
   console.log(
     `[google-maps] Saved ${records.length} records to '${OUTPUT_CSV}'.`

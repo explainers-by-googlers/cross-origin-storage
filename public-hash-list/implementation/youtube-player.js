@@ -4,7 +4,13 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Cached,
+  loadHashCache,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 // Primary: discovers the current player ID from the iframe API bootstrap, which
 // contains an escaped URL like '...\/s\/player\/445213fb\/...'.
@@ -88,6 +94,7 @@ export async function run() {
     `[youtube] ${ids.length} unique player IDs × ${PLAYER_FILES.length} file types = ${totalUrls} URLs to hash...`
   );
 
+  const cache = loadHashCache('youtube-player');
   const records = [];
 
   for (let i = 0; i < ids.length; i++) {
@@ -96,7 +103,7 @@ export async function run() {
     const results = await Promise.all(
       PLAYER_FILES.map(async (fn) => {
         const url = fn(id);
-        const sha256 = await getSha256(url);
+        const sha256 = await getSha256Cached(cache, url);
         return sha256 ? { url, sha256 } : null;
       })
     );
@@ -113,6 +120,10 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
+  console.log(
+    `[youtube] Hash cache: ${saveHashCache('youtube-player', cache)} entries in ` +
+    `'${CACHE_DIR}/youtube-player.csv'.`,
+  );
   writeHashCsv(OUTPUT_CSV, records);
   console.log(`[youtube] Saved ${records.length} records to '${OUTPUT_CSV}'.`);
   return records;

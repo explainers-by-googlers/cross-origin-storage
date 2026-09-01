@@ -5,7 +5,13 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Cached,
+  loadHashCache,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 const TARGET_URL = 'https://developers.google.com/speed/libraries';
 export const OUTPUT_CSV = 'data/google-hosted-libraries-hashes.csv';
@@ -94,13 +100,14 @@ export async function run() {
   const total = candidateConfigs.length;
   console.log(`[google] ${total} candidate URLs. Hashing...`);
 
+  const cache = loadHashCache('google-hosted-libraries');
   const records = [];
 
   for (let i = 0; i < total; i++) {
     const { libName, version, scriptFilename } = candidateConfigs[i];
     const primaryUrl = `https://ajax.googleapis.com/ajax/libs/${libName}/${version}/${scriptFilename}`;
 
-    let sha256 = await getSha256(primaryUrl);
+    let sha256 = await getSha256Cached(cache, primaryUrl);
     let finalUrl = primaryUrl;
 
     if (!sha256) {
@@ -109,7 +116,7 @@ export async function run() {
         version,
         scriptFilename
       )) {
-        sha256 = await getSha256(fallback);
+        sha256 = await getSha256Cached(cache, fallback);
         if (sha256) {
           finalUrl = fallback;
           break;
@@ -124,6 +131,11 @@ export async function run() {
       console.log(`[google] [${i + 1}/${total}] OMITTED: ${primaryUrl}`);
     }
   }
+
+  console.log(
+    `[google] Hash cache: ${saveHashCache('google-hosted-libraries', cache)} entries ` +
+    `in '${CACHE_DIR}/google-hosted-libraries.csv'.`,
+  );
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });

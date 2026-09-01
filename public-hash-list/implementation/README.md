@@ -92,7 +92,7 @@ COS sharing regardless of how they are currently loaded.
 | [Google Fonts](https://fonts.google.com) | Fetches all font families from the Google Fonts catalog (sorted by popularity); for each family, requests the CSS2 API with all weights and styles to discover versioned `fonts.gstatic.com` woff2 URLs; hashes every unique file. Requires `GOOGLE_FONTS_API_KEY` env var (free key from Google Cloud Console). | [`data/google-fonts-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/google-fonts-hashes.csv) |
 | [HTTP Archive](https://httparchive.org) | Reads the HTTP Archive's published query results (see [`queries/http-archive.sql`](queries/http-archive.sql)) directly from a stable HTTP Archive URL; takes hashes present on ≥100 independent origins (the k-anonymity gate is enforced in the query). No network downloads — the HTTP Archive crawl already provides the SHA-256 of every response body. | [`data/http-archive-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/http-archive-hashes.csv) |
 | [nuxt-cos / vite-plugin-cross-origin-storage](https://github.com/danielroe/cross-origin-storage) | Reproduces the content-addressed COS chunks the Nuxt/Vite integration emits, by running the real published plugin over a matrix of plugin releases × `vue` releases. No download: these bytes exist only in site builds, and are regenerated here from the pinned build recipe; see [Build-tool source](#build-tool-source-nuxt-cos--vite-plugin-cross-origin-storage) | [`data/nuxt-cos-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/nuxt-cos-hashes.csv) |
-| [Hugging Face Hub](https://huggingface.co) _(hand-curated, optional)_ | Lists the most-downloaded **web-runnable** models — those tagged for an in-browser runtime (Transformers.js, ONNX Runtime Web, WebLLM, LiteRT.js/MediaPipe, wllama) — and hashes only the file formats those runtimes load (`.onnx`, `.gguf`, `.tflite`, `.task`, `.litertlm`, MLC `params_shard_*.bin`); see [Model-hub source](#model-hub-source-hugging-face) | [`data/huggingface-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/huggingface-hashes.csv) |
+| [Hugging Face Hub](https://huggingface.co) _(hand-curated, optional)_ | Lists the most-downloaded **web-runnable** models — those tagged for an in-browser runtime (Transformers.js, ONNX Runtime Web, WebLLM, LiteRT.js/MediaPipe, wllama) — and hashes only the file formats those runtimes load (`.onnx`, `.gguf`, `.tflite`, `.task`, `.litertlm`, MLC `params_shard_*.bin`) plus the `tokenizer.json` those runtimes fetch alongside them; see [Model-hub source](#model-hub-source-hugging-face) | [`data/huggingface-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/huggingface-hashes.csv) |
 | Manual additions | Hand-curated entries proposed via pull request and reviewed against the ubiquity criteria; see [`manual-additions.json`](manual-additions.json) and [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) | [`data/manual-hashes.csv`](https://github.com/WICG/cross-origin-storage/blob/main/public-hash-list/implementation/data/manual-hashes.csv) |
 
 The first ten sources are **objective**: a resource qualifies mechanically, with
@@ -213,13 +213,13 @@ loads (are these the bytes it loads?). A `transformers.js` model still ships
 `.safetensors` siblings for its Python users, and stray `.onnx` files sit in
 plenty of server-only repos.
 
-| In-browser runtime | Hub tag | Formats hashed |
-| --- | --- | --- |
-| [Transformers.js](https://huggingface.co/docs/transformers.js) | `transformers.js` | `.onnx` |
-| [ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/) | `onnx` | `.onnx` |
-| [WebLLM](https://webllm.mlc.ai/) | `mlc-llm` | `params_shard_<n>.bin` |
-| [LiteRT.js](https://ai.google.dev/edge/litert) / [MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/guide) | `litert`, `tflite` | `.tflite`, `.task`, `.litertlm` |
-| [wllama](https://github.com/ngxson/wllama) / llama.cpp-WASM | `gguf` | `.gguf` (≤ 20 GiB) |
+| In-browser runtime | Hub tag | Formats hashed | Sidecar |
+| --- | --- | --- | --- |
+| [Transformers.js](https://huggingface.co/docs/transformers.js) | `transformers.js` | `.onnx` | `tokenizer.json` |
+| [ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/) | `onnx` | `.onnx` | `tokenizer.json` |
+| [WebLLM](https://webllm.mlc.ai/) | `mlc-llm` | `params_shard_<n>.bin` | `tokenizer.json` |
+| [LiteRT.js](https://ai.google.dev/edge/litert) / [MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/guide) | `litert`, `tflite` | `.tflite`, `.task`, `.litertlm` | — |
+| [wllama](https://github.com/ngxson/wllama) / llama.cpp-WASM | `gguf` | `.gguf` (≤ 20 GiB) | — |
 
 Two of those patterns are deliberately narrow. A bare `.bin` is far too generic
 to accept: WebLLM's weights are always `params_shard_<n>.bin`, so only that shape
@@ -241,11 +241,47 @@ most-downloaded list. That ordering matters: the Hub's global top is dominated b
 server-side models, so filtering after the fact would surface only a few hundred
 web-runnable models instead of the long tail that actually runs in a browser.
 
+#### Sidecars: the tokenizer, and nothing else
+
+Weights are not the only bytes a runtime fetches from the Hub. Transformers.js,
+the ONNX Runtime Web model wrappers, and WebLLM all fetch `tokenizer.json` at
+load time, and it is routinely megabytes: a **2.4 MiB median** across the ONNX
+repos already in this list, with a long tail past 16 MiB. Those are exactly the
+bytes COS exists to dedupe, and they repeat across repos — every derivative of a
+base model ships the same tokenizer — so the sidecar is hashed alongside the
+weights for the three runtimes that fetch it separately. GGUF files and LiteRT
+`.task` bundles embed their tokenizer in the container, so those two runtimes
+declare no sidecar.
+
+The rest of the JSON that sits next to a model — `config.json`,
+`tokenizer_config.json`, `preprocessor_config.json`, `generation_config.json` —
+is deliberately excluded. Those are a couple of kilobytes apiece, where deduping
+saves nothing measurable and each digest still costs list size.
+
+A sidecar is only emitted for a repo whose weights actually reached the list —
+not merely a repo that had eligible weight files. A lone tokenizer has nothing
+to be loaded with, so a repo whose weights were all lost to the GGUF size cap or
+an unhashable fetch drops out entirely, and the rule also keeps
+`.safetensors`-only repos that happen to carry a web runtime's tag from entering
+through the side door.
+
+#### Hashing, and the download cache
+
 Hashes come from the Hub's repo-tree API, which returns each file's Git LFS
 `oid` — that `oid` **is** the file's SHA-256 — along with its size, one request
 per model and no weights downloaded. Files below the Hub's LFS threshold are
 stored inline in git instead and carry no such digest (their bare `oid` is a git
-blob SHA-1), so those few are hashed by fetching the bytes.
+blob SHA-1), so those are hashed by fetching the bytes. That is where tokenizers
+mostly land: roughly two thirds of them sit under the threshold.
+
+Those downloads go through the [download cache](#download-cache) every
+downloading source shares. This is the one source that cannot key its cache on
+the URL: `/resolve/main/` is a moving ref, so the same URL returns different
+bytes as a repo is updated. It keys on the git blob `oid` from the tree listing
+instead, which is a better key anyway — a pure function of the file's bytes, so
+a cached digest stays valid until the file actually changes and a changed file
+misses by construction rather than by expiry. The file's `size` rides along as
+the cache's tag and is checked on read.
 
 ### Manual additions
 
@@ -552,6 +588,53 @@ rotates to stay ahead of adversaries; COS caching would directly undermine that.
 The `styles__ltr.css` file is technically hashable but not worth including given
 how short-lived each token is.
 
+## Download cache
+
+Ten of the sources hash a file by downloading it in full, and week after week
+the same bytes come back from URLs that never changed. Measured across one run,
+that is roughly **43,000 requests and 3 GiB** for the CDN-backed sources —
+`youtube-player` alone accounts for about 2.3 GiB of player bundles and
+`google-fonts` for about 35,000 requests — plus the model hub's tokenizer
+downloads. None of it changes between most runs.
+
+So each downloading source keeps a cache under [`hash-cache/`](hash-cache), one
+file per source, as `key,tag,sha256,idle` sorted by key. The files are committed
+as plain text, which is what makes them useful: the weekly workflow starts warm
+instead of re-fetching everything, and a rebuilt cache diffs as the rows that
+actually changed rather than as an opaque blob. They sit outside `data/`, which
+the pipeline wipes at the start of every run and which Git LFS tracks. Deleting
+one forces that source to rehash from scratch.
+
+What varies between sources is how much the key alone proves.
+
+| Strategy | Sources | Key | Tag |
+| --- | --- | --- | --- |
+| URL is the key | `cdnjs`, `npm-popular`, `jsdelivr`, `microsoft-ajax`, `google-hosted-libraries`, `google-fonts`, `youtube-player` | The URL | — |
+| Revalidate first | `google-maps`, `chromium-pervasive` | The URL | `ETag`, else `Last-Modified` |
+| Content key | `huggingface` | Git blob `oid` | File size |
+
+**URL is the key.** These CDNs put the version in the path — `/ajax/libs/d3js/6.2.0/d3.min.js`,
+`dayjs@1.11.23` — and do not rewrite what sits behind a pinned path. Google
+Fonts and the YouTube player go further: their paths carry a content-derived
+token and a player build id respectively, so a changed file is a changed URL by
+construction. A hit costs no request at all.
+
+**Revalidate first.** `google-maps` and `chromium-pervasive` fetch versioned
+paths whose publisher could still republish behind them, and
+`chromium-pervasive` in particular pulls from a mixed bag of third-party hosts.
+A cached digest is reused only while the server still reports the same validator,
+so one `HEAD` stands in for a full download and a rewritten file is refetched
+rather than frozen at a digest for bytes that no longer exist. A host offering
+neither `ETag` nor `Last-Modified` is always refetched.
+
+**Content key.** The model hub cannot key on its URLs at all; see
+[Hashing, and the download cache](#hashing-and-the-download-cache).
+
+Caches do not grow without bound. Every row records how many consecutive runs it
+went untouched, and rows past four are dropped on write — so a resource that
+leaves a source's list eventually leaves its cache, while a single bad run
+(a rate-limited Hub, a CDN blip) bumps every row by one and evicts nothing.
+
 ## Environment variables
 
 Some sources require API keys. Keys are loaded automatically from a `.env`
@@ -626,6 +709,11 @@ npm run manual        # process manual-additions.json → data/manual-hashes.csv
 # Exits 0 either way and prints the answer; the weekly workflow runs this first
 node nuxt-cos.js --check-recipes
 ```
+
+Sources that hash by downloading keep their digests in
+[`hash-cache/`](hash-cache), one committed file per source, so a run re-downloads
+only what actually changed. Delete a file to force that source to rehash from
+scratch. See [Download cache](#download-cache).
 
 Any URL that returns a non-200 status or times out after 30 seconds is silently
 omitted. For the Google Hosted Libraries CDN, known historical filename changes

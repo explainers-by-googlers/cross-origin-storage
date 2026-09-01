@@ -4,7 +4,14 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, isWebAsset, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Cached,
+  isWebAsset,
+  loadHashCache,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 export const OUTPUT_CSV = 'data/npm-popular-hashes.csv';
 const CDNJS_API = 'https://api.cdnjs.com/libraries';
@@ -137,6 +144,7 @@ export async function run() {
     );
   });
 
+  const cache = loadHashCache('npm-popular');
   const records = [];
 
   for (const { cdnjsName } of ranked) {
@@ -157,7 +165,7 @@ export async function run() {
 
     for (const file of files) {
       const url = `${CDNJS_CDN}/${cdnjsName}/${version}/${file}`;
-      const sha256 = await getSha256(url);
+      const sha256 = await getSha256Cached(cache, url);
       if (sha256) {
         records.push({ url, sha256 });
         console.log(`[npm-popular] VALID: ${url}`);
@@ -169,6 +177,9 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
+  console.log(
+    `[npm-popular] Hash cache: ${saveHashCache('npm-popular', cache)} entries in '${CACHE_DIR}/npm-popular.csv'.`,
+  );
   writeHashCsv(OUTPUT_CSV, records);
   console.log(
     `[npm-popular] Saved ${records.length} records to '${OUTPUT_CSV}'.`

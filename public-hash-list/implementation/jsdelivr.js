@@ -4,7 +4,13 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Cached,
+  loadHashCache,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 // Ranks packages by actual jsDelivr CDN hit count and hashes their canonical
 // files. This is the correct COS fitness signal: cross-origin CDN requests
@@ -80,6 +86,7 @@ export async function run() {
     );
   });
 
+  const cache = loadHashCache('jsdelivr');
   const records = [];
 
   for (let i = 0; i < packages.length; i++) {
@@ -99,7 +106,7 @@ export async function run() {
 
     for (const file of files) {
       const url = `${JSDELIVR_CDN}/${name}@${version}${file}`;
-      const sha256 = await getSha256(url);
+      const sha256 = await getSha256Cached(cache, url);
       if (sha256) {
         records.push({ url, sha256 });
         console.log(`[jsdelivr] [${i + 1}/${packages.length}] VALID: ${url}`);
@@ -111,6 +118,9 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
+  console.log(
+    `[jsdelivr] Hash cache: ${saveHashCache('jsdelivr', cache)} entries in '${CACHE_DIR}/jsdelivr.csv'.`,
+  );
   writeHashCsv(OUTPUT_CSV, records);
   console.log(
     `[jsdelivr] Saved ${records.length} records to '${OUTPUT_CSV}'.`

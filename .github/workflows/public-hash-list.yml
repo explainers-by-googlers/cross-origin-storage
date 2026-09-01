@@ -53,7 +53,7 @@ jobs:
 
       - name: Commit and push regenerated data
         run: |
-          git add data/ nuxt-cos-releases.json
+          git add data/ nuxt-cos-releases.json hash-cache/
           if git diff --cached --quiet; then
             echo "No changes to the Public Hash List, nothing to commit."
             exit 0

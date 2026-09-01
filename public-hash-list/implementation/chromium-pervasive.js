@@ -4,7 +4,13 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Revalidated,
+  loadHashCache,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 // Chromium's pervasive resource allowlist: concrete URLs observed across many sites.
 // Source: services/network/pervasive_resources/shared_resource_checker_patterns.h
@@ -262,10 +268,11 @@ export async function run() {
   );
   const urls = await getAllUrls();
 
+  const cache = loadHashCache('chromium-pervasive');
   const records = [];
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
-    const sha256 = await getSha256(url);
+    const sha256 = await getSha256Revalidated(cache, url);
     if (sha256) {
       records.push({ url, sha256 });
       console.log(`[chromium] [${i + 1}/${urls.length}] VALID: ${url}`);
@@ -276,6 +283,10 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
+  console.log(
+    `[chromium] Hash cache: ${saveHashCache('chromium-pervasive', cache)} entries in ` +
+    `'${CACHE_DIR}/chromium-pervasive.csv'.`,
+  );
   writeHashCsv(OUTPUT_CSV, records);
   console.log(`[chromium] Saved ${records.length} records to '${OUTPUT_CSV}'.`);
   return records;

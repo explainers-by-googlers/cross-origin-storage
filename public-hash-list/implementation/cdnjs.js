@@ -4,7 +4,14 @@
 import axios from 'axios';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getSha256, isWebAsset, writeHashCsv } from './shared.js';
+import {
+  CACHE_DIR,
+  getSha256Cached,
+  isWebAsset,
+  loadHashCache,
+  saveHashCache,
+  writeHashCsv,
+} from './shared.js';
 
 const STATS_REPO = 'cdnjs/cf-stats';
 export const OUTPUT_CSV = 'data/cdnjs-hashes.csv';
@@ -74,11 +81,12 @@ export async function run() {
   const urls = [...allUrls];
   console.log(`[cdnjs] ${urls.length} unique URLs to hash...`);
 
+  const cache = loadHashCache('cdnjs');
   const records = [];
 
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
-    const sha256 = await getSha256(url);
+    const sha256 = await getSha256Cached(cache, url);
     if (sha256) {
       records.push({ url, sha256 });
       console.log(`[cdnjs] [${i + 1}/${urls.length}] VALID: ${url}`);
@@ -89,6 +97,9 @@ export async function run() {
 
   records.sort((a, b) => a.sha256.localeCompare(b.sha256));
   fs.mkdirSync('data', { recursive: true });
+  console.log(
+    `[cdnjs] Hash cache: ${saveHashCache('cdnjs', cache)} entries in '${CACHE_DIR}/cdnjs.csv'.`,
+  );
   writeHashCsv(OUTPUT_CSV, records);
   console.log(`[cdnjs] Saved ${records.length} records to '${OUTPUT_CSV}'.`);
   return records;
