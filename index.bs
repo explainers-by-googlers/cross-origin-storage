@@ -296,8 +296,8 @@ steps are:
 1. Let |realm| be [=this=]'s [=relevant Realm=].
 1. Let |global| be [=this=]'s [=relevant global object=].
 1. Let |origin| be [=this=]'s associated [=/origin=].
-1. If |global|'s associated {{Document}}, if any, is not [=allowed to use=] the
-   "<code>[=PermissionsPolicy/cross-origin-storage=]</code>" [=policy-controlled feature=], then:
+1. If the result of running [=check Cross-Origin Storage permission=] given |global| is
+   false, then:
    1. [=Queue a global task=] on the [=DOM manipulation task source=] given |global| to
       [=/reject=] |result| with a "{{NotAllowedError}}" {{DOMException}}.
    1. Return |result|.
@@ -926,10 +926,78 @@ This specification defines a [=policy-controlled feature=] [[permissions-policy]
 the string "<dfn for="PermissionsPolicy" export>cross-origin-storage</dfn>". Its default allowlist
 is `self`.
 
-A [=Document=] that is not [=allowed to use=] this feature causes every
-{{CrossOriginStorageManager/requestFileHandle()}} call made from that [=Document=] (or from a
-worker whose owner is that [=Document=]) to reject with a "{{NotAllowedError}}" {{DOMException}},
-before any hash validation, registry lookup, or write occurs.
+[[permissions-policy]] defines [=allowed to use=] over {{Document}}s, but
+{{CrossOriginStorageManager}} is also exposed on {{WorkerGlobalScope}}, which has no
+{{Document}} of its own. The check is therefore stated over the calling [=global object=]: a
+worker global resolves to the {{Document}}s that own it, transitively, and every one of them
+must permit the feature.
+
+<div algorithm>
+To <dfn>check Cross-Origin Storage permission</dfn> given a [=global object=] |global|, return a
+[=boolean=]:
+
+1. If |global| is a {{Window}} object, then:
+   1. Let |document| be |global|'s [=associated Document=].
+   1. If |document| is null, return false.
+   1. If |document| is not [=allowed to use=] the
+      "<code>[=PermissionsPolicy/cross-origin-storage=]</code>" [=policy-controlled feature=],
+      return false.
+   1. Return true.
+1. If |global| is a {{WorkerGlobalScope}} object, then:
+   1. Let |owners| be |global|'s [=WorkerGlobalScope/owner set=].
+   1. If |owners| [=list/is empty=], return false.
+   1. [=set/For each=] |owner| of |owners|:
+      1. If |owner| is a {{Document}} and |owner| is not [=allowed to use=] the
+         "<code>[=PermissionsPolicy/cross-origin-storage=]</code>" [=policy-controlled feature=],
+         return false.
+      1. If |owner| is a {{WorkerGlobalScope}} object and the result of running
+         [=check Cross-Origin Storage permission=] given |owner| is false, return false.
+   1. Return true.
+1. Return false.
+
+</div>
+
+A [=global object=] for which this algorithm returns false causes every
+{{CrossOriginStorageManager/requestFileHandle()}} call made from it to reject with a
+"{{NotAllowedError}}" {{DOMException}}, before any hash validation, registry lookup, or write
+occurs.
+
+Note: Resolving through the [=WorkerGlobalScope/owner set=] is what keeps the feature from being
+opt-out in name only. A worker created from a `blob:` URL runs in its creating page's
+[=/origin=] and shares that page's Cross-Origin Storage view exactly (see
+[[#the-crossoriginstoragemanager-interface]]), so a check that consulted only a global's own
+{{Document}} would be satisfied vacuously in every worker, and moving a call into
+`new Worker(URL.createObjectURL(&hellip;))` would escape a `cross-origin-storage=()` policy
+without changing anything else about it.
+
+Note: A {{ServiceWorkerGlobalScope}}'s [=WorkerGlobalScope/owner set=] is empty, so this
+algorithm returns false there. That is structural rather than an omission in [[HTML]]. The
+[=WorkerGlobalScope/owner set=] is a liveness relation, populated when a worker is created and
+consulted to decide whether that worker is still actively needed, and a service worker
+deliberately has no such relation to any {{Document}}: its registration is persisted, the user
+agent starts the global in response to events rather than a page starting it, and it can run
+with no [=/service worker client=] at all. The client that called
+{{ServiceWorkerContainer/register()}} is therefore knowable at registration time but is
+routinely gone by the time the global runs, and one running service worker serves many clients
+whose policies need not agree.
+
+Note: Covering service workers needs a captured policy rather than an owner walk, which is
+[[permissions-policy]] and [[service-workers]] work rather than this specification's. The shape
+this specification would favor is to derive a service worker's policy from the
+<code>Permissions-Policy</code> header on its own script response, the way its policy container
+already carries that response's CSP: it stays under the origin's control, and it is
+re-evaluated on every update check instead of freezing at registration. Snapshotting the
+registering client's policy instead would make the opt-out stale, since removing the feature
+from a header would not take effect until the registration happened to update. Until such a
+model exists, failing closed is the one answer that cannot be used to escape an opt-out.
+
+Note: A {{SharedWorkerGlobalScope}}'s [=WorkerGlobalScope/owner set=] can hold several
+{{Document}}s with different policies, and it gains and loses owners over the worker's lifetime.
+Requiring every owner to permit the feature means one owner that disallows it disables
+Cross-Origin Storage for the whole shared worker, and that the answer can change between two
+{{CrossOriginStorageManager/requestFileHandle()}} calls. The alternative, requiring only one
+permissive owner, would let any document that allows the feature re-enable it on behalf of
+documents that disallow it.
 
 # Privacy and security considerations # {#privacy-and-security-considerations}
 
