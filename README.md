@@ -146,7 +146,7 @@ Each resource stored in COS is conceptually represented as an entry with the fol
 
 - **`hash`**: the content identifier, consisting of an `algorithm` (a string naming a hash algorithm recognized by the [Web Crypto API](https://w3c.github.io/webcrypto/), e.g. `"SHA-256"`) and a `value` (a 64-character lowercase hex string). Entries are keyed by hash: two files with identical bytes and the same hash algorithm are the same entry, regardless of how many origins stored them or from how many URLs they were fetched.
 - **`bytes`**: the raw file contents. The user agent verifies at write time that hashing `bytes` with `hash.algorithm` produces `hash.value`; a mismatch throws a `DataError`.
-- **`origins`**: the declared sharing scope, initially set by the first writer and upgradeable but never downgradeable. One of: `'*'` (any origin), a list of origin strings (only those origins), or absent (same-site origins only). A list of origin strings has an implementation-defined maximum length, so it can't be used as an undeclared substitute for `'*'` (see [Storing files](#storing-files) and [Cross-site probing](#cross-site-probing)). See [Resource visibility upgrades](#resource-visibility-upgrades).
+- **`origins`**: the declared sharing scope, initially set by the first writer and upgradeable but never downgradeable. One of: `'*'` (any origin), a list of origin strings (only those origins), or absent (same-site origins only). A list of origin strings has an implementation-defined maximum length, so it can't be used as an undeclared substitute for `'*'` (see [Storing files](#storing-files) and [Cross-site probing](#cross-site-probing)). The list form is additionally bounded by a `Cross-Origin-Storage-Allow-Origin` response header, so injected script cannot disclose an origin's data to an origin the operator never authorized (see [The `Cross-Origin-Storage-Allow-Origin` header](#the-cross-origin-storage-allow-origin-header)). See [Resource visibility upgrades](#resource-visibility-upgrades).
 - **`storing origins`**: the set of origins that have successfully written this entry. An origin in `storing origins` may always retrieve the entry via `requestFileHandle()`, regardless of the `origins` field value or whether the hash is on the PHL.
 
 `storing origins` is persisted across page loads and grows each time a new origin successfully writes the entry; it is never shrunk. If origin A writes a file restricted to `['https://a.example']` and origin B later writes the same hash with `origins: '*'`, both A and B are in `storing origins` and the `origins` field upgrades to `'*'`. Each writer must supply the full file bytes regardless of whether the entry already exists, which prevents any origin from using a write operation to detect prior presence.
@@ -311,6 +311,9 @@ const handle = await navigator.crossOriginStorage.requestFileHandle(hash, {
 // Any other origin NOT in the list (e.g., `https://unrelated.com`) will receive
 // a `NotFoundError` when requesting this hash, even if it's stored in COS.
 ```
+
+> [!NOTE]
+> For this restricted sharing to take effect, `write.example.com` must also send a `Cross-Origin-Storage-Allow-Origin: https://calculate.example.com, https://write.example.com` response header for the document making the write. The header is the ceiling; the `origins` array can only narrow it. Any listed origin the header does not authorize is dropped, which stops content injected into the page from redirecting the disclosure to an origin the operator never approved. See [The `Cross-Origin-Storage-Allow-Origin` header](#the-cross-origin-storage-allow-origin-header).
 
 ##### Example: Making a resource globally available
 
@@ -694,6 +697,8 @@ The imperative JavaScript API in the previous section covers the general case, b
 | [Fetch](#fetch-integration) | `crossOriginStorage` request option | imperative fetches of a known URL |
 
 All four are keyed off the same `origins`-style value space used by `requestFileHandle()`: omitted or empty for same-site only, a list of origins for a specific set of origins, or `*` for global availability. All four are defined in their respective host specifications rather than in this one.
+
+As with the imperative API, the list form is bounded by a response header so that injected markup cannot widen the sharing scope. For these integrations the authorizing response is the fetched resource's own response, not the embedding document's, which is the natural fit: the origin serving a font or a library is the one entitled to decide that those particular bytes may be shared, and the referencing page can only narrow that. The effective scope is the intersection of the declared value and what the resource's `Cross-Origin-Storage-Allow-Origin` header permits. See [The `Cross-Origin-Storage-Allow-Origin` header](#the-cross-origin-storage-allow-origin-header).
 
 What the four have in common is that the caller holds both a URL and a hash, and wants the bytes. The imperative API remains the surface for everything that does not fit that shape: writes whose bytes did not come from a single `fetch()`, reads that have no URL to offer at all, and lookups across a set of interchangeable candidates (see [Choosing among interchangeable resources](#example-choosing-among-interchangeable-resources)). See [Replacing the imperative API with a `fetch()` integration](#replacing-the-imperative-api-with-a-fetch-integration) for why the last row of the table does not subsume `requestFileHandle()`.
 
@@ -1116,6 +1121,23 @@ User agents are expected to enrich settings UI based on the file hashes. For exa
 
 Sites are prevented from flooding the cache in an attempt to evict other sites' resources. Each site can only store a limited amount of data in COS, and if a site tries to exceed this limit, the user agent rejects the write with a `QuotaExceededError` `DOMException` and logs a warning to the console.
 
+#### The `Cross-Origin-Storage-Allow-Origin` header
+
+The `origins` list form lets a writer disclose bytes it holds to origins it does not control. That disclosure decision is expressed in script (the `origins` option) or in markup (the `crossoriginstorage` attribute and its siblings), both of which an attacker who has achieved script or markup injection on the writing origin can set. Without a further control, an injected script could take data it can already read on the compromised page, write it into a list-scoped COS entry naming an attacker-controlled origin, and let that origin read it back later from its own top-level context.
+
+What makes this worth a dedicated mitigation is not that it defeats CSP specifically. CSP was never an exfiltration boundary, and an attacker who merely wants the data to leave the page already has simpler channels that CSP does not close, such as a top-level navigation to an attacker URL. The distinguishing property is that the COS write produces **no network egress at the moment of compromise**: the bytes are written to local storage, and the read happens later, from a different origin, in traffic that looks unrelated to the victim. A site that relies on egress monitoring, a `connect-src` allowlist, or a CSP report endpoint to contain a compromise sees a clean page load.
+
+The mitigation is to require that a non-same-site `origins` declaration be authorized by a response header the injected content cannot forge:
+
+- For the imperative API, whose bytes may be generated in script and have no originating response, the authority is the **writing document's** own response, which carries a `Cross-Origin-Storage-Allow-Origin` header enumerating the origins its scripts may name.
+- For the four [host integrations](#additional-integration-surfaces), whose bytes come from a fetched resource, the authority is that **resource's** response header. This also fixes an unrelated correctness gap: without it, any site could unilaterally declare someone else's asset shareable to a list of its choosing.
+
+Both cases reduce to the same rule: the origin that supplies the bytes authorizes the scope, and the declared list is intersected with that ceiling rather than taken as given. An origin the ceiling does not name is dropped; if that leaves no cross-origin recipient, the write falls back to the same-site default rather than failing. The check is evaluated per writer, so a later writer can only add origins its own response authorizes, and cannot rewrite an earlier writer's scope.
+
+The `'*'` form needs no such header: a `'*'`-scoped resource is disclosed to a non-storing origin only if its hash is on the [Public Hash List](#availability-gating), which a per-user secret can never reach, so declaring a secret `'*'` discloses nothing. The same-site default needs no header either, since it names no cross-origin recipient. The header is therefore required for, and only for, the list form.
+
+One limit is worth stating plainly. The ceiling bounds disclosure to the origins the operator pre-authorized in the header; it does not reduce it to zero. If a site legitimately shares data to `https://partner.example` and is then compromised, the injected script can still reach `https://partner.example`, because the operator authorized it. This is the same guarantee `connect-src` gives: the attack surface shrinks from any origin on the web to the operator's declared partners, which for a genuine multi-property deployment is a small, trusted set.
+
 ### Privacy considerations
 
 In browsers that still support third-party cookies, user agents are expected to make this API available only in contexts where third-party cookies are enabled.
@@ -1124,7 +1146,7 @@ In browsers that still support third-party cookies, user agents are expected to 
 
 If a file is only used on certain kinds of websites, an attacker can discover that the user visited those sites by checking for the file's presence. For example, if someone has a game engine stored in COS, they probably play games on the web, which an attacker might exploit, for example, for targeted advertising. The attacker site would need to probe hashes of resources it's interested in. The `origins` field mitigates this risk by allowing origins to restrict resource access to a specific set of trusted origins, ensuring the resource is not globally "probeable". Sites are expected to use this field for proprietary resources or when global COS cache hits are not expected.
 
-This mitigation only holds if a "specific set of trusted origins" stays meaningfully smaller than the web. Nothing about the shape of `origins` stops a caller from enumerating a very large number of origins—for example, a list assembled from a public top-sites ranking—which would functionally approximate global disclosure while bypassing the deliberate, explicit opt-in that `origins: '*'` alone requires. This is why `origins` lists have an implementation-defined maximum length (see [Storing files](#storing-files)): a limit small enough to fit genuine multi-property use cases (a handful of related origins under common control) but far short of any meaningful approximation of "every origin".
+This mitigation only holds if a "specific set of trusted origins" stays meaningfully smaller than the web. Nothing about the shape of `origins` stops a caller from enumerating a very large number of origins—for example, a list assembled from a public top-sites ranking—which would functionally approximate global disclosure while bypassing the deliberate, explicit opt-in that `origins: '*'` alone requires. This is why `origins` lists have an implementation-defined maximum length (see [Storing files](#storing-files)): a limit small enough to fit genuine multi-property use cases (a handful of related origins under common control) but far short of any meaningful approximation of "every origin". A second control constrains *which* origins a list may name rather than how many: the list is bounded by a `Cross-Origin-Storage-Allow-Origin` response header, so a caller cannot name origins the byte-supplying origin's operator did not authorize, even ones injected into an otherwise honest page (see [The `Cross-Origin-Storage-Allow-Origin` header](#the-cross-origin-storage-allow-origin-header)).
 
 Beyond the `origins` field, user agents apply [availability gating](#availability-gating) as a second line of defense: even for globally available resources, the user agent may decline to confirm a file's presence if the resource has not been encountered on a sufficient number of distinct origins.
 
@@ -1194,6 +1216,7 @@ The "Created, not yet written" row applies both to a fresh `requestFileHandle()`
 | Valid hash, declared hash matches computed hash, but exceeds the requesting origin's storage limit | Any | `QuotaExceededError` |
 | Valid hash, declared hash does not match computed hash | Any | `DataError` |
 | Merging `origins` into an existing list-scoped entry would exceed the implementation-defined maximum length | List | Success (excess origins silently dropped) |
+| A listed origin is not permitted by the writer's `Cross-Origin-Storage-Allow-Origin` header | List | Success (unauthorized origins dropped; falls back to same-site if none remain) |
 
 ##### Transfer path
 

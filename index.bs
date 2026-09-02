@@ -460,6 +460,23 @@ To <dfn>complete a create request</dfn> given [=a new promise|a promise=] |resul
 
 1. Let |requestedOrigins| be the result of running [=normalize requested origins=] given
    |options|["{{CrossOriginStorageRequestFileHandleOptions/origins}}"].
+1. If |requestedOrigins| is a [=list=]:
+   1. Let |ceiling| be the result of running [=obtain the COS scope ceiling=] given |global|.
+   1. [=list/Remove=] from |requestedOrigins| each [=/origin=] that |ceiling| does not
+      [=set/contain=].
+
+      Note: This is the [=set/intersection=] with the [=COS scope ceiling=] that
+      [[#allow-origin-header]] describes: a recipient the disclosing origin's
+      `Cross-Origin-Storage-Allow-Origin` header did not authorize is dropped rather than failing
+      the write, matching how an over-length upgrade drops its excess in
+      [=upgrade resource visibility=]. The user agent is expected to log a console warning naming
+      each dropped [=/origin=].
+   1. If |requestedOrigins| [=list/is empty=], set |requestedOrigins| to null.
+
+      Note: A [=list=] every one of whose members was dropped leaves the write with no authorized
+      cross-origin recipient, so it falls back to the same-site default rather than to the
+      strictly-narrower empty [=list=] (which would exclude even same-site readers). The bytes are
+      still stored; only the unauthorized disclosure is withheld.
 1. Let |entry| be the [=COS entry=] in the [=COS registry=] whose [=COS entry/hash=]
    [=COS hash/equal|equals=] |hash|, if any, or null otherwise.
 1. If |entry| is null:
@@ -998,6 +1015,110 @@ Cross-Origin Storage for the whole shared worker, and that the answer can change
 {{CrossOriginStorageManager/requestFileHandle()}} calls. The alternative, requiring only one
 permissive owner, would let any document that allows the feature re-enable it on behalf of
 documents that disallow it.
+
+# The `Cross-Origin-Storage-Allow-Origin` header # {#allow-origin-header}
+
+A [=COS entry=] whose [=COS entry/origins=] is a [=list=] is disclosable to origins the writing
+origin does not control, yet the [=list=] is declared by script (through
+{{CrossOriginStorageRequestFileHandleOptions/origins}}) or by markup, either of which an attacker
+who has achieved script or markup injection can set. To keep that declaration attributable to the
+operator of the origin whose bytes are being disclosed rather than to injected content, this
+specification defines a response header that bounds which origins such a declaration may name.
+
+The <dfn export http-header>`Cross-Origin-Storage-Allow-Origin`</dfn> response header carries a
+<dfn>COS scope ceiling</dfn>: a [=set=] of [=/origins=] that an
+{{CrossOriginStorageManager/requestFileHandle()}} write from, or a host integration loading
+into, the disclosing environment may name in a non-same-site [=COS entry/origins=] [=list=]. A
+declared [=list=] is not honored as given; it is [=set/intersection|intersected=] with the ceiling
+(see [=complete a create request=]), so the ceiling can only ever narrow a declaration, never
+widen or create one.
+
+Note: The header applies only to the [=list=] form. The same-site default names no cross-origin
+recipients and so needs no authorization, and the "`*`" form is governed at the read path by
+[[#availability-gating|availability gating]] against the [=Public Hash List=], which a
+per-user secret can never clear, so it needs no write-time ceiling either. Requiring a header for
+"`*`" would also break the zero-configuration global-sharing case without closing anything the
+Public Hash List does not already close.
+
+<div algorithm>
+To <dfn>parse a COS scope ceiling</dfn> given a [=/header list=] |headers|, return a [=set=] of
+[=/origins=]:
+
+1. Let |value| be the result of [=header list/get, decode, and split=]
+   "`Cross-Origin-Storage-Allow-Origin`" from |headers|.
+1. If |value| is null, return an empty [=set=].
+1. Let |ceiling| be an empty [=set=].
+1. [=list/For each=] |token| of |value|:
+   1. [=strip leading and trailing ASCII whitespace=] from |token|.
+   1. If |token| is the empty string, [=iteration/continue=].
+   1. Let |origin| be the [=/origin=] resulting from running the [=basic URL parser=] on |token|.
+   1. If |origin| is failure or is an [=opaque origin=], return an empty [=set=].
+
+      Note: This includes a |token| of "`*`", which does not parse to an origin. A
+      `Cross-Origin-Storage-Allow-Origin` header can only enumerate a finite set of concrete
+      origins; "`*`" is not a permitted value, because a ceiling of "any origin" would let
+      injected content declare any recipient it liked and so defeat the header's entire purpose.
+      Unbounded
+      disclosure is reached only through the "`*`" [=COS entry/origins=] form, which is gated by
+      the [=Public Hash List=] and never consults this header. A malformed or "`*`"-bearing header
+      authorizes nothing, exactly as an absent one does; the failure is closed.
+   1. [=set/Append=] |origin| to |ceiling|.
+1. Return |ceiling|.
+
+Note: [=header list/get, decode, and split=] splits on U+002C (,), so origins in the header
+value are comma-separated, matching `Timing-Allow-Origin` [[RESOURCE-TIMING]] and the general
+convention for
+list-valued HTTP response headers, even though the sibling `crossoriginstorage` HTML content
+attribute is space-separated to match its host syntax. Both resolve to the same
+[=/origin=] [=set=].
+
+</div>
+
+<div algorithm>
+To <dfn>obtain the COS scope ceiling</dfn> given a [=global object=] |global|, return a [=set=] of
+[=/origins=]:
+
+1. If |global| is a {{Window}} object, then:
+   1. Let |document| be |global|'s [=associated Document=].
+   1. If |document| is null, return an empty [=set=].
+   1. Return |document|'s [=Document/COS scope ceiling=].
+1. If |global| is a {{WorkerGlobalScope}} object, then:
+   1. Let |owners| be |global|'s [=WorkerGlobalScope/owner set=].
+   1. If |owners| [=list/is empty=], return an empty [=set=].
+   1. Let |ceiling| be null.
+   1. [=set/For each=] |owner| of |owners|:
+      1. Let |ownerCeiling| be an empty [=set=].
+      1. If |owner| is a {{Document}}, set |ownerCeiling| to |owner|'s
+         [=Document/COS scope ceiling=].
+      1. Otherwise, if |owner| is a {{WorkerGlobalScope}} object, set |ownerCeiling| to the result
+         of running [=obtain the COS scope ceiling=] given |owner|.
+      1. If |ceiling| is null, set |ceiling| to |ownerCeiling|; otherwise set |ceiling| to the
+         [=set/intersection=] of |ceiling| and |ownerCeiling|.
+   1. Return |ceiling|.
+1. Return an empty [=set=].
+
+</div>
+
+Every {{Document}} has a <dfn for="Document">COS scope ceiling</dfn>, a [=set=] of [=/origins=],
+set when the document is created to the result of running [=parse a COS scope ceiling=] given the
+[=/header list=] of the [=/response=] used to create it.
+
+Note: Taking the intersection across a worker's [=WorkerGlobalScope/owner set=] mirrors
+[=check Cross-Origin Storage permission=]: an origin is in a worker's ceiling only if every owning
+{{Document}}, transitively, authorized it. Because a `blob:` worker shares its creating page's
+[=/origin=] and Cross-Origin Storage view exactly (see
+[[#the-crossoriginstoragemanager-interface]]), a ceiling that consulted only the worker itself
+would be empty for every worker, and moving a list-scoped write into
+`new Worker(URL.createObjectURL(&hellip;))` would strip the recipients rather than preserve the
+page's authorization; intersecting the owners' ceilings preserves it without letting any single
+owner widen it.
+
+Issue: Populating a {{Document}}'s [=Document/COS scope ceiling=] from its [=/response=], and
+establishing the equivalent ceiling for each host integration from the [=/response=] whose
+bytes are stored, requires hooks in the host specifications, the same way
+[[permissions-policy]] and [[CSP]] are populated at response processing time. Until those hooks
+exist, this section describes the required behavior directly; a future revision is expected to
+integrate it formally, alongside the [[FS]] hook noted in [[#creating-and-writing-files]].
 
 # Privacy and security considerations # {#privacy-and-security-considerations}
 
